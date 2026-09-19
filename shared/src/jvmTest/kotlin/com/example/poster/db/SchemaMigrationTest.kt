@@ -45,7 +45,7 @@ class SchemaMigrationTest {
         withDatabaseFile { path ->
             System.setProperty("poster.database", path)
             DatabaseDriverFactory().createDriver().use { first ->
-                PostDatabase(first).groupQueries.insertGroup("c-1", "Home", "HOME", owner = null)
+                PostDatabase(first).groupQueries.insertGroup("c-1", "Home", "HOME", owner = null, visibility = "private")
             }
             DatabaseDriverFactory().createDriver().use { second ->
                 val groups = PostDatabase(second).groupQueries.getAllGroups().executeAsList()

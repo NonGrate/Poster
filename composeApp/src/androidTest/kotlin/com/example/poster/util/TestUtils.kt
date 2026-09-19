@@ -62,9 +62,9 @@ object TestUtils : KoinComponent {
             val userApi = KtorUserApi(httpClient, tokenStorage)
             val user = userApi.authenticateUser("test@example.com", "password123")
             check(user != null)
-            val group = KtorGroupApi(httpClient).getGroupByInviteCode(inviteCode)
-            check(group != null) { "no group for invite code $inviteCode" }
-            KtorGroupApi(httpClient).addUserToGroup(user!!.guid, group!!.id)
+            // The invite path, as the app uses it: joining by id is for public groups only.
+            val result = KtorGroupApi(httpClient).joinWithInvite(user!!.guid, inviteCode)
+            check(result == com.example.poster.network.JoinResult.JOINED) { "could not join with $inviteCode: $result" }
             userApi.logout()
         }
     }

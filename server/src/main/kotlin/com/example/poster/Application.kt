@@ -999,6 +999,28 @@ fun Application.module(
                 val groups = groupRepository.allGroups()
                 call.respond(groups)
             }
+            // feature.publicGroups: what anybody may browse and join without an invite.
+            if (Features.PUBLIC_GROUPS) get("/public") {
+                call.respond(groupRepository.publicGroups())
+            }
+            if (Features.PUBLIC_GROUPS) post("/{id}/visibility") {
+                val id = call.parameters["id"].orEmpty()
+                val visibility = runCatching { call.receive<Map<String, String>>()["visibility"] }.getOrNull()
+                if (visibility != GroupVisibility.PUBLIC && visibility != GroupVisibility.PRIVATE) {
+                    call.respond(HttpStatusCode.BadRequest, ApiError("visibility is public or private"))
+                    return@post
+                }
+                if (groupRepository.groupById(id) == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@post
+                }
+                if (!canManage(id, call.authenticatedUserId())) {
+                    call.respond(HttpStatusCode.Forbidden)
+                    return@post
+                }
+                groupRepository.setVisibility(id, visibility)
+                call.respond(HttpStatusCode.NoContent)
+            }
             get("/byId/{id}") {
                 val id = call.parameters["id"]
                 if (id == null) {
@@ -1041,9 +1063,10 @@ fun Application.module(
              */
             post("/create") {
                 val userId = call.authenticatedUserId()
-                val name = runCatching { call.receive<CreateGroupRequest>().name }
-                    .getOrNull()
-                    ?.trim()
+                val request = runCatching { call.receive<CreateGroupRequest>() }.getOrNull()
+                val name = request?.name?.trim()
+                // Public only when the feature is on; otherwise everything is invite-only.
+                val visibility = if (Features.PUBLIC_GROUPS && request?.visibility == GroupVisibility.PUBLIC) GroupVisibility.PUBLIC else GroupVisibility.PRIVATE
                 if (name.isNullOrBlank() || GroupRules.nameTooLong(name)) {
                     call.respond(HttpStatusCode.BadRequest, "A group needs a name")
                     return@post
@@ -1079,6 +1102,7 @@ fun Application.module(
                     name = name,
                     inviteCode = newInviteCode(groupRepository::groupByInviteCode),
                     owner = userId,
+                    visibility = visibility,
                 )
                 groupRepository.addOrUpdateGroup(group)
                 // Joined here, not left to the client: a group whose
@@ -1424,7 +1448,10 @@ fun Application.module(
                     // By id, for somebody the app already knows is allowed —
                     // there is no code to spend and nothing to check here that
                     // the membership row does not already say.
+                    // Joining by id, without an invite, is what a public group is for;
+                    // an invite-only group is not reachable this way.
                     groupIdParam != null -> groupRepository.groupById(groupIdParam)
+                        ?.takeIf { Features.PUBLIC_GROUPS && it.visibility == GroupVisibility.PUBLIC }
                     else -> null
                 }
                 if (group == null) {
@@ -1458,7 +1485,7 @@ fun Application.module(
 }
 
 @kotlinx.serialization.Serializable
-private data class CreateGroupRequest(val name: String)
+private data class CreateGroupRequest(val name: String, val visibility: String = GroupVisibility.PRIVATE)
 
 /**
  * How many groups one account may create.

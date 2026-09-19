@@ -1,5 +1,6 @@
 package com.example.poster.network
 
+import com.example.poster.model.GroupVisibility
 import com.example.poster.model.Group
 import com.example.poster.model.GroupInvite
 import com.example.poster.model.GroupMember
@@ -101,7 +102,13 @@ interface GroupApi {
      * refused, which is either a name it would not take or one account having
      * created as many as it may.
      */
-    suspend fun createGroup(name: String): Group?
+    suspend fun createGroup(name: String, visibility: String = GroupVisibility.PRIVATE): Group?
+
+    /** feature.publicGroups: what anybody may browse, with member counts. */
+    suspend fun getPublicGroups(): List<Group> = emptyList()
+
+    /** Owner/admin: make a group public or invite-only. */
+    suspend fun setVisibility(groupId: String, visibility: String): Boolean = false
 
     /**
      * Gets all groups that a user belongs to.

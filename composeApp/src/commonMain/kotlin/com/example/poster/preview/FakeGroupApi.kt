@@ -34,7 +34,7 @@ class FakeGroupApi : GroupApi {
     override suspend fun createInvite(groupId: String): String? = null
     override suspend fun revokeInvite(groupId: String, code: String) = false
 
-    override suspend fun createGroup(name: String): Group? =
+    override suspend fun createGroup(name: String, visibility: String): Group? =
         Group(
             id = "preview-${groups.size + 1}",
             name = name,

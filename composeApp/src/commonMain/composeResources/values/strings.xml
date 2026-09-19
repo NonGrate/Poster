@@ -378,4 +378,16 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="feed_search_hint">Search posts</string>
     <string name="feed_search_open">Search</string>
     <string name="feed_search_clear">Close search</string>
+    <!-- Public groups (feature.publicGroups) -->
+    <string name="group_public_groups">Public groups</string>
+    <string name="group_public_empty">No public groups to join right now.</string>
+    <string name="group_join_public">Join</string>
+    <string name="group_create_public">Anyone can find and join</string>
+    <string name="group_create_public_body">Listed for everybody in the app. Off, only people with an invite get in.</string>
+    <string name="group_visibility_public">Public: listed, anyone may join.</string>
+    <string name="group_visibility_private">Invite-only: people join with a code or an invitation.</string>
+    <plurals name="group_members">
+        <item quantity="one">%1$d member</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
 </resources>

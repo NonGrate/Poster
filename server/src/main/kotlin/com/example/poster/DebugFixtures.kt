@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.model.GroupVisibility
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import kotlinx.serialization.Serializable
@@ -194,7 +195,7 @@ internal fun applyIntegrationFixtures(
     )
 
     val groupA = Group("group-a", "Group A", "GROUP_A_INVITE")
-    val youthGroup = Group("book-club", "Book Club", "BOOK_CLUB_INVITE")
+    val youthGroup = Group("book-club", "Book Club", "BOOK_CLUB_INVITE", visibility = GroupVisibility.PUBLIC)
     groupRepository.addOrUpdateGroup(groupA)
     groupRepository.addOrUpdateGroup(youthGroup)
     userGroupRepository.addUserToGroup("test@example.com", groupA.id)

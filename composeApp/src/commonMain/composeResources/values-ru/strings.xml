@@ -359,4 +359,18 @@
     <string name="feed_search_hint">Поиск по постам</string>
     <string name="feed_search_open">Поиск</string>
     <string name="feed_search_clear">Закрыть поиск</string>
+    <!-- Открытые группы (feature.publicGroups) -->
+    <string name="group_public_groups">Открытые группы</string>
+    <string name="group_public_empty">Сейчас нет открытых групп, к которым можно присоединиться.</string>
+    <string name="group_join_public">Вступить</string>
+    <string name="group_create_public">Найти и вступить может любой</string>
+    <string name="group_create_public_body">Группа видна всем в приложении. Выключено — попасть можно только по приглашению.</string>
+    <string name="group_visibility_public">Открытая: в списке, вступить может любой.</string>
+    <string name="group_visibility_private">По приглашению: вступают по коду или приглашению.</string>
+    <plurals name="group_members">
+        <item quantity="one">%1$d участник</item>
+        <item quantity="few">%1$d участника</item>
+        <item quantity="many">%1$d участников</item>
+        <item quantity="other">%1$d участника</item>
+    </plurals>
 </resources>

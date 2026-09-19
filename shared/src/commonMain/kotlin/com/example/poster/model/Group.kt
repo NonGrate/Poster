@@ -30,4 +30,13 @@ data class Group(
      * offer Manage to an admin, not only the owner.
      */
     val myRole: String? = null,
+    /** [GroupVisibility.PRIVATE] (invite only) or [GroupVisibility.PUBLIC] (listed, anybody may join). */
+    val visibility: String = GroupVisibility.PRIVATE,
+    /** Filled in by `GET /groups/public`; null elsewhere. */
+    val memberCount: Int? = null,
 )
+
+object GroupVisibility {
+    const val PRIVATE = "private"
+    const val PUBLIC = "public"
+}

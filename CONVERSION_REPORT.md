@@ -262,6 +262,24 @@ email (the link is printed by the logging mailer), the release workflows.
   unknown address gets nothing and the same 204. Test and docs updated.
 - Push senders and release workflows kept as they are, pending real accounts.
 
+### 13. Tier 2, item 1: public groups (2026-09-19)
+
+Behind `feature.publicGroups` (on by default):
+
+- Schema v5: `Groups.visibility` (`private` | `public`, default private),
+  migration `4.sqm`, `databases/5.db`.
+- Server: `GET /groups/public` (name, visibility, member count),
+  `POST /groups/{id}/visibility` (owner only, `private`/`public` or 400),
+  `POST /groups/create` takes an optional `visibility`, and `/groups/join` by
+  id succeeds only for public groups. Admin create form and detail page show
+  the visibility. `PublicGroupsTest` covers listing, join-by-id, the private
+  refusal and the owner-only toggle.
+- App: a "Public groups" section in the join/create sheet with member counts
+  and a Join button, an "Anyone can find and join" switch when creating, and
+  a visibility switch in the owner's manage panel. Everything is compiled out
+  when the flag is off (every group stays invite-only).
+- Fixture `book-club` is public so demos and tests have one to browse.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

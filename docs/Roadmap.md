@@ -20,7 +20,7 @@ shipped after the first version; the rest are notes on where each would go.
 
 | Feature | Where it goes |
 |---|---|
-| **Public / discoverable groups** | A `visibility` on `Groups`, a browse page, join without invite. |
+| **Public / discoverable groups** | done — `feature.publicGroups`: `Groups.visibility` (schema v5), `GET /groups/public` with member counts, join by id for public groups only, owner toggle, the list in the groups sheet, admin create form. |
 | **Follow model** | `Follow(follower, followed)`, a "Following" feed source next to groups. |
 | **Bookmarks** and **drafts** | Bookmarks: `UserPostBookmark`, a tab or filter. Drafts: local only, `Draft` table on the device. |
 | **Offline outbox** | Queue create / edit / like in SQLDelight, replay on connectivity; the cache is read-only today. |

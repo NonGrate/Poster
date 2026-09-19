@@ -5,19 +5,31 @@ CREATE TABLE Groups (
     inviteCode TEXT NOT NULL,
     -- Null for the ones the admin panel made, which is every row that predates
     -- people being able to create their own. (Older deployments: see docs/Database.md.)
-    owner TEXT
+    owner TEXT,
+    -- 'private' (invite only, the default) or 'public' (listed, joinable). Added in 4.sqm.
+    visibility TEXT NOT NULL DEFAULT 'private'
 );
 
 CREATE INDEX IF NOT EXISTS groupOwner ON Groups(owner);
 
 insertGroup:
-INSERT INTO Groups(id, name, inviteCode, owner)
-VALUES (?, ?, ?, ?);
+INSERT INTO Groups(id, name, inviteCode, owner, visibility)
+VALUES (?, ?, ?, ?, ?);
 
 updateGroup:
 UPDATE Groups
-SET name = ?, inviteCode = ?
+SET name = ?, inviteCode = ?, visibility = ?
 WHERE id = ?;
+
+setGroupVisibility:
+UPDATE Groups SET visibility = ? WHERE id = ?;
+
+-- Everything anybody may find, with how many are in it.
+getPublicGroups:
+SELECT Groups.*, (SELECT COUNT(*) FROM UserGroup WHERE UserGroup.groupId = Groups.id) AS memberCount
+FROM Groups
+WHERE visibility = 'public'
+ORDER BY name;
 
 deleteGroup:
 DELETE FROM Groups

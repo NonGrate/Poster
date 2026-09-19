@@ -41,6 +41,17 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class AuthRoutesTest {
+    /**
+     * Its own database file per test: this class used to run on the module's
+     * default `post.db`, which outlived the run and was migrated in place by
+     * the next one — including from schemas this code no longer has.
+     */
+    @kotlin.test.BeforeTest
+    fun freshDatabase() {
+        System.setProperty("poster.database", java.nio.file.Files.createTempDirectory("poster-"+"AuthRoutesTest").resolve("test.db").toString())
+        System.setProperty("io.ktor.development", "true")
+    }
+
     @Test
     fun registerLoginRefreshAndLogout() = testApplication {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)

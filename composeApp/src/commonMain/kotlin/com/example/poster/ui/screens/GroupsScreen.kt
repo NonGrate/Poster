@@ -1,5 +1,19 @@
 package com.example.poster.ui.screens
 
+import poster.composeapp.generated.resources.group_members
+import poster.composeapp.generated.resources.group_visibility_private
+import poster.composeapp.generated.resources.group_visibility_public
+import poster.composeapp.generated.resources.group_create_public_body
+import poster.composeapp.generated.resources.group_create_public
+import poster.composeapp.generated.resources.group_join_public
+import poster.composeapp.generated.resources.group_public_empty
+import poster.composeapp.generated.resources.group_public_groups
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.TextButton
+import org.jetbrains.compose.resources.pluralStringResource
+import com.example.poster.ui.platform.AdaptiveSwitch
+import com.example.poster.model.GroupVisibility
+import com.example.poster.config.Features
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -136,6 +150,12 @@ fun GroupsScreen(
     // Joining and starting a group both live in one sheet now, reached from
     // a single "+" — the screen leads with the rooms you are in, not two forms.
     var showAddSheet by remember { mutableStateOf(false) }
+    // feature.publicGroups: what the sheet lists to join without a code, and the create-time choice.
+    var publicGroups by remember { mutableStateOf<List<Group>>(emptyList()) }
+    var newPublic by remember { mutableStateOf(false) }
+    LaunchedEffect(showAddSheet) {
+        if (showAddSheet && Features.PUBLIC_GROUPS) publicGroups = runCatching { groupApi.getPublicGroups() }.getOrDefault(emptyList())
+    }
     // Which joined group's overflow menu is open (Leave lives there now, so
     // it is a deliberate two-step, not a one-tap mistake).
     var menuFor by remember { mutableStateOf<String?>(null) }
@@ -346,6 +366,33 @@ fun GroupsScreen(
                     modifier = Modifier.weight(1f).padding(start = Spacing.xs),
                 )
             }
+            if (Features.PUBLIC_GROUPS) {
+                var public by remember(managingGroup.id, managingGroup.visibility) { mutableStateOf(managingGroup.visibility == GroupVisibility.PUBLIC) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md).testTag("group_visibility_row"),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.group_create_public), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = stringResource(if (public) Res.string.group_visibility_public else Res.string.group_visibility_private),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    AdaptiveSwitch(
+                        checked = public,
+                        onCheckedChange = { wanted ->
+                            public = wanted
+                            scope.launch {
+                                val ok = runCatching { groupApi.setVisibility(managingGroup.id, if (wanted) GroupVisibility.PUBLIC else GroupVisibility.PRIVATE) }.getOrDefault(false)
+                                if (ok) groupViewModel.refresh().join() else public = !wanted
+                            }
+                        },
+                        modifier = Modifier.testTag("group_visibility_switch"),
+                    )
+                }
+            }
             GroupManagePanel(
                 members = members,
                 invites = invites,
@@ -457,6 +504,46 @@ fun GroupsScreen(
                     modifier = Modifier.fillMaxWidth().testTag("join_group_submit_button"),
                 ) { Text(stringResource(Res.string.settings_join)) }
 
+                if (Features.PUBLIC_GROUPS) {
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    SettingsSectionHeader(stringResource(Res.string.group_public_groups))
+                    val joinable = publicGroups.filter { candidate -> groups.none { it.id == candidate.id } }
+                    if (joinable.isEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.group_public_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("public_groups_empty"),
+                        )
+                    }
+                    joinable.forEach { candidate ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().testTag("public_group_${candidate.id}"),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(candidate.name, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = pluralStringResource(Res.plurals.group_members, candidate.memberCount ?: 0, candidate.memberCount ?: 0),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        val userId = user?.guid ?: return@launch
+                                        runCatching { groupApi.addUserToGroup(userId, candidate.id) }
+                                        groupViewModel.refresh().join()
+                                        postsViewModel.refresh()
+                                        showAddSheet = false
+                                    }
+                                },
+                                modifier = Modifier.testTag("join_public_${candidate.id}"),
+                            ) { Text(stringResource(Res.string.group_join_public)) }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(Spacing.sm))
                 SettingsSectionHeader(stringResource(Res.string.group_create_title))
                 AdaptiveTextField(
@@ -470,13 +557,28 @@ fun GroupsScreen(
                     supportingTextTag = "group_name_counter",
                     modifier = Modifier.fillMaxWidth().testTag("group_name_input"),
                 )
+                if (Features.PUBLIC_GROUPS) Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().testTag("group_create_public_row"),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.group_create_public), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = stringResource(Res.string.group_create_public_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    AdaptiveSwitch(checked = newPublic, onCheckedChange = { newPublic = it }, modifier = Modifier.testTag("group_create_public_switch"))
+                }
                 PrimaryButton(
                     enabled = !creating && newName.isNotBlank(),
                     onClick = {
                         keyboardController?.hide(); focusManager.clearFocus()
                         creating = true
                         scope.launch {
-                            val group = runCatching { groupApi.createGroup(newName.trim()) }.getOrNull()
+                            val visibility = if (Features.PUBLIC_GROUPS && newPublic) GroupVisibility.PUBLIC else GroupVisibility.PRIVATE
+                            val group = runCatching { groupApi.createGroup(newName.trim(), visibility) }.getOrNull()
                             creating = false
                             if (group == null) {
                                 joinStatus = createFailed; joinFailed = true

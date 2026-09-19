@@ -129,7 +129,9 @@ actual class DatabaseDriverFactory {
         val stamp = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss'Z'")
             .withZone(ZoneOffset.UTC)
             .format(Instant.now())
-        val snapshot = File(backups, "pre-migration-v$from-$stamp.db")
+        // Nanoseconds as well as the second: two databases migrating in the same
+        // second (the test suite does this) must not race for one file name.
+        val snapshot = File(backups, "pre-migration-v$from-$stamp-${System.nanoTime() % 1_000_000}.db")
 
         // VACUUM INTO refuses to overwrite, which is why the name carries a
         // timestamp rather than being reused.

@@ -10,10 +10,10 @@ class EmailMatchTest {
     fun gmailIgnoresDotsAndTagsAndCase() {
         // The bug that started this: an invite to one spelling, the account under
         // another spelling of the same Gmail inbox.
-        val key = emailMatchKey("dei.m.o.scz@gmail.com")
-        assertEquals(key, emailMatchKey("deim.os.cz@gmail.com"))
-        assertEquals(key, emailMatchKey("DEIM.OS.CZ@Gmail.com"))
-        assertEquals(key, emailMatchKey("deimoscz+shipaton@googlemail.com"))
+        val key = emailMatchKey("so.me.bo.dy@gmail.com")
+        assertEquals(key, emailMatchKey("some.body@gmail.com"))
+        assertEquals(key, emailMatchKey("some.body@Gmail.com"))
+        assertEquals(key, emailMatchKey("somebody+tag@googlemail.com"))
     }
 
     @Test

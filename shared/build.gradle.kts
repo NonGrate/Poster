@@ -29,7 +29,7 @@ val posterFeatureKeys = listOf(
     "groups", "tags", "likes", "sharing", "postCompletion", "postVisibility",
     "dailyReminder", "feedback", "support", "reports", "crashReports", "telemetry",
     "emailVerificationRequired", "multiLanguage", "googleSignIn", "appleSignIn",
-    "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors",
+    "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors", "publicGroups",
 )
 
 val posterColorRoles = listOf(

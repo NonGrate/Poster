@@ -21,6 +21,7 @@ class GroupLocalRepository(
                 name = it.name,
                 inviteCode = it.inviteCode,
                 owner = it.owner,
+                visibility = it.visibility,
             )
         }
     }
@@ -32,6 +33,7 @@ class GroupLocalRepository(
                 name = it.name,
                 inviteCode = it.inviteCode,
                 owner = it.owner,
+                visibility = it.visibility,
             )
         }
     }
@@ -43,6 +45,7 @@ class GroupLocalRepository(
                 name = it.name,
                 inviteCode = it.inviteCode,
                 owner = it.owner,
+                visibility = it.visibility,
             )
         }
     }
@@ -53,7 +56,8 @@ class GroupLocalRepository(
             groupQueries.updateGroup(
                 name = group.name,
                 inviteCode = group.inviteCode,
-                id = group.id
+                visibility = group.visibility,
+                id = group.id,
             )
         } else {
             groupQueries.insertGroup(
@@ -61,8 +65,18 @@ class GroupLocalRepository(
                 name = group.name,
                 inviteCode = group.inviteCode,
                 owner = group.owner,
+                visibility = group.visibility,
             )
         }
+    }
+
+    override fun publicGroups(): List<Group> =
+        groupQueries.getPublicGroups().executeAsList().map {
+            Group(id = it.id, name = it.name, inviteCode = it.inviteCode, owner = it.owner, visibility = it.visibility, memberCount = it.memberCount.toInt())
+        }
+
+    override fun setVisibility(id: String, visibility: String) {
+        groupQueries.setGroupVisibility(visibility, id)
     }
 
     override fun countOwnedBy(userId: String): Long =

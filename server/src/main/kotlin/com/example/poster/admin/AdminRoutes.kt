@@ -937,6 +937,11 @@ fun Route.adminRoutes(
                         hiddenInput(name = "csrf") { value = csrf }
                         textInput(name = "name") { placeholder = "name"; required = true }
                         textInput(name = "inviteCode") { placeholder = "invite code (optional)" }
+                        if (Features.PUBLIC_GROUPS) select {
+                            name = "visibility"
+                            option { value = "private"; +"invite-only" }
+                            option { value = "public"; +"public (listed, anybody may join)" }
+                        }
                         submitInput { value = "Create" }
                     }
 
@@ -954,6 +959,7 @@ fun Route.adminRoutes(
                                         dl {
                                             field("Id", group.id)
                                             field("Owner", group.owner?.let { byId[it]?.email ?: it } ?: "admin")
+                                            field("Visibility", group.visibility)
                                             field("Invite code", group.inviteCode)
                                             field("Members", members.size.toString())
                                             field("Member emails", members.joinToString(", ") { byId[it]?.email ?: it }.ifBlank { null })
@@ -1003,7 +1009,8 @@ fun Route.adminRoutes(
             }
             val id = java.util.UUID.randomUUID().toString()
             val invite = params["inviteCode"]?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: newInviteCode()
-            groups.addOrUpdateGroup(Group(id = id, name = name, inviteCode = invite))
+            val visibility = if (Features.PUBLIC_GROUPS && params["visibility"] == "public") "public" else "private"
+            groups.addOrUpdateGroup(Group(id = id, name = name, inviteCode = invite, visibility = visibility))
             moderation.recordGroupAction(admin.guid, "group:create", id, name)
             call.respondRedirect("/admin/groups")
         }

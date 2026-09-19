@@ -115,10 +115,10 @@ class KtorGroupApi(private val httpClient: HttpClient) : GroupApi {
         false
     }
 
-    override suspend fun createGroup(name: String): Group? = try {
+    override suspend fun createGroup(name: String, visibility: String): Group? = try {
         httpClient.post("groups/create") {
             contentType(ContentType.Application.Json)
-            setBody(CreateGroupRequest(name))
+            setBody(CreateGroupRequest(name, visibility))
         }.body()
     } catch (e: Exception) {
         // A refusal is an answer, not a crash: the name was rejected or this
@@ -143,6 +143,18 @@ class KtorGroupApi(private val httpClient: HttpClient) : GroupApi {
         }
     }
 
+    override suspend fun getPublicGroups(): List<Group> = try {
+        httpClient.get("groups/public").body()
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    override suspend fun setVisibility(groupId: String, visibility: String): Boolean =
+        httpClient.post("groups/$groupId/visibility") {
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("visibility" to visibility))
+        }.status.isSuccess()
+
     override suspend fun getUserGroups(userId: String): List<Group> {
         return httpClient.get("groups/user/$userId") {
             contentType(ContentType.Application.Json)
@@ -154,4 +166,4 @@ class KtorGroupApi(private val httpClient: HttpClient) : GroupApi {
 
 /** The whole of what creating a group takes. Everything else the server decides. */
 @kotlinx.serialization.Serializable
-private data class CreateGroupRequest(val name: String)
+private data class CreateGroupRequest(val name: String, val visibility: String = "private")

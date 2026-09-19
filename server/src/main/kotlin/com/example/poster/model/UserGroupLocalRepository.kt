@@ -30,6 +30,7 @@ class UserGroupLocalRepository(
                 id = it.id,
                 name = it.name,
                 inviteCode = it.inviteCode,
+                visibility = it.visibility,
                 // Dropped here until now, so every group the app received
                 // through this call looked ownerless and nobody could be shown
                 // the controls for the ones they made.
