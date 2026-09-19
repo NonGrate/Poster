@@ -307,6 +307,20 @@ Behind `feature.follows` (on by default; the UI needs `feature.authors`):
   emulator into ANRs at login). Host verification is green; the four classes
   are to be re-run on a quiet machine.
 
+### 15. Tier 2, item 3: bookmarks and drafts (2026-09-19)
+
+- `feature.bookmarks`: `Bookmark` table (schema v8), `GET/POST/DELETE
+  /bookmarks[/{postId}]` (saving what you cannot see is 404),
+  `GET /posts?saved=true` as one more clause in the feed query; "Save for
+  later" / "Remove from saved" in the card menu, a "Saved" chip in the feed
+  filter. `BookmarkRoutesTest`. Follows and bookmarks share one small base,
+  `IdSetViewModel` (a server-kept set of ids, toggled optimistically).
+- `feature.drafts`: one `PostDraft` in `AppPreferences`, written when the
+  post form closes without posting, restored into the next "Add", cleared on
+  post and on sign-out. No image (the bytes live in memory). Several named
+  drafts would need a table and a list. `DraftsInstrumentedTest` (not yet
+  run on the emulator, see above).
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

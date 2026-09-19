@@ -36,6 +36,8 @@ interface PostsRepository {
         query: String = "",
         /** Only authors the viewer follows (feature.follows). */
         following: Boolean = false,
+        /** Only posts the viewer saved (feature.bookmarks). */
+        saved: Boolean = false,
     ): List<Post>
     fun postById(guid: String): Post?
 

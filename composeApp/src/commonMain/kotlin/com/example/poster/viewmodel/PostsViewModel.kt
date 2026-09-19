@@ -218,6 +218,12 @@ class PostsViewModel(
         forgetTheBottom()
     }
 
+    /** Only what the reader saved, or everything again. */
+    fun toggleSaved() {
+        _tagFilter.value = _tagFilter.value.copy(saved = !_tagFilter.value.saved)
+        forgetTheBottom()
+    }
+
     fun clearFilter() {
         _tagFilter.value = PostFilter()
         forgetTheBottom()
@@ -445,6 +451,7 @@ class PostsViewModel(
                     filter.groups.toList(),
                     filter.query,
                     filter.following,
+                    filter.saved,
                 )
                     .onSuccess { older ->
                         notePage(older, filtered = !filter.isEmpty)

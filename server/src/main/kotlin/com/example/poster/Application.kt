@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.model.BookmarksLocalRepository
 import com.example.poster.model.FollowsLocalRepository
 import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
@@ -140,6 +141,7 @@ fun Application.module(
     val accountRepository = AccountLocalRepository(database)
     val favoritesRepository = FavoritesLocalRepository()
     val followsRepository = FollowsLocalRepository()
+    val bookmarksRepository = BookmarksLocalRepository()
     val groupRepository = GroupLocalRepository()
     val userGroupRepository = UserGroupLocalRepository(database)
     val developmentMode = System.getProperty("io.ktor.development").toBoolean()
@@ -549,8 +551,9 @@ fun Application.module(
                 val query = call.request.queryParameters["q"].orEmpty()
                 // Only people the reader follows. Signed out there is nobody to follow.
                 val following = Features.FOLLOWS && call.request.queryParameters["following"] == "true"
+                val saved = Features.BOOKMARKS && call.request.queryParameters["saved"] == "true"
                 val posts = postsRepository
-                    .visiblePosts(viewer, languages, limit, before, tags, groups, query, following)
+                    .visiblePosts(viewer, languages, limit, before, tags, groups, query, following, saved)
                     .map { it.withLikeCount() }
                 call.respond(posts)
             }
@@ -889,6 +892,24 @@ fun Application.module(
                 } else {
                     call.respond(HttpStatusCode.NotFound)
                 }
+            }
+        }
+
+        if (Features.BOOKMARKS) route("/bookmarks") {
+            // The ids this reader saved; the app matches them against the feed.
+            get { call.respond(bookmarksRepository.of(call.authenticatedUserId())) }
+            post("/{postId}") {
+                val me = call.authenticatedUserId()
+                val postId = call.parameters["postId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+                // Saving what you cannot see reads as not-found, the same as fetching it.
+                if (postsRepository.visiblePostById(me, postId) == null) return@post call.respond(HttpStatusCode.NotFound)
+                bookmarksRepository.add(me, postId)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            delete("/{postId}") {
+                val postId = call.parameters["postId"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                bookmarksRepository.remove(call.authenticatedUserId(), postId)
+                call.respond(HttpStatusCode.NoContent)
             }
         }
 

@@ -1,5 +1,7 @@
 package com.example.poster.ui.components
 
+import poster.composeapp.generated.resources.bookmark_remove
+import poster.composeapp.generated.resources.bookmark_save
 import poster.composeapp.generated.resources.comments_title
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import com.example.poster.config.Features
@@ -112,6 +114,9 @@ fun PostCard(
     isOwn: Boolean = false,
     /** Tapping the author's name (feature.follows): the caller offers Follow/Unfollow. */
     onAuthorClick: (() -> Unit)? = null,
+    /** Save for later / remove from saved (feature.bookmarks), in the overflow menu. */
+    isBookmarked: Boolean = false,
+    onToggleBookmark: (() -> Unit)? = null,
 ) {
     val completed = post.completedAt != null
     val tagLabels: TagViewModel = koinInject()
@@ -196,7 +201,7 @@ fun PostCard(
                 // menu at all on your own post — you had to go back to My
                 // Posts to edit the thing you were looking at — and the
                 // variant was never the reason: having an edit to offer is.
-                onEdit != null || onDelete != null || onReport != null || onShare != null -> {
+                onEdit != null || onDelete != null || onReport != null || onShare != null || onToggleBookmark != null -> {
                     {
                         PostOverflowMenu(
                             onEdit = onEdit,
@@ -205,6 +210,8 @@ fun PostCard(
                             onReopen = onReopen.takeIf { completed && Features.POST_COMPLETION },
                             onReport = onReport,
                             onShare = onShare,
+                            onToggleBookmark = onToggleBookmark,
+                            bookmarked = isBookmarked,
                         )
                     }
                 }
@@ -772,6 +779,8 @@ private fun PostOverflowMenu(
     onReopen: (() -> Unit)? = null,
     onReport: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
+    onToggleBookmark: (() -> Unit)? = null,
+    bookmarked: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -804,6 +813,13 @@ private fun PostOverflowMenu(
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (onToggleBookmark != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(if (bookmarked) Res.string.bookmark_remove else Res.string.bookmark_save)) },
+                    onClick = { expanded = false; onToggleBookmark() },
+                    modifier = Modifier.testTag("bookmark_post_button"),
+                )
+            }
             if (onComplete != null) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.post_complete)) },

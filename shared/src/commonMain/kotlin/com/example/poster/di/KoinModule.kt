@@ -1,5 +1,7 @@
 package com.example.poster.di
 
+import com.example.poster.ktor.KtorBookmarkApi
+import com.example.poster.network.BookmarkApi
 import com.example.poster.ktor.KtorFollowApi
 import com.example.poster.network.FollowApi
 import com.example.poster.repository.NotificationRepository
@@ -145,6 +147,7 @@ fun sharedModule(appConfig: AppConfig) = module {
     single<FeedbackApi> { KtorFeedbackApi(get()) }
     single<CommentApi> { KtorCommentApi(get()) }
     single<FollowApi> { KtorFollowApi(get()) }
+    single<BookmarkApi> { KtorBookmarkApi(get()) }
     single { CommentRepository(api = get(), dispatchers = get()) }
     single<NotificationApi> { KtorNotificationApi(get()) }
     single { NotificationRepository(api = get(), preferences = get(), dispatchers = get()) }

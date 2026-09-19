@@ -130,6 +130,12 @@ WHERE deleted_at IS NULL
     :following = 0
     OR author IN (SELECT followed FROM Follow WHERE follower = :viewer)
   )
+  -- Only what this reader saved, when asked (feature.bookmarks). Same rule
+  -- as :following: narrows, never widens.
+  AND (
+    :saved = 0
+    OR guid IN (SELECT post_id FROM Bookmark WHERE user_id = :viewer)
+  )
   AND (
     :query = ''
     OR instr(lower(title), :query) > 0

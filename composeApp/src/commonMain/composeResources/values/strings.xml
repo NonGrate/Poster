@@ -395,4 +395,8 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="follow_action">Follow</string>
     <string name="unfollow_action">Unfollow</string>
     <string name="follow_body">Posts by people you follow show up under the Following filter. Following someone never shows you more than you could already see.</string>
+    <!-- Bookmarks (feature.bookmarks) -->
+    <string name="filter_saved">Saved</string>
+    <string name="bookmark_save">Save for later</string>
+    <string name="bookmark_remove">Remove from saved</string>
 </resources>

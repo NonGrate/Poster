@@ -1,5 +1,6 @@
 package com.example.poster.ui.components
 
+import com.example.poster.model.PostDraft
 import com.example.poster.config.Features
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -79,6 +80,8 @@ fun PostFormDialog(
     accountViewModel: AccountViewModel = koinInject(),
     /** True when hosted above the Scaffold (MainScreen) as a plain sheet rather than a Dialog. */
     asSheet: Boolean = false,
+    /** Called with what was typed when the form closes without posting (feature.drafts). */
+    onDraft: ((PostDraft) -> Unit)? = null,
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var message by remember { mutableStateOf(initialMessage) }
@@ -126,7 +129,10 @@ fun PostFormDialog(
         asSheet = asSheet,
         title = screenTitle,
         saveLabel = stringResource(Res.string.save),
-        onDismiss = onDismiss,
+        onDismiss = {
+            onDraft?.invoke(PostDraft(title.trim(), message.trim(), tags, selectedGroup?.id, visibility, language))
+            onDismiss()
+        },
         onSave = {
             // A group is only required by the choice that depends on one.
             groupError = visibility == PostVisibility.GROUP && selectedGroup == null

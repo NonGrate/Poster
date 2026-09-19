@@ -1,5 +1,6 @@
 package com.example.poster.ui.components
 
+import poster.composeapp.generated.resources.filter_saved
 import poster.composeapp.generated.resources.filter_following
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -109,6 +110,7 @@ fun AppliedFilterRow(
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
     onRemoveFollowing: () -> Unit = {},
+    onRemoveSaved: () -> Unit = {},
 ) {
     if (selected.isEmpty) return
     val language = Locale.current.language
@@ -130,6 +132,16 @@ fun AppliedFilterRow(
                     filled = true,
                     onClick = onRemoveFollowing,
                     testTag = "feed_filter_active_following",
+                )
+            }
+        }
+        if (selected.saved) {
+            item(key = "saved") {
+                AppliedChip(
+                    label = stringResource(Res.string.filter_saved),
+                    filled = true,
+                    onClick = onRemoveSaved,
+                    testTag = "feed_filter_active_saved",
                 )
             }
         }
@@ -254,6 +266,7 @@ fun FeedFilterSheet(
     onGroup: (String?, List<String>) -> Unit,
     onToggleTag: (String) -> Unit,
     onToggleFollowing: () -> Unit = {},
+    onToggleSaved: () -> Unit = {},
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -296,7 +309,7 @@ fun FeedFilterSheet(
                 }
             }
 
-            if (Features.GROUPS || Features.FOLLOWS) {
+            if (Features.GROUPS || Features.FOLLOWS || Features.BOOKMARKS) {
             Spacer(modifier = Modifier.height(Spacing.md))
             SectionLabel(stringResource(Res.string.filter_from))
             Spacer(modifier = Modifier.height(Spacing.xs))
@@ -323,6 +336,14 @@ fun FeedFilterSheet(
                         selected = selected.following,
                         onClick = onToggleFollowing,
                         testTag = "filter_following",
+                    )
+                }
+                if (Features.BOOKMARKS) item(key = "saved") {
+                    RoomChip(
+                        label = stringResource(Res.string.filter_saved),
+                        selected = selected.saved,
+                        onClick = onToggleSaved,
+                        testTag = "filter_saved",
                     )
                 }
                 items(groups, key = { it.id }) { group ->

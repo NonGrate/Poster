@@ -1,5 +1,7 @@
 package com.example.poster.ui
 
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.poster.model.PostDraft
 import androidx.compose.runtime.LaunchedEffect
 import com.example.poster.ui.screens.NotificationsScreen
 import com.example.poster.notification.rememberNotificationPermissionRequest
@@ -141,6 +143,14 @@ fun MainScreen(
     // For the post form, now hosted here (above the Scaffold) so it covers the
     // nav bar on iOS instead of a Dialog that stopped short of the bottom.
     val defaultVisibility by appPreferences.defaultVisibility.collectAsState()
+    // feature.drafts: the unsent post, restored into the next "Add" and cleared when it is posted.
+    var draft by remember { mutableStateOf<PostDraft?>(null) }
+    LaunchedEffect(Unit) { if (Features.DRAFTS) draft = appPreferences.postDraft() }
+    val draftScope = rememberCoroutineScope()
+    fun keepDraft(kept: PostDraft?) {
+        draft = kept
+        draftScope.launch { appPreferences.setPostDraft(kept) }
+    }
     val myGroups by groupViewModel.groups.collectAsState()
     val addedToGroup = stringResource(Res.string.group_added_you)
     val welcomeScope = rememberCoroutineScope()
@@ -467,12 +477,12 @@ fun MainScreen(
                         screenTitle = stringResource(
                             if (editing != null) Res.string.post_edit else Res.string.post_add,
                         ),
-                        initialTitle = editing?.title ?: "",
-                        initialMessage = editing?.message ?: "",
-                        initialTags = editing?.tags ?: emptyList(),
-                        initialVisibility = editing?.visibility ?: defaultVisibility,
-                        initialGroupId = editing?.group,
-                        initialLanguage = editing?.language,
+                        initialTitle = editing?.title ?: draft?.title ?: "",
+                        initialMessage = editing?.message ?: draft?.message ?: "",
+                        initialTags = editing?.tags ?: draft?.tags ?: emptyList(),
+                        initialVisibility = editing?.visibility ?: draft?.visibility ?: defaultVisibility,
+                        initialGroupId = editing?.group ?: draft?.group,
+                        initialLanguage = editing?.language ?: draft?.language,
                         initialImage = editing?.image,
                         // Editing keeps the full list so a post already shared with
                         // a group can be changed; adding offers the picker only to
@@ -484,6 +494,7 @@ fun MainScreen(
                         },
                         tagViewModel = tagViewModel,
                         onDismiss = { postForm = null },
+                        onDraft = if (Features.DRAFTS && editing == null) { { typed -> keepDraft(typed.takeUnless { it.isBlank }) } } else null,
                         onSubmit = { title, description, tags, group, visibility, language, image ->
                             val newImage = (image as? PostImageChange.New)?.bytes
                             if (editing != null) {
@@ -507,6 +518,7 @@ fun MainScreen(
                                         newImage = newImage,
                                     )
                                 }
+                                if (Features.DRAFTS) keepDraft(null)
                             }
                             postForm = null
                         },

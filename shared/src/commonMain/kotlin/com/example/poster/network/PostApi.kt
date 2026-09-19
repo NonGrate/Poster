@@ -23,6 +23,8 @@ interface PostApi {
         query: String = "",
         /** Only authors the reader follows (feature.follows). */
         following: Boolean = false,
+        /** Only posts the reader saved (feature.bookmarks). */
+        saved: Boolean = false,
     ): List<Post> = getAllPosts()
 
     /**

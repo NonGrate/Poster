@@ -66,15 +66,17 @@ data class PostFilter(
     val query: String = "",
     /** Only people the reader follows (feature.follows). */
     val following: Boolean = false,
+    /** Only posts the reader saved (feature.bookmarks). */
+    val saved: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = groups.isEmpty() && group == null && tags.isEmpty() && query.isBlank() && !following
+    val isEmpty: Boolean get() = groups.isEmpty() && group == null && tags.isEmpty() && query.isBlank() && !following && !saved
 
     /** The tag ids the feed is actually narrowed to. Empty means no tag filter. */
     val effectiveTags: Set<String>
         get() = if (tags.isNotEmpty()) tags else groupTags.toSet()
 
     /** How many separate things the reader has chosen, for the "Clear" affordances. */
-    val activeCount: Int get() = groups.size + tags.size + (if (group != null) 1 else 0) + (if (query.isBlank()) 0 else 1) + (if (following) 1 else 0)
+    val activeCount: Int get() = groups.size + tags.size + (if (group != null) 1 else 0) + (if (query.isBlank()) 0 else 1) + (if (following) 1 else 0) + (if (saved) 1 else 0)
 }
 
 /**
@@ -104,6 +106,10 @@ fun List<Post>.matching(query: String): List<Post> {
 /** Only these authors; null is no filter (the same match the server makes with `following=true`). */
 fun List<Post>.fromAuthors(authors: Set<String>?): List<Post> =
     if (authors == null) this else filter { it.author in authors }
+
+/** Only these posts; null is no filter. */
+fun List<Post>.withGuids(guids: Set<String>?): List<Post> =
+    if (guids == null) this else filter { it.guid in guids }
 
 fun List<Post>.fromGroups(groupIds: Set<String>): List<Post> =
     if (groupIds.isEmpty()) this else filter { it.group in groupIds }

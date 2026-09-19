@@ -123,6 +123,7 @@ class PostRepository(
         groups: List<String> = emptyList(),
         query: String = "",
         following: Boolean = false,
+        saved: Boolean = false,
     ): Result<List<Post>> = withContext(dispatchers.io) {
         runCatching {
             val older = postApi.getPostPage(
@@ -133,6 +134,7 @@ class PostRepository(
                 groups = groups,
                 query = query,
                 following = following,
+                saved = saved,
             )
             localStore?.appendPage(older)
             // The cache is what answers "how many people have liked this",

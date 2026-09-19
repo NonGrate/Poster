@@ -1,5 +1,6 @@
 package com.example.poster.util
 
+import com.example.poster.model.PostDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,7 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
             "recent_tags",
             "daily_reminder_enabled",
             "daily_reminder_minutes",
+            "post_draft",
         )
 
         /**
@@ -54,6 +56,7 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private val KEY_DEVICE_ID = "device_id"
     private val KEY_PUSH_TOKEN = "push_token"
     private val KEY_PUSH_PROMPTED = "push_prompted"
+    private val KEY_POST_DRAFT = "post_draft"
 
     /**
      * A stable, anonymous id for this install, minted once and kept.
@@ -132,6 +135,15 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
      * anyone. Without it a launch shows the login screen until a network round
      * trip finishes, and shows it again for as long as there is no network.
      */
+    /** The unsent post, if any (feature.drafts). Goes with the session. */
+    suspend fun postDraft(): PostDraft? =
+        dataStore.getString(KEY_POST_DRAFT, null)
+            ?.let { runCatching { Json.decodeFromString(PostDraft.serializer(), it) }.getOrNull() }
+
+    suspend fun setPostDraft(draft: PostDraft?) {
+        dataStore.putString(KEY_POST_DRAFT, draft?.let { Json.encodeToString(PostDraft.serializer(), it) })
+    }
+
     suspend fun cachedUser(): User? =
         dataStore.getString(KEY_CACHED_USER, null)
             ?.let { runCatching { Json.decodeFromString(User.serializer(), it) }.getOrNull() }
@@ -256,6 +268,7 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
             dataStore.putString(KEY_DEFAULT_VISIBILITY, PostVisibility.PUBLIC)
             dataStore.putString(KEY_KNOWN_GROUPS, null)
             dataStore.putString(KEY_CACHED_USER, null)
+            dataStore.putString(KEY_POST_DRAFT, null)
         }
     }
 }
