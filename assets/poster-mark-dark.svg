@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="778" viewBox="0 0 900 778" class="art" aria-hidden="true">
+  <!-- The same mark, lit for a dark background. See poster-mark.svg. -->
+  <g>
+    <rect x="150" y="120" width="600" height="540" rx="56" fill="#3D342E"/>
+    <rect x="150" y="120" width="600" height="540" rx="56" fill="none" stroke="#EEC3A6" stroke-width="18"/>
+    <rect x="230" y="230" width="360" height="34" rx="17" fill="#6B5A4E"/>
+    <rect x="230" y="310" width="440" height="24" rx="12" fill="#52443C"/>
+    <rect x="230" y="366" width="400" height="24" rx="12" fill="#52443C"/>
+    <rect x="230" y="422" width="300" height="24" rx="12" fill="#52443C"/>
+    <circle cx="640" cy="560" r="46" fill="#703342" stroke="#F2B8C6" stroke-width="14"/>
+    <circle cx="640" cy="560" r="12" fill="#F2B8C6"/>
+  </g>
+</svg>

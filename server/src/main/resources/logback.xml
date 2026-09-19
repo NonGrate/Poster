@@ -1,0 +1,24 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <!--
+      INFO, not TRACE.
+
+      At TRACE the SQLite driver logs every statement it runs, including a
+      `pragma busy_timeout` before each one: a few minutes of integration tests
+      produced 286,000 lines and a 29MB file, and the server started aborting
+      connections while it wrote them. Staging logged the same way, so the noise
+      also buried anything worth reading and filled a disk on somebody's behalf.
+
+      POSTER_LOG_LEVEL turns it back up when there is a reason to.
+    -->
+    <property name="LOG_LEVEL" value="${POSTER_LOG_LEVEL:-INFO}"/>
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="STDOUT"/>
+    </root>
+    <logger name="org.eclipse.jetty" level="INFO"/>
+    <logger name="io.netty" level="INFO"/>
+</configuration>

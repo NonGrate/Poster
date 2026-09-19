@@ -1,0 +1,26 @@
+FROM eclipse-temurin:21-jre-jammy
+
+    # sqlite3 is here for backups: copying the database file while the server
+    # is writing to it can produce a torn copy, and `.backup` cannot.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl sqlite3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 poster \
+    && useradd --uid 10001 --gid poster --no-create-home poster \
+    && mkdir -p /data \
+    && chown poster:poster /data
+
+WORKDIR /app
+COPY --chown=poster:poster . ./
+
+ENV PORT=8080
+ENV POSTER_DATABASE_PATH=/data/post.db
+ENV POSTER_UPLOADS_DIR=/data/uploads
+ENV POSTER_FIXTURES_ENABLED=false
+
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=10 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
+
+USER poster
+ENTRYPOINT ["/app/bin/server"]

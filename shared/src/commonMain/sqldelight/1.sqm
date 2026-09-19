@@ -1,0 +1,3 @@
+-- 1.sqm: version 1 -> 2. One optional image per post (feature.images). The id names a
+-- file in the server's upload store; the device only shows it.
+ALTER TABLE Post ADD COLUMN image TEXT;

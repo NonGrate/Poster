@@ -1,0 +1,47 @@
+-- Who a provider says somebody is, kept apart from what they are called.
+--
+-- An account used to be found by the email a provider reported, which holds
+-- until the email is not stable. Apple's Hide My Email gives a real, working
+-- @privaterelay.appleid.com address that belongs to nobody the person knows,
+-- so matching on it produces a second account for somebody who already has
+-- one. The provider's own subject does not move: it is the same string for the
+-- same person forever, whatever address they show us.
+CREATE TABLE SocialIdentity (
+    provider TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    -- What the provider said at the time, for support questions only. Never
+    -- matched on: that is the mistake this table exists to stop.
+    email TEXT,
+    linked_at TEXT NOT NULL,
+    PRIMARY KEY (provider, subject),
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+CREATE INDEX socialIdentityUser ON SocialIdentity(user_id);
+
+userForIdentity:
+SELECT u.*
+FROM SocialIdentity si
+JOIN User u ON u.guid = si.user_id
+WHERE si.provider = ? AND si.subject = ?;
+
+linkIdentity:
+INSERT OR REPLACE INTO SocialIdentity(provider, subject, user_id, email, linked_at)
+VALUES (?, ?, ?, ?, ?);
+
+identitiesFor:
+SELECT * FROM SocialIdentity WHERE user_id = ?;
+
+unlinkIdentity:
+DELETE FROM SocialIdentity WHERE provider = ? AND subject = ?;
+
+-- The providers that could sign them back in.
+deleteIdentitiesOfUser:
+DELETE FROM SocialIdentity WHERE user_id = ?;
+
+-- Account merge: move the merged account's identities (e.g. the Apple one) to the
+-- survivor, so future provider sign-ins land on it. PK is (provider, subject), so
+-- changing user_id never collides.
+reassignIdentities:
+UPDATE SocialIdentity SET user_id = :into WHERE user_id = :from;

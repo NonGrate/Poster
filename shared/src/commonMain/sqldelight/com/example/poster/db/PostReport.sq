@@ -1,0 +1,64 @@
+-- Somebody saying a post should not be here.
+--
+-- Kept rather than acted on automatically: this app is families and small
+-- groups, where the usual reason a post looks wrong is that somebody
+-- misread it. A report is a message to whoever runs the server, not a vote to
+-- hide something.
+CREATE TABLE PostReport (
+    id TEXT NOT NULL PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    reporter_id TEXT NOT NULL,
+    reason TEXT,
+    created_at TEXT NOT NULL,
+    -- One person, one report, per post: pressing it twice is not two
+    -- problems, and without this a single upset reader looks like a crowd.
+    UNIQUE (post_id, reporter_id),
+    FOREIGN KEY (post_id) REFERENCES Post(guid) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_id) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+CREATE INDEX postReportPost ON PostReport(post_id);
+
+recordReport:
+INSERT OR REPLACE INTO PostReport(id, post_id, reporter_id, reason, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- Newest first, with what was reported, for whoever has to read them.
+openReports:
+SELECT r.id, r.post_id, r.reporter_id, r.reason, r.created_at,
+       p.title, p.message, p.author
+FROM PostReport r
+JOIN Post p ON p.guid = r.post_id
+ORDER BY r.created_at DESC
+LIMIT ?;
+
+countReports:
+SELECT count(*) FROM PostReport;
+
+-- Grouped by what was reported, because five reports of one post are one
+-- decision, not five. Deleted posts still appear: somebody has to be able to
+-- see that the thing they hid was the thing that was reported.
+reportedPosts:
+SELECT r.post_id,
+       count(*) AS report_count,
+       max(r.created_at) AS last_reported,
+       group_concat(r.reason, ' | ') AS reasons,
+       p.title, p.message, p.author, p.deleted_at, p.visibility
+FROM PostReport r
+JOIN Post p ON p.guid = r.post_id
+GROUP BY r.post_id
+ORDER BY (p.deleted_at IS NOT NULL), report_count DESC, last_reported DESC;
+
+-- Dealt with: hidden, or looked at and found to be fine. Either way the pile
+-- should shrink, or nobody will read it after the first week.
+dismissReportsFor:
+DELETE FROM PostReport WHERE post_id = ?;
+
+-- Account merge: move reports, respecting UNIQUE(post_id, reporter_id) — if the
+-- target already reported the same post the dup is ignored; leftovers are then
+-- deleted with deleteReportsByReporter(from).
+reassignReporter:
+UPDATE OR IGNORE PostReport SET reporter_id = :into WHERE reporter_id = :from;
+
+deleteReportsByReporter:
+DELETE FROM PostReport WHERE reporter_id = ?;

@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Poster</string>
+
+    <!--
+        These four are Android's rather than the app's: a notification channel
+        is named in the system settings screen, and a notification is drawn by
+        the system before any Compose code runs. Compose resources cannot reach
+        either, so they live here and are translated in values-ru.
+    -->
+    <string name="reminder_channel_name">Daily reminder</string>
+    <string name="reminder_channel_description">A daily nudge to check in, at the time you chose.</string>
+    <string name="reminder_title">Time to check in</string>
+    <string name="reminder_body">See what is new from the people you follow.</string>
+    <string name="social_channel_name">Activity</string>
+    <string name="social_channel_description">Likes, comments and group news</string>
+</resources>

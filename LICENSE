@@ -1,0 +1,33 @@
+MIT License
+
+Copyright (c) 2026 Poster template contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Third-party assets bundled in this repository:
+
+- assets/fonts/Roboto-*.ttf — Roboto, © Google, Apache License 2.0
+  (assets/fonts/LICENSE.txt).
+- assets/apple-sign-in/ and composeApp/.../drawable/apple_logo_*.png — the
+  "Sign in with Apple" logo, © Apple Inc., usable only under Apple's Human
+  Interface Guidelines for Sign in with Apple buttons.
+- composeApp/.../drawable/google_g.png — the Google "G" mark, © Google, usable
+  only under Google's Sign-In branding guidelines.

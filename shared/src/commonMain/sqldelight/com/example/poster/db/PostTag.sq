@@ -1,0 +1,55 @@
+CREATE TABLE PostTag (
+    post_guid TEXT NOT NULL,
+    tag_guid TEXT NOT NULL,
+    PRIMARY KEY (post_guid, tag_guid),
+    FOREIGN KEY (post_guid) REFERENCES Post(guid) ON DELETE CASCADE,
+    FOREIGN KEY (tag_guid) REFERENCES Tag(guid) ON DELETE CASCADE
+);
+
+getTagsForPost:
+SELECT t.*
+FROM Tag t
+JOIN PostTag pt ON t.guid = pt.tag_guid
+WHERE pt.post_guid = ?
+ORDER BY t.name;
+
+getPostsForTag:
+SELECT p.*
+FROM Post p
+JOIN PostTag pt ON p.guid = pt.post_guid
+WHERE pt.tag_guid = ?;
+
+addTagToPost:
+INSERT OR IGNORE INTO PostTag(post_guid, tag_guid)
+VALUES (?, ?);
+
+removeTagFromPost:
+DELETE FROM PostTag
+WHERE post_guid = ? AND tag_guid = ?;
+
+removeAllTagsFromPost:
+DELETE FROM PostTag
+WHERE post_guid = ?;
+
+deleteAllPostTags:
+DELETE FROM PostTag;
+
+-- Removing a tag takes it off every post that used it.
+removeTagFromAllPosts:
+DELETE FROM PostTag
+WHERE tag_guid = ?;
+
+-- Every post's tags in one statement, for the admin panel. Reading them one
+-- post at a time is a query per row, and that page lists every post there
+-- has ever been.
+allPostTags:
+SELECT pt.post_guid AS post_guid, t.name AS name
+FROM Tag t
+JOIN PostTag pt ON t.guid = pt.tag_guid
+ORDER BY t.name;
+
+-- Every join row's tag, for counting how many posts carry each tag. Cheaper
+-- than a count per tag on a page that lists all of them.
+allPostTagGuids:
+SELECT tag_guid
+FROM PostTag;

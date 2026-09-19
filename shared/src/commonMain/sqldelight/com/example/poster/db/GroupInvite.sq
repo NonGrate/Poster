@@ -1,0 +1,72 @@
+-- One invite, good once.
+--
+-- The invite code used to live on the groupId itself: one string, never
+-- changing, accepted forever. That is a standing key. Posted into a group chat
+-- or a screenshot it keeps working, for anybody who finds it, and the owner has
+-- no way to know it happened or to stop it.
+--
+-- A row per invite makes each one answerable: who made it, whether it has been
+-- spent, and by whom. Revoking is a column rather than a delete, so an owner
+-- can still see that an invite existed and was withdrawn.
+CREATE TABLE GroupInvite (
+    code TEXT NOT NULL PRIMARY KEY,
+    groupId TEXT NOT NULL,
+    createdBy TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    -- Set together when somebody joins with it. Null means unspent.
+    usedBy TEXT,
+    usedAt TEXT,
+    -- Withdrawn before it was used. An invite is dead if either this or usedAt
+    -- is set, which is one check rather than two states to keep in step.
+    revokedAt TEXT,
+    -- The address it was emailed to, and the only account that may spend it.
+    -- Null for one made by hand, which stays unbound: the owner hands those
+    -- over themselves. An email travels without them and can be forwarded.
+    sentTo TEXT,
+    FOREIGN KEY (groupId) REFERENCES Groups(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS groupInviteGroup ON GroupInvite(groupId);
+
+insertInvite:
+INSERT INTO GroupInvite(code, groupId, createdBy, createdAt, sentTo)
+VALUES (?, ?, ?, ?, ?);
+
+inviteByCode:
+SELECT * FROM GroupInvite WHERE code = ?;
+
+invitesForGroup:
+SELECT * FROM GroupInvite
+WHERE groupId = ?
+ORDER BY createdAt DESC;
+
+-- Spends an invite, and only one that is still live. The WHERE is the race
+-- check: two people redeeming the same code at the same moment both read it as
+-- unused, and the second UPDATE then changes nothing.
+--
+-- The address match is no longer here. It moved to Kotlin (spendInvite in the
+-- repository) so that Gmail's dot- and +tag-insensitivity can be honoured —
+-- `a.b@gmail.com` and `ab@gmail.com` are one inbox, which a plain lower()
+-- comparison in SQL cannot see. The caller checks the address before calling
+-- this, inside the same transaction, so the guarantee is unchanged.
+spendInvite:
+UPDATE GroupInvite
+SET usedBy = ?, usedAt = ?
+WHERE code = ?
+  AND usedAt IS NULL
+  AND revokedAt IS NULL;
+
+revokeInvite:
+UPDATE GroupInvite
+SET revokedAt = ?
+WHERE code = ? AND usedAt IS NULL AND revokedAt IS NULL;
+
+deleteInvitesForGroup:
+DELETE FROM GroupInvite WHERE groupId = ?;
+
+-- Account merge: keep invite provenance pointing at the surviving account.
+reassignInviteCreatedBy:
+UPDATE GroupInvite SET createdBy = :into WHERE createdBy = :from;
+
+reassignInviteUsedBy:
+UPDATE GroupInvite SET usedBy = :into WHERE usedBy = :from;

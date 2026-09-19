@@ -1,0 +1,8 @@
+<resources>
+    <string name="reminder_channel_name">Ежедневное напоминание</string>
+    <string name="reminder_channel_description">Напоминание заглянуть в приложение в выбранное вами время.</string>
+    <string name="reminder_title">Время заглянуть</string>
+    <string name="reminder_body">Посмотрите, что нового у тех, за кем вы следите.</string>
+    <string name="social_channel_name">Активность</string>
+    <string name="social_channel_description">Лайки, комментарии и новости групп</string>
+</resources>

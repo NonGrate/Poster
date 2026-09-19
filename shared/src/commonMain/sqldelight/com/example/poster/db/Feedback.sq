@@ -1,0 +1,38 @@
+CREATE TABLE Feedback (
+    id TEXT NOT NULL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    -- Null until the developer answers from the admin panel.
+    response TEXT,
+    responded_at TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE
+);
+CREATE INDEX feedbackUser ON Feedback(user_id);
+
+insertFeedback:
+INSERT INTO Feedback(id, user_id, message, created_at, status)
+VALUES (?, ?, ?, ?, 'open');
+
+-- One person's own feedback, newest first: what the feedback screen shows.
+feedbackForUser:
+SELECT * FROM Feedback WHERE user_id = ? ORDER BY created_at DESC;
+
+-- All feedback for the admin panel, joined to the sender, unanswered first
+-- (a pile that answers itself last stops being read), then newest.
+allFeedback:
+SELECT Feedback.id, Feedback.user_id, Feedback.message, Feedback.created_at,
+       Feedback.response, Feedback.responded_at, Feedback.status,
+       User.name, User.surname, User.email
+FROM Feedback
+JOIN User ON User.guid = Feedback.user_id
+ORDER BY (Feedback.status = 'open') DESC, Feedback.created_at DESC;
+
+respondToFeedback:
+UPDATE Feedback
+SET response = ?, responded_at = ?, status = 'answered'
+WHERE id = ?;
+
+countOpenFeedback:
+SELECT count(*) FROM Feedback WHERE status = 'open';

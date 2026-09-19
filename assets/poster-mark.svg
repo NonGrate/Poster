@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="778" viewBox="0 0 900 778" class="art" aria-hidden="true">
+  <!--
+    The template's placeholder mark: a card with a few lines of text and a
+    "like" dot. Replace it with your own artwork, keep the file name, and rerun
+    scripts/build-icons.sh and scripts/build-brand-assets.sh.
+
+    The CSS classes are read by the landing page (see SiteChrome / LandingPage):
+    .wash is dimmed in dark mode, .ink follows the page's ink colour.
+  -->
+  <g>
+    <rect class="wash" x="150" y="120" width="600" height="540" rx="56" fill="#FFFFFF"/>
+    <rect x="150" y="120" width="600" height="540" rx="56" fill="none" stroke="#9C5A3C" stroke-width="18"/>
+    <rect x="230" y="230" width="360" height="34" rx="17" fill="#E6CBB4"/>
+    <rect x="230" y="310" width="440" height="24" rx="12" fill="#F0E4DC"/>
+    <rect x="230" y="366" width="400" height="24" rx="12" fill="#F0E4DC"/>
+    <rect x="230" y="422" width="300" height="24" rx="12" fill="#F0E4DC"/>
+    <circle cx="640" cy="560" r="46" fill="#FFD9E1" stroke="#8C4A5E" stroke-width="14"/>
+    <circle cx="640" cy="560" r="12" fill="#8C4A5E"/>
+  </g>
+</svg>

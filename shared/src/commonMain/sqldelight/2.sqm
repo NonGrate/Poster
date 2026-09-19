@@ -1,0 +1,12 @@
+-- 2.sqm: version 2 -> 3. Comments under posts (feature.comments).
+CREATE TABLE Comment (
+    guid TEXT NOT NULL PRIMARY KEY,
+    post_guid TEXT NOT NULL,
+    author TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT,
+    FOREIGN KEY (post_guid) REFERENCES Post(guid) ON DELETE CASCADE,
+    FOREIGN KEY (author) REFERENCES User(guid) ON DELETE CASCADE
+);
+CREATE INDEX commentPost ON Comment(post_guid);

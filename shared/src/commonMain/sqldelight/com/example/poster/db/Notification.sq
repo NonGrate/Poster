@@ -1,0 +1,33 @@
+-- The in-app activity list (feature.pushNotifications): what happened to
+-- your posts and groups, whether or not a push got through. actor is who did
+-- it; the app decides whether to show a name.
+CREATE TABLE Notification (
+    guid TEXT NOT NULL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    post_guid TEXT,
+    group_id TEXT,
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (post_guid) REFERENCES Post(guid) ON DELETE CASCADE,
+    FOREIGN KEY (group_id) REFERENCES Groups(id) ON DELETE CASCADE
+);
+CREATE INDEX notificationUser ON Notification(user_id, created_at);
+
+insertNotification:
+INSERT INTO Notification(guid, user_id, type, actor, post_guid, group_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+notificationsForUser:
+SELECT * FROM Notification WHERE user_id = ? ORDER BY created_at DESC LIMIT ?;
+
+countUnread:
+SELECT count(*) FROM Notification WHERE user_id = ? AND read_at IS NULL;
+
+markAllRead:
+UPDATE Notification SET read_at = ? WHERE user_id = ? AND read_at IS NULL;
+
+deleteNotificationsForUser:
+DELETE FROM Notification WHERE user_id = ?;

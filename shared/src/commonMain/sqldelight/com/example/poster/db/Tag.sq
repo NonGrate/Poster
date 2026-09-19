@@ -1,0 +1,70 @@
+CREATE TABLE Tag (
+    guid TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    -- What a person reads. Null for tags created before the curated set, which
+    -- display their raw name until somebody gives them labels in the panel.
+    label_en TEXT,
+    label_ru TEXT,
+    -- Which shelf the picker puts it on: a TagGroup id, or null for a tag
+    -- nobody has filed. Unfiled tags are still pickable, under their own
+    -- heading — a tag that vanishes from the picker because a column is null
+    -- is worse than an untidy picker.
+    tag_group TEXT
+);
+
+CREATE INDEX IF NOT EXISTS tagGroup ON Tag(tag_group);
+
+getAllTags:
+SELECT *
+FROM Tag
+ORDER BY name;
+
+getTagsByIds:
+SELECT *
+FROM Tag
+WHERE guid IN ?;
+
+getTagsByName:
+SELECT *
+FROM Tag
+WHERE name LIKE '%' || ? || '%'
+ORDER BY name;
+
+insertTag:
+INSERT OR IGNORE INTO Tag(guid, name)
+VALUES (?, ?);
+
+-- Adds a curated tag without touching one that is already there: labels edited
+-- in the admin panel outlive any redeploy.
+insertCuratedTag:
+INSERT OR IGNORE INTO Tag(guid, name, label_en, label_ru, tag_group)
+VALUES (?, ?, ?, ?, ?);
+
+-- Filing a tag. Separate from the labels because the two are corrected at
+-- different times and by different reasoning.
+updateTagGroup:
+UPDATE Tag SET tag_group = ? WHERE guid = ?;
+
+-- Files a tag that has never been filed, and leaves alone one that has. This
+-- is what carries the grouping onto a database seeded before groups existed
+-- without undoing anything somebody moved by hand.
+fileUnfiledTag:
+UPDATE Tag SET tag_group = ? WHERE guid = ? AND tag_group IS NULL;
+
+updateTagLabels:
+UPDATE Tag SET label_en = ?, label_ru = ? WHERE guid = ?;
+
+deleteTagByGuid:
+DELETE FROM Tag WHERE guid = ?;
+
+deleteTag:
+DELETE FROM Tag
+WHERE guid = ?;
+
+deleteAllTags:
+DELETE FROM Tag;
+
+updateTag:
+UPDATE Tag
+SET name = ?
+WHERE guid = ?;

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The app's own paper, behind the status and navigation bars.
+
+        Without this the manifest used a stock platform theme, whose status bar
+        is the platform's grey — a band of somebody else's colour above a cream
+        app, visible in every screenshot and on every phone.
+
+        windowLightStatusBar asks for dark icons, which is what a light bar
+        needs; values-night says the opposite.
+    -->
+    <style name="Theme.Poster" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/poster_background</item>
+        <item name="android:navigationBarColor">@color/poster_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@color/poster_background</item>
+    </style>
+</resources>

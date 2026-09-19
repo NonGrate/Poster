@@ -1,0 +1,16 @@
+# Keeps Gradle libraries (via the version catalog) and GitHub Actions current.
+# Kotlin/Compose/AGP bumps can break each other; review those PRs together.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      kotlin-and-compose:
+        patterns: ["org.jetbrains.kotlin*", "org.jetbrains.compose*", "com.android.*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

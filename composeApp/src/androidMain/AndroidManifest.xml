@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The daily reminder, and nothing else. Android 13+ asks the person. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        Alarms do not survive a restart, so without this a reminder somebody set
+        stops the first time their phone reboots — silently, and for good.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:name=".PosterApplication"
+        android:usesCleartextTraffic="true"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Poster">
+        <activity
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|mnc|colorMode|density|fontScale|fontWeightAdjustment|keyboard|layoutDirection|locale|mcc|navigation|smallestScreenSize|touchscreen|uiMode"
+            android:name=".MainActivity"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+                Invite links: poster://join/CODE. A custom scheme needs no
+                domain and no signing fingerprint, so it works on a sideloaded
+                build. Verified https App Links can be added alongside this once
+                there is a domain and a release certificate to point at it.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="${posterScheme}" android:host="join" />
+                <!--
+                    Where the pages at poster.example.com/verify and /reset hand off
+                    to, for somebody reading the email on the phone the app is
+                    on. The page keeps working for everybody else.
+                -->
+                <data android:scheme="${posterScheme}" android:host="verify" />
+                <!--
+                    Sent by the page once it has confirmed the address, so the
+                    app can catch up. Missing from here until it was noticed
+                    that the "open in the app" link on that page did nothing at
+                    all: the page offered a host the app had never registered,
+                    so Android found no handler and the tap was silent.
+                -->
+                <data android:scheme="${posterScheme}" android:host="verified" />
+                <data android:scheme="${posterScheme}" android:host="reset" />
+                <!-- The emailed sign-in link (feature.magicLink). -->
+                <data android:scheme="${posterScheme}" android:host="magic" />
+                <!-- What the shared-post web page hands off to: open the post
+                     in the app. -->
+                <data android:scheme="${posterScheme}" android:host="post" />
+                <!-- Where the server's /auth/apple/callback bounces the Apple
+                     sign-in result back into the app (Android web flow). -->
+                <data android:scheme="${posterScheme}" android:host="auth" />
+            </intent-filter>
+            <!--
+                The same links as https, which is what actually arrives in an
+                email. autoVerify makes Android check
+                https://poster.example.com/.well-known/assetlinks.json for this
+                app's signing fingerprint and, if it matches, open the app
+                without asking. Until that file lists a fingerprint, the filter
+                still works but Android 12 and later will not open the app
+                automatically — somebody has to allow it under "Open by default".
+                The poster:// links above need none of that, which is why
+                both exist.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" android:host="${posterWebHost}" />
+                <data android:pathPrefix="/verify" />
+                <data android:pathPrefix="/verified" />
+                <data android:pathPrefix="/reset" />
+                <data android:pathPrefix="/magic" />
+                <data android:pathPrefix="/join" />
+                <!-- The shared-post web link, https://poster.example.com/p/TOKEN. -->
+                <data android:pathPrefix="/p" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Not exported: nothing outside the app has any business firing the
+            reminder. The system delivers its own broadcasts regardless.
+        -->
+        <!-- feature.pushNotifications: Firebase Messaging delivers here. With the
+             feature off the class is an inert stub and nothing sends the intent. -->
+        <service
+            android:name=".notification.PushMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".notification.DailyReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

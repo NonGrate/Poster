@@ -1,0 +1,30 @@
+CREATE TABLE RefreshToken (
+    token_hash TEXT NOT NULL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+insertRefreshToken:
+INSERT INTO RefreshToken(token_hash, user_id, expires_at, created_at)
+VALUES (?, ?, ?, ?);
+
+getRefreshToken:
+SELECT * FROM RefreshToken
+WHERE token_hash = ?;
+
+deleteRefreshToken:
+DELETE FROM RefreshToken
+WHERE token_hash = ?;
+
+deleteRefreshTokensForUser:
+DELETE FROM RefreshToken
+WHERE user_id = ?;
+
+deleteExpiredRefreshTokens:
+DELETE FROM RefreshToken
+WHERE expires_at <= ?;
+
+deleteAllRefreshTokens:
+DELETE FROM RefreshToken;

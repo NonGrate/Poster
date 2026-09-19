@@ -1,0 +1,83 @@
+# Builds the server, publishes a runtime image to GitHub Container Registry and
+# pokes a deploy webhook. Works with any host that can pull an image and be told
+# to redeploy (Coolify, Dokploy, CapRover, a plain `docker compose pull && up`
+# behind a webhook). See docs/Deployment.md.
+#
+# Secrets to set in the repository:
+#   DEPLOY_WEBHOOK   the URL your host exposes to trigger a redeploy
+#   DEPLOY_TOKEN     its bearer token (optional; leave unset if the URL is itself the secret)
+#
+# The image is ghcr.io/<owner>/<repo>-server:<branch> and :<sha>. Make the
+# package public in GitHub → Packages, or give your host a read token.
+name: Deploy backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}-server
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build server distribution
+        run: ./gradlew :shared:jvmTest :server:test :server:installDist --no-daemon
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build runtime image
+        run: |
+          IMAGE_LC=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_LC=${IMAGE_LC}" >> "$GITHUB_ENV"
+          docker build \
+            --file Dockerfile.runtime \
+            --tag "${IMAGE_LC}:${GITHUB_REF_NAME}" \
+            --tag "${IMAGE_LC}:${GITHUB_SHA}" \
+            server/build/install/server
+
+      - name: Push runtime image
+        run: |
+          docker push "${IMAGE_LC}:${GITHUB_REF_NAME}"
+          docker push "${IMAGE_LC}:${GITHUB_SHA}"
+
+      - name: Trigger deployment
+        if: ${{ secrets.DEPLOY_WEBHOOK != '' }}
+        env:
+          DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -n "${DEPLOY_TOKEN}" ]; then
+            curl --fail-with-body --silent --show-error --request GET "${DEPLOY_WEBHOOK}" \
+              --header "Authorization: Bearer ${DEPLOY_TOKEN}"
+          else
+            curl --fail-with-body --silent --show-error --request POST "${DEPLOY_WEBHOOK}"
+          fi

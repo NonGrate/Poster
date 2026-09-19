@@ -1,0 +1,49 @@
+-- One comment under a post (feature.comments). Comments are text only and
+-- follow the post: visible to whoever may see the post, gone when it goes
+-- (ON DELETE CASCADE, enforced on the server). deleted_at is the admin panel's
+-- hide/restore, the same soft delete posts have.
+CREATE TABLE Comment (
+    guid TEXT NOT NULL PRIMARY KEY,
+    post_guid TEXT NOT NULL,
+    author TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT,
+    FOREIGN KEY (post_guid) REFERENCES Post(guid) ON DELETE CASCADE,
+    FOREIGN KEY (author) REFERENCES User(guid) ON DELETE CASCADE
+);
+CREATE INDEX commentPost ON Comment(post_guid);
+
+insertComment:
+INSERT INTO Comment(guid, post_guid, author, text, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+commentsForPost:
+SELECT * FROM Comment
+WHERE post_guid = ? AND deleted_at IS NULL
+ORDER BY created_at ASC;
+
+commentById:
+SELECT * FROM Comment WHERE guid = ?;
+
+deleteComment:
+DELETE FROM Comment WHERE guid = ?;
+
+hideComment:
+UPDATE Comment SET deleted_at = ? WHERE guid = ?;
+
+restoreComment:
+UPDATE Comment SET deleted_at = NULL WHERE guid = ?;
+
+countCommentsForPost:
+SELECT count(*) FROM Comment WHERE post_guid = ? AND deleted_at IS NULL;
+
+-- Newest first, hidden ones included: the admin panel's view.
+allCommentsIncludingDeleted:
+SELECT Comment.guid, Comment.post_guid, Comment.author, Comment.text, Comment.created_at, Comment.deleted_at,
+       User.email, Post.title
+FROM Comment
+JOIN User ON User.guid = Comment.author
+JOIN Post ON Post.guid = Comment.post_guid
+ORDER BY Comment.created_at DESC
+LIMIT ?;
