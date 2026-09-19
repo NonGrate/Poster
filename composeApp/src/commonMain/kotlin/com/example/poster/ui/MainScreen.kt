@@ -1,5 +1,10 @@
 package com.example.poster.ui
 
+import poster.composeapp.generated.resources.two_pane_empty
+import com.example.poster.ui.components.ContentMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.poster.model.PostDraft
 import androidx.compose.runtime.LaunchedEffect
@@ -399,28 +404,16 @@ fun MainScreen(
                       // Centre and cap the content on a wide screen (tablet); a
                       // no-op on a phone. The Scaffold background still fills the
                       // gutters, and the bottom bar stays full-width below.
-                      ReadableWidth {
+                      // Wide (tablet landscape, desktop): the list on the left, the
+                      // post on the right, so reading does not leave the feed. On a
+                      // phone the post replaces the list as before. Profile, groups,
+                      // feedback and notifications keep the whole width on both.
+                      BoxWithConstraints {
+                        val twoPane = maxWidth >= TwoPaneMinWidth
+                        ReadableWidth(maxWidth = if (twoPane) TwoPaneMaxWidth else ContentMaxWidth) {
                         val openDetails = detailsPostId
-                        when {
-                            showProfile -> ProfileScreen(onBack = { showProfile = false })
-                            showGroups -> GroupsScreen(onBack = { showGroups = false })
-                            showFeedback -> FeedbackScreen(onBack = { showFeedback = false })
-                            showNotifications -> NotificationsScreen(
-                                onBack = { showNotifications = false },
-                                onOpenPost = { showNotifications = false; detailsPostId = it },
-                            )
-                            openDetails != null -> DetailsScreen(
-                                postId = openDetails,
-                                onBack = { detailsPostId = null },
-                                onEditPost = { postForm = PostFormRequest.Edit(it) },
-                            )
-                            // Held so a tab's scroll position survives opening a
-                            // post and coming back: the detail overlay takes the
-                            // tab out of composition, which would otherwise discard
-                            // its LazyColumn state and reset the list to the top. The
-                            // holder saves each tab's state under its own key and
-                            // restores it when the tab is shown again.
-                            else -> contentStateHolder.SaveableStateProvider(selectedTab) {
+                        val tabContent: @Composable () -> Unit = {
+                            contentStateHolder.SaveableStateProvider(selectedTab) {
                                 when (selectedTab) {
                                     Screen.Main.route -> HomeScreen(
                                         onPostClick = { detailsPostId = it.guid },
@@ -449,6 +442,34 @@ fun MainScreen(
                                     )
                                 }
                             }
+                        }
+                        val details: (@Composable () -> Unit)? = openDetails?.let { id ->
+                            {
+                                DetailsScreen(
+                                    postId = id,
+                                    onBack = { detailsPostId = null },
+                                    onEditPost = { postForm = PostFormRequest.Edit(it) },
+                                )
+                            }
+                        }
+                        when {
+                            showProfile -> ProfileScreen(onBack = { showProfile = false })
+                            showGroups -> GroupsScreen(onBack = { showGroups = false })
+                            showFeedback -> FeedbackScreen(onBack = { showFeedback = false })
+                            showNotifications -> NotificationsScreen(
+                                onBack = { showNotifications = false },
+                                onOpenPost = { showNotifications = false; detailsPostId = it },
+                            )
+                            twoPane -> Row(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.weight(0.45f).fillMaxHeight()) { tabContent() }
+                                VerticalDivider()
+                                Box(modifier = Modifier.weight(0.55f).fillMaxHeight().testTag("detail_pane")) {
+                                    details?.invoke() ?: EmptyPane()
+                                }
+                            }
+                            details != null -> details()
+                            else -> tabContent()
+                        }
                         }
                       }
                     }
@@ -594,6 +615,23 @@ fun MainScreenDarkPreview() {
             favoritesViewModel = favoritesViewModel,
             userViewModel = accountViewModel,
             themeViewModel = previewThemeViewModel
+        )
+    }
+}
+
+/** From here up the post opens beside the list rather than over it. Material's "expanded" width. */
+private val TwoPaneMinWidth = 840.dp
+/** Two readable columns, not one stretched one. */
+private val TwoPaneMaxWidth = 1280.dp
+
+/** The right pane before anything is picked. */
+@Composable
+private fun EmptyPane() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = stringResource(Res.string.two_pane_empty),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

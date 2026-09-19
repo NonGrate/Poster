@@ -30,6 +30,7 @@ already there and already tested.
 |---|---|
 | Posts | Create, edit, delete. Title + text, up to 5 tags, language, visibility (everyone / one group / only me). Feed with cursor paging, pull to refresh, "N new posts" offer, offline cache. |
 | Likes | Like/unlike with undo, like counts, a "Liked" tab, an opt-in "who liked this" roster. |
+| Desktop | Optional JVM desktop app with the same code (`feature.desktop`, see docs/Desktop.md). |
 | Offline outbox | Posts written or edited offline wait on the device and are sent on the next refresh (`feature.offlineOutbox`). |
 | Bookmarks & drafts | Save posts for later (private) with a "Saved" feed filter; an unsent post is kept on the device and restored (`feature.bookmarks`, `feature.drafts`). |
 | Follows | Follow people from a post's author line; a "Following" feed filter (`feature.follows`, needs authors). |

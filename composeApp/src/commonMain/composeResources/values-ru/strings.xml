@@ -384,4 +384,6 @@
     <string name="bookmark_remove">Убрать из сохранённого</string>
     <!-- Отложенная отправка (feature.offlineOutbox) -->
     <string name="post_unsent_label">Ещё не отправлено</string>
+    <!-- Две колонки на широком экране -->
+    <string name="two_pane_empty">Выберите запись, чтобы прочитать её здесь.</string>
 </resources>

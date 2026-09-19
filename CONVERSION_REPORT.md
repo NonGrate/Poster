@@ -333,6 +333,32 @@ queued (the bytes are in memory). No connectivity listener: the refresh
 cadence is the retry. `OutboxTest` covers queue, edit-while-offline, flush
 and the non-connection refusal.
 
+### 17. Tier 2, item 5: desktop (JVM) target (2026-09-19)
+
+`feature.desktop` (off by default) adds `jvm("desktop")` to `composeApp`.
+`composeApp/src/desktopMain` holds the actuals for the seven platform files
+(the Material look copied from Android minus the Android-only bits, an AWT
+image picker scaled with ImageIO, clipboard sharing, no notifications), a
+`main()` that builds the same Koin graph as the phones, and file-backed
+preferences and session under `~/.poster` (the JVM defaults are in-memory,
+for the server's tests). The build refuses `desktop=true` with
+`support=true`: RevenueCat has no desktop SDK. Verified: compiles with the
+flags flipped; started once under an isolated `HOME`. Docs: `docs/Desktop.md`.
+
+### 18. Tier 2, items 6 and 7: wide screens, Postgres seam (2026-09-19)
+
+- From 840dp of width the post opens beside the list (`MainScreen`:
+  `BoxWithConstraints`, `TwoPaneMinWidth`, a `detail_pane` with an empty
+  state), and the readable cap grows from 640dp to 1280dp. Profile, groups,
+  feedback and notifications keep the whole width. No flag: a phone never
+  reaches the breakpoint. Verified by compiling and by the desktop run;
+  not yet seen on a tablet emulator.
+- Postgres is documented rather than built: `docs/Database.md` now lists the
+  six repository interfaces and the nine concrete classes a port would give
+  one, and the first step (one database handed out by `module()` instead of
+  fourteen `DatabaseManager(DatabaseDriverFactory())` constructions). That
+  is also a review item, see below.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

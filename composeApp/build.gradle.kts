@@ -26,6 +26,12 @@ val posterWebHost: String = posterProperties.getProperty("app.webOrigin", "https
     .trim().substringAfter("://").substringBefore("/")
 val supportEnabled = posterFeature("support")
 val pushEnabled = posterFeature("pushNotifications")
+// Opt-in, default off: a desktop target changes dependency resolution for
+// everybody, and RevenueCat (feature.support) has no desktop SDK.
+val desktopEnabled = posterProperties.getProperty("feature.desktop", "false").trim().toBoolean()
+if (desktopEnabled && supportEnabled) {
+    throw GradleException("feature.desktop=true needs feature.support=false: the billing SDK has no desktop build. See docs/Desktop.md.")
+}
 
 /**
  * The window colours (status/navigation bar, window background) as Android
@@ -311,6 +317,8 @@ kotlin {
         }
     }
 
+    if (desktopEnabled) jvm("desktop")
+
     sourceSets {
         // Same pattern as billing: Firebase Messaging only when the feature is on.
         androidMain {
@@ -373,6 +381,24 @@ kotlin {
         // emulator, so they run on every build rather than when one is up.
         androidUnitTest.dependencies {
             implementation(kotlin("test"))
+        }
+
+        if (desktopEnabled) {
+            getByName("desktopMain").dependencies {
+                implementation(compose.desktop.currentOs)
+                // The JVM has no default Ktor engine on the classpath; CIO is the plain one.
+                implementation(libs.ktor.ktor.client.cio)
+                // Dispatchers.Main on the JVM is Swing's event thread.
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+            }
+        }
+    }
+}
+
+if (desktopEnabled) {
+    compose.desktop {
+        application {
+            mainClass = "com.example.poster.MainKt"
         }
     }
 }

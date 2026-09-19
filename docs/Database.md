@@ -85,6 +85,17 @@ The Android device database is `post.db` in the app's databases directory;
 
 ## Why SQLite and not Postgres
 
+If you do port: `PostsRepository`, `AccountRepository`, `GroupRepository`,
+`UserGroupRepository`, `FavoritesRepository` and `TagRepository` are
+interfaces with one SQLite implementation each. `CommentsRepository`,
+`NotificationsRepository`, `FollowsLocalRepository`, `BookmarksLocalRepository`,
+`ModerationRepository`, `ReportsRepository`, `FeedbackRepository`,
+`CrashRepository` and `EventRepository` are concrete classes over the
+generated queries and would get an interface first. Each builds its own
+`DatabaseManager(DatabaseDriverFactory())`; giving `Application.module()` one
+database to hand out is the first step of any such port.
+
+
 One file, no service to run, backups are a copy, and a single Ktor instance
 handles far more than a small group app will see. When you outgrow it —
 several server instances, or write volume that makes a single writer a
