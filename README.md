@@ -30,6 +30,7 @@ already there and already tested.
 |---|---|
 | Posts | Create, edit, delete. Title + text, up to 5 tags, language, visibility (everyone / one group / only me). Feed with cursor paging, pull to refresh, "N new posts" offer, offline cache. |
 | Likes | Like/unlike with undo, like counts, a "Liked" tab, an opt-in "who liked this" roster. |
+| Follows | Follow people from a post's author line; a "Following" feed filter (`feature.follows`, needs authors). |
 | Groups | Invite-only or public groups: create, join by code, emailed invitation (single-use) or from the public list, owner and admins, member management, leave/close, deep links `poster://join/CODE`. |
 | Search | Free text over title and message, server-side so it reaches past the loaded page, combined with the tag and group filters. |
 | Tags | Curated, grouped, bilingual tag catalogue seeded on the server and editable in the admin panel; tag + group filtering on the feed (server-side, so it reaches beyond the loaded page). |

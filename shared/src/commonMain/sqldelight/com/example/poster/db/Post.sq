@@ -24,9 +24,16 @@ CREATE TABLE Post (
     -- Id of the one image in the server's upload store, or NULL. Added in
     -- migration 2; every client sends JSON without it until updated.
     image TEXT,
+    -- Device cache of the server's count (the server counts Comment rows and
+    -- never writes this). Like `likes`: without it the badge read 0 from disk.
+    comments INTEGER NOT NULL DEFAULT 0,
     -- Enforced only where foreign keys are on, which is the server. See DatabaseDriverFactory (jvm).
     FOREIGN KEY (author) REFERENCES User(guid) ON DELETE CASCADE
 );
+
+-- Device only: what the server sent along with the post.
+cacheComments:
+UPDATE Post SET comments = ? WHERE guid = ?;
 
 -- The feed, and every screen reading "the posts this device knows". `in_feed`
 -- is what separates a post the last refresh returned from one kept only
@@ -117,6 +124,12 @@ WHERE deleted_at IS NULL
 -- both is what makes the pair a position rather than a guess.
   -- Search (lower-cased by the server). instr over title and message: a
   -- LIKE with no index either way, and FTS5 is a migration away if it ever matters.
+  -- Only people this reader follows, when asked (feature.follows). Narrows
+  -- what the clauses above already allow; a follow never widens visibility.
+  AND (
+    :following = 0
+    OR author IN (SELECT followed FROM Follow WHERE follower = :viewer)
+  )
   AND (
     :query = ''
     OR instr(lower(title), :query) > 0

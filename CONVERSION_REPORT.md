@@ -280,6 +280,33 @@ Behind `feature.publicGroups` (on by default):
   when the flag is off (every group stays invite-only).
 - Fixture `book-club` is public so demos and tests have one to browse.
 
+### 14. Tier 2, item 2: follows (2026-09-19)
+
+Behind `feature.follows` (on by default; the UI needs `feature.authors`):
+
+- Schema v6: `Follow(follower, followed, created_at)`, migration `5.sqm`,
+  `databases/6.db`.
+- Server: `GET /follows` (ids), `POST /follows/{userId}` (400 for yourself,
+  404 for nobody), `DELETE /follows/{userId}`; `GET /posts?following=true`
+  adds one clause to the feed query, so a follow never widens what a
+  reader may see. `FollowRoutesTest` covers the feed narrowing, the private
+  post staying private, unfollow and the refusals.
+- App: tapping the author line on a card opens Follow/Unfollow; the feed
+  filter sheet gets a "Following" chip and the applied-filter row shows it.
+  `FollowsViewModel` keeps the followed set (optimistic toggle, reverted on
+  failure). `FollowsInstrumentedTest` walks follow → filter → unfollow.
+- Not done on purpose: follower counts and "X followed you" notifications.
+  `countFollowers` exists in `Follow.sq`; `Notifier` is the seam.
+- Found by `FollowsInstrumentedTest` and fixed: the device cache dropped the
+  author name and photo and the comment count, so once the feed came from
+  disk (which is always, after the first page) cards had no author line and
+  no comment badge. Schema v7 caches `Post.comments`; the author is a stub
+  `User` row on the device (`cacheAuthor` / `updateAuthor`).
+- Emulator runs of `FollowsInstrumentedTest`, `CommentsInstrumentedTest`, `FeedInstrumentedTest` and `TagFilterInstrumentedTest` on this tree were
+  aborted twice by host load (other applications at 100% CPU starved the
+  emulator into ANRs at login). Host verification is green; the four classes
+  are to be re-run on a quiet machine.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

@@ -108,6 +108,7 @@ class OlderPageFavoritesTest {
             tags: List<String>,
             groups: List<String>,
         query: String,
+        following: Boolean,
         ): List<Post> = if (beforeDate == null) first else second
 
         override suspend fun getAllPosts(): List<Post> = first + second

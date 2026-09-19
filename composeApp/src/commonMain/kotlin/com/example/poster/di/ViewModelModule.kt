@@ -1,5 +1,6 @@
 package com.example.poster.di
 
+import com.example.poster.viewmodel.FollowsViewModel
 import com.example.poster.notification.PushRegistrar
 import com.example.poster.viewmodel.NotificationsViewModel
 import com.example.poster.viewmodel.CommentsViewModel
@@ -46,6 +47,7 @@ fun viewModelModule() = module {
     single { GroupViewModel(get(), get(), get()) }
     single { FeedbackViewModel(get(), get()) }
     single { CommentsViewModel(get(), get()) }
+    single { FollowsViewModel(get(), get()) }
     single { NotificationsViewModel(get(), get()) }
     single { PushRegistrar(session = get(), notifications = get(), dispatchers = get()) }
     single { ThemeViewModel(get(), get()) }

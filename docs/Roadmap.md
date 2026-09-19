@@ -21,7 +21,7 @@ shipped after the first version; the rest are notes on where each would go.
 | Feature | Where it goes |
 |---|---|
 | **Public / discoverable groups** | done — `feature.publicGroups`: `Groups.visibility` (schema v5), `GET /groups/public` with member counts, join by id for public groups only, owner toggle, the list in the groups sheet, admin create form. |
-| **Follow model** | `Follow(follower, followed)`, a "Following" feed source next to groups. |
+| **Follow model** | done — `feature.follows`: `Follow` table (schema v6), `/follows` routes, `GET /posts?following=true`, a "Following" chip in the feed filter, Follow/Unfollow from a post's author line. No follower counts or notifications yet; the table has `countFollowers` for the first, `Notifier` is the seam for the second. |
 | **Bookmarks** and **drafts** | Bookmarks: `UserPostBookmark`, a tab or filter. Drafts: local only, `Draft` table on the device. |
 | **Offline outbox** | Queue create / edit / like in SQLDelight, replay on connectivity; the cache is read-only today. |
 | **Desktop (JVM) target** | Add `jvm()` to `composeApp`; Koin, SQLDelight and Ktor all have JVM drivers. Web (Wasm) is a larger step because of the SQLDelight driver. |

@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.model.FollowsLocalRepository
 import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
@@ -138,6 +139,7 @@ fun Application.module(
     }
     val accountRepository = AccountLocalRepository(database)
     val favoritesRepository = FavoritesLocalRepository()
+    val followsRepository = FollowsLocalRepository()
     val groupRepository = GroupLocalRepository()
     val userGroupRepository = UserGroupLocalRepository(database)
     val developmentMode = System.getProperty("io.ktor.development").toBoolean()
@@ -545,8 +547,10 @@ fun Application.module(
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                 val query = call.request.queryParameters["q"].orEmpty()
+                // Only people the reader follows. Signed out there is nobody to follow.
+                val following = Features.FOLLOWS && call.request.queryParameters["following"] == "true"
                 val posts = postsRepository
-                    .visiblePosts(viewer, languages, limit, before, tags, groups, query)
+                    .visiblePosts(viewer, languages, limit, before, tags, groups, query, following)
                     .map { it.withLikeCount() }
                 call.respond(posts)
             }
@@ -885,6 +889,25 @@ fun Application.module(
                 } else {
                     call.respond(HttpStatusCode.NotFound)
                 }
+            }
+        }
+
+        if (Features.FOLLOWS) route("/follows") {
+            // The ids this reader follows; the app matches them against post authors.
+            get { call.respond(followsRepository.following(call.authenticatedUserId())) }
+            post("/{userId}") {
+                val me = call.authenticatedUserId()
+                val target = call.parameters["userId"]
+                when {
+                    target == null || target == me -> call.respond(HttpStatusCode.BadRequest)
+                    accountRepository.userById(target) == null -> call.respond(HttpStatusCode.NotFound)
+                    else -> { followsRepository.follow(me, target); call.respond(HttpStatusCode.NoContent) }
+                }
+            }
+            delete("/{userId}") {
+                val target = call.parameters["userId"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                followsRepository.unfollow(call.authenticatedUserId(), target)
+                call.respond(HttpStatusCode.NoContent)
             }
         }
 

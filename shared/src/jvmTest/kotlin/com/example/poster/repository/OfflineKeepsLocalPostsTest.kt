@@ -149,6 +149,7 @@ class OfflineKeepsLocalPostsTest {
             tags: List<String>,
             groups: List<String>,
         query: String,
+        following: Boolean,
         ): List<Post> = feedPage ?: offline()
 
         override suspend fun getFavoritePosts(): List<Post> = offline()

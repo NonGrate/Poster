@@ -1,0 +1,27 @@
+-- Follow.sq: who reads whom (feature.follows).
+--
+-- Following somebody narrows the feed to their posts; it never widens what
+-- the reader may see. A followed author's group posts still need the reader
+-- to be in the group, the same visibility clause as always.
+CREATE TABLE Follow (
+    follower TEXT NOT NULL,
+    followed TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (follower, followed),
+    FOREIGN KEY (follower) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (followed) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+-- Following twice changes nothing rather than throwing.
+follow:
+INSERT OR IGNORE INTO Follow(follower, followed, created_at)
+VALUES (?, ?, ?);
+
+unfollow:
+DELETE FROM Follow WHERE follower = ? AND followed = ?;
+
+following:
+SELECT followed FROM Follow WHERE follower = ? ORDER BY created_at DESC;
+
+countFollowers:
+SELECT COUNT(*) FROM Follow WHERE followed = ?;

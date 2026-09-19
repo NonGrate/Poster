@@ -28,6 +28,7 @@ class PostLocalStore(
     private val tagQueries = databaseManager.getDatabase().postTagQueries
     private val tagsTable = databaseManager.getDatabase().tagQueries
     private val favoriteQueries = databaseManager.getDatabase().userPostFavoriteQueries
+    private val userQueries = databaseManager.getDatabase().userQueries
 
     /** Re-emits whenever the table changes, which is what makes the UI follow the DB. */
     fun posts(): Flow<List<Post>> =
@@ -202,6 +203,15 @@ class PostLocalStore(
             post.completionMessage,
             post.image,
         )
+        // What the server derived on the way out, kept so the cached row reads
+        // the same as the fresh one: the comment count on the row, the author's
+        // name and photo as a stub User row. Both were dropped before, so the
+        // feed showed no author line and no comment badge once it came from disk.
+        queries.cacheComments(post.comments.toLong(), post.guid)
+        post.authorName?.let { name ->
+            userQueries.cacheAuthor(post.author, name, post.author)
+            userQueries.updateAuthor(name, post.authorPhoto, post.author)
+        }
         // Tags live in their own table, so the join is rebuilt with the row.
         // The name doubles as the id here: this table is a cache of what the
         // server said, and a tag is identified by its name everywhere else.
@@ -226,5 +236,11 @@ class PostLocalStore(
         visibility = visibility,
         language = language,
         tags = tags,
+        comments = comments.toInt(),
+        authorName = cachedAuthor?.let { "${it.name} ${it.surname}".trim().ifBlank { null } },
+        authorPhoto = cachedAuthor?.photo,
     )
+
+    private val com.example.poster.db.Post.cachedAuthor
+        get() = userQueries.getUserById(author).executeAsOneOrNull()
 }

@@ -25,6 +25,16 @@ getAllUsers:
 SELECT * FROM User;
 
 -- Get user by ID
+-- Device only: the author line a post arrived with (feature.authors). The
+-- device has no accounts, so the row is a stub keyed by the guid; the guid
+-- doubles as the unique email.
+cacheAuthor:
+INSERT OR IGNORE INTO User(guid, name, surname, email, password_hash)
+VALUES (?, ?, '', ?, '');
+
+updateAuthor:
+UPDATE User SET name = ?, photo = ? WHERE guid = ?;
+
 getUserById:
 SELECT * FROM User
 WHERE guid = ?;

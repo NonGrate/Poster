@@ -390,4 +390,9 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
         <item quantity="one">%1$d member</item>
         <item quantity="other">%1$d members</item>
     </plurals>
+    <!-- Follows (feature.follows) -->
+    <string name="filter_following">Following</string>
+    <string name="follow_action">Follow</string>
+    <string name="unfollow_action">Unfollow</string>
+    <string name="follow_body">Posts by people you follow show up under the Following filter. Following someone never shows you more than you could already see.</string>
 </resources>

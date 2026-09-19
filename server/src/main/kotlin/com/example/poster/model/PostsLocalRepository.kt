@@ -33,6 +33,7 @@ class PostsLocalRepository(
         tags: List<String>,
         groups: List<String>,
         query: String,
+        following: Boolean,
     ): List<Post> {
         val needle = query.trim().lowercase()
         val capped = limit.coerceIn(1, MAX_FEED_LIMIT).toLong()
@@ -57,6 +58,7 @@ class PostsLocalRepository(
                 tags = wanted,
                 groups = rooms,
                 query = needle,
+                following = if (following) 1L else 0L,
                 before = cursorDate,
                 beforeGuid = cursorGuid,
                 limit = capped,

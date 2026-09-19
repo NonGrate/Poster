@@ -1,0 +1,9 @@
+-- 5.sqm: version 5 -> 6. Follows (feature.follows).
+CREATE TABLE Follow (
+    follower TEXT NOT NULL,
+    followed TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (follower, followed),
+    FOREIGN KEY (follower) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (followed) REFERENCES User(guid) ON DELETE CASCADE
+);

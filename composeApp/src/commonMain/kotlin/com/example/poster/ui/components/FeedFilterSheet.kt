@@ -1,5 +1,6 @@
 package com.example.poster.ui.components
 
+import poster.composeapp.generated.resources.filter_following
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import com.example.poster.config.Features
@@ -107,6 +108,7 @@ fun AppliedFilterRow(
     onClearGroup: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
+    onRemoveFollowing: () -> Unit = {},
 ) {
     if (selected.isEmpty) return
     val language = Locale.current.language
@@ -121,6 +123,16 @@ fun AppliedFilterRow(
             .padding(bottom = 10.dp)
             .testTag("feed_filter_active"),
     ) {
+        if (selected.following) {
+            item(key = "following") {
+                AppliedChip(
+                    label = stringResource(Res.string.filter_following),
+                    filled = true,
+                    onClick = onRemoveFollowing,
+                    testTag = "feed_filter_active_following",
+                )
+            }
+        }
         items(selected.groups.toList(), key = { "c-$it" }) { id ->
             val name = groups.firstOrNull { it.id == id }?.name ?: id
             AppliedChip(
@@ -241,6 +253,7 @@ fun FeedFilterSheet(
     onEveryGroup: () -> Unit,
     onGroup: (String?, List<String>) -> Unit,
     onToggleTag: (String) -> Unit,
+    onToggleFollowing: () -> Unit = {},
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -283,7 +296,7 @@ fun FeedFilterSheet(
                 }
             }
 
-            if (Features.GROUPS) {
+            if (Features.GROUPS || Features.FOLLOWS) {
             Spacer(modifier = Modifier.height(Spacing.md))
             SectionLabel(stringResource(Res.string.filter_from))
             Spacer(modifier = Modifier.height(Spacing.xs))
@@ -302,6 +315,14 @@ fun FeedFilterSheet(
                         selected = selected.groups.isEmpty(),
                         onClick = onEveryGroup,
                         testTag = "filter_group_everyone",
+                    )
+                }
+                if (Features.FOLLOWS) item(key = "following") {
+                    RoomChip(
+                        label = stringResource(Res.string.filter_following),
+                        selected = selected.following,
+                        onClick = onToggleFollowing,
+                        testTag = "filter_following",
                     )
                 }
                 items(groups, key = { it.id }) { group ->

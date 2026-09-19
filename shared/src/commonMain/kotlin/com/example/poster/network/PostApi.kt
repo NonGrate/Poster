@@ -21,6 +21,8 @@ interface PostApi {
         groups: List<String> = emptyList(),
         /** Free text over title and message; blank = none. */
         query: String = "",
+        /** Only authors the reader follows (feature.follows). */
+        following: Boolean = false,
     ): List<Post> = getAllPosts()
 
     /**

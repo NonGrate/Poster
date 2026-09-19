@@ -373,4 +373,9 @@
         <item quantity="many">%1$d участников</item>
         <item quantity="other">%1$d участника</item>
     </plurals>
+    <!-- Подписки (feature.follows) -->
+    <string name="filter_following">Подписки</string>
+    <string name="follow_action">Подписаться</string>
+    <string name="unfollow_action">Отписаться</string>
+    <string name="follow_body">Записи людей, на которых вы подписаны, собираются под фильтром «Подписки». Подписка не открывает ничего, что вы не видели бы и так.</string>
 </resources>

@@ -110,6 +110,8 @@ fun PostCard(
      * already say so).
      */
     isOwn: Boolean = false,
+    /** Tapping the author's name (feature.follows): the caller offers Follow/Unfollow. */
+    onAuthorClick: (() -> Unit)? = null,
 ) {
     val completed = post.completedAt != null
     val tagLabels: TagViewModel = koinInject()
@@ -159,7 +161,10 @@ fun PostCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    modifier = Modifier.padding(bottom = Spacing.xs).testTag("post_author"),
+                    modifier = Modifier
+                        .then(if (onAuthorClick != null) Modifier.clickable(onClick = onAuthorClick) else Modifier)
+                        .padding(bottom = Spacing.xs)
+                        .testTag("post_author"),
                 ) {
                     Avatar(photo = post.authorPhoto, name = authorName, size = 24.dp)
                     Text(

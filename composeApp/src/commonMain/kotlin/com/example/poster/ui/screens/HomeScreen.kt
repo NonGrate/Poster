@@ -1,5 +1,7 @@
 package com.example.poster.ui.screens
 
+import com.example.poster.ui.components.FollowDialog
+import com.example.poster.viewmodel.FollowsViewModel
 import poster.composeapp.generated.resources.feed_search_clear
 import poster.composeapp.generated.resources.feed_search_open
 import poster.composeapp.generated.resources.feed_search_hint
@@ -100,8 +102,13 @@ fun HomeScreen(
     accountViewModel: AccountViewModel = koinInject(),
     tagViewModel: TagViewModel = koinInject(),
     postApi: PostApi = koinInject(),
+    followsViewModel: FollowsViewModel = koinInject(),
 ) {
     val share = rememberShareText()
+    // feature.follows: who the reader follows, for the Following filter and the author dialog.
+    val following by followsViewModel.following.collectAsState()
+    var followAuthor by remember { mutableStateOf<Post?>(null) }
+    LaunchedEffect(Unit) { if (Features.FOLLOWS) followsViewModel.refresh() }
     val groupNames by groupViewModel.groups.collectAsState()
     // Collect the posts from the ViewModel
     val allPosts by postsViewModel.feed.collectAsState()
@@ -170,7 +177,10 @@ fun HomeScreen(
     // next posts by date. Filtering still happens on the device as well —
     // that is what works with no connection, and it is instant.
     val visiblePosts by remember(posts, tagFilter) {
-        derivedStateOf { posts.fromGroups(tagFilter.groups).withTags(tagFilter.effectiveTags).matching(tagFilter.query) }
+        derivedStateOf {
+            posts.fromGroups(tagFilter.groups).withTags(tagFilter.effectiveTags).matching(tagFilter.query)
+                .fromAuthors(if (tagFilter.following) following else null)
+        }
     }
 
 
@@ -219,6 +229,15 @@ fun HomeScreen(
         )
     }
 
+    followAuthor?.let { post ->
+        FollowDialog(
+            authorName = post.authorName.orEmpty(),
+            following = post.author in following,
+            onToggle = { followsViewModel.toggle(post.author) },
+            onDismiss = { followAuthor = null },
+        )
+    }
+
     if (filterOpen) {
         FeedFilterSheet(
             selected = tagFilter,
@@ -232,6 +251,7 @@ fun HomeScreen(
                 postsViewModel.filterByGroup(group, tagsInGroup)
             },
             onToggleTag = { id -> postsViewModel.toggleFilterTag(id) },
+            onToggleFollowing = { postsViewModel.toggleFollowing() },
             onClear = { postsViewModel.clearFilter() },
             onDismiss = { filterOpen = false },
         )
@@ -279,7 +299,7 @@ fun HomeScreen(
                         }
                     }
                     // Nothing to filter by without tags or groups.
-                    if (Features.TAGS || Features.GROUPS) {
+                    if (Features.TAGS || Features.GROUPS || Features.FOLLOWS) {
                         FeedFilterButton(
                             selected = tagFilter,
                             onClick = { filterOpen = true },
@@ -313,6 +333,7 @@ fun HomeScreen(
                 labelFor = { id -> availableTags.firstOrNull { it.name == id }?.label(language) ?: id },
                 onRemoveGroup = { postsViewModel.toggleGroup(it) },
                 onRemoveTag = { postsViewModel.toggleFilterTag(it) },
+                onRemoveFollowing = { postsViewModel.toggleFollowing() },
                 onClearGroup = { postsViewModel.filterByGroup(null, emptyList()) },
                 onClear = { postsViewModel.clearFilter() },
             )
@@ -394,6 +415,7 @@ fun HomeScreen(
                             } else null,
                             groupName = groupNames.nameOf(post.group),
                             isOwn = isOwn,
+                            onAuthorClick = if (Features.FOLLOWS && !isOwn) { { followAuthor = post } } else null,
                         )
                     }
 

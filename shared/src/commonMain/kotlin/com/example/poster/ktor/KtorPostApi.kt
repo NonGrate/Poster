@@ -35,8 +35,10 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
         tags: List<String>,
         groups: List<String>,
         query: String,
+        following: Boolean,
     ): List<Post> = httpClient.get("posts") {
         parameter("limit", limit)
+        if (following) parameter("following", true)
         if (query.isNotBlank()) parameter("q", query.trim())
         // Both halves or neither: the server treats half a cursor as none, and
         // sending one half would quietly restart the feed from the top.

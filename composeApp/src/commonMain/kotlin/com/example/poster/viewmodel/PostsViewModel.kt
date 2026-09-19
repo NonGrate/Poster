@@ -212,6 +212,12 @@ class PostsViewModel(
         forgetTheBottom()
     }
 
+    /** Only people the reader follows, or everybody again. */
+    fun toggleFollowing() {
+        _tagFilter.value = _tagFilter.value.copy(following = !_tagFilter.value.following)
+        forgetTheBottom()
+    }
+
     fun clearFilter() {
         _tagFilter.value = PostFilter()
         forgetTheBottom()
@@ -438,6 +444,7 @@ class PostsViewModel(
                     tags.toList(),
                     filter.groups.toList(),
                     filter.query,
+                    filter.following,
                 )
                     .onSuccess { older ->
                         notePage(older, filtered = !filter.isEmpty)

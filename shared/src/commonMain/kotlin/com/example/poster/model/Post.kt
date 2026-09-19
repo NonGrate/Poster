@@ -28,7 +28,7 @@ val visibility: String = PostVisibility.PUBLIC,
      * or null. Defaulted so clients from before images still parse and send.
      */
     val image: String? = null,
-    /** Visible comments, counted by the server on the way out. Not stored on the device. */
+    /** Visible comments, counted by the server on the way out; the device caches the number with the row. */
     val comments: Int = 0,
     /** Who wrote it, filled in by the server when feature.authors is on; null otherwise. */
     val authorName: String? = null,

@@ -34,6 +34,8 @@ interface PostsRepository {
         groups: List<String> = emptyList(),
         /** Free text over title and message; blank = no search. */
         query: String = "",
+        /** Only authors the viewer follows (feature.follows). */
+        following: Boolean = false,
     ): List<Post>
     fun postById(guid: String): Post?
 
