@@ -1,5 +1,6 @@
 package com.example.poster.ui.components
 
+import poster.composeapp.generated.resources.post_unsent_label
 import poster.composeapp.generated.resources.bookmark_remove
 import poster.composeapp.generated.resources.bookmark_save
 import poster.composeapp.generated.resources.comments_title
@@ -117,6 +118,8 @@ fun PostCard(
     /** Save for later / remove from saved (feature.bookmarks), in the overflow menu. */
     isBookmarked: Boolean = false,
     onToggleBookmark: (() -> Unit)? = null,
+    /** Written offline and not yet sent (feature.offlineOutbox). */
+    isUnsent: Boolean = false,
 ) {
     val completed = post.completedAt != null
     val tagLabels: TagViewModel = koinInject()
@@ -274,6 +277,7 @@ fun PostCard(
                 groupName = groupName,
                 expanded = !variant.clipsMessage,
                 isOwn = isOwn,
+                isUnsent = isUnsent,
             )
 
             Spacer(modifier = Modifier.height(Spacing.xs))
@@ -428,6 +432,7 @@ private fun PostAudienceLabel(
     groupName: String?,
     expanded: Boolean,
     isOwn: Boolean = false,
+    isUnsent: Boolean = false,
 ) {
     val audience: (@Composable () -> Unit)? = when (visibility) {
         PostVisibility.PRIVATE -> {
@@ -449,7 +454,7 @@ private fun PostAudienceLabel(
         else -> null
     }
     // Public and not the reader's own has nothing to show.
-    if (!isOwn && audience == null) return
+    if (!isOwn && !isUnsent && audience == null) return
     // The row owns the space on both sides of it, and the two are not equal:
     // 4dp up to the title, 4dp down plus the 8dp every card already keeps above
     // its message. It belongs to the title — the two of them say what this is
@@ -461,6 +466,7 @@ private fun PostAudienceLabel(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         if (isOwn) MinePill()
+        if (isUnsent) UnsentPill()
         audience?.invoke()
     }
     Spacer(modifier = Modifier.height(Spacing.xxs))
@@ -529,6 +535,24 @@ private fun GroupPill(name: String, expanded: Boolean) {
  * card in both themes and — unlike the old surfaceVariant on the group pill
  * — is not the same fill as an input field.
  */
+/** Same neutral pill as "Yours"; the words carry the meaning. */
+@Composable
+private fun UnsentPill() {
+    Surface(
+        shape = RoundedCornerShapePill,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("post_unsent_label"),
+    ) {
+        Text(
+            text = stringResource(Res.string.post_unsent_label),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
+        )
+    }
+}
+
 @Composable
 private fun MinePill() {
     Surface(

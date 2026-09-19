@@ -382,4 +382,6 @@
     <string name="filter_saved">Сохранённое</string>
     <string name="bookmark_save">Сохранить на потом</string>
     <string name="bookmark_remove">Убрать из сохранённого</string>
+    <!-- Отложенная отправка (feature.offlineOutbox) -->
+    <string name="post_unsent_label">Ещё не отправлено</string>
 </resources>

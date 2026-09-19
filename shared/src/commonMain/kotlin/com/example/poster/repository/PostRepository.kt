@@ -1,5 +1,7 @@
 package com.example.poster.repository
 
+import kotlinx.io.IOException
+import com.example.poster.config.Features
 import com.example.poster.cache.PostCache
 import com.example.poster.domain.validation.ImageRules
 import com.example.poster.model.Post
@@ -40,6 +42,9 @@ class PostRepository(
      */
     val posts: Flow<List<Post>>? get() = localStore?.posts()
 
+    /** Ids of posts written offline and not yet sent (feature.offlineOutbox). Null without a database. */
+    val unsent: Flow<Set<String>>? get() = localStore?.unsent()
+
     /**
      * Ask the server and write what it says to disk. Returns whether the request
      * worked, not the data: the data arrives through [posts].
@@ -71,6 +76,9 @@ class PostRepository(
 
     suspend fun refreshPosts(viewer: String = ""): Result<List<Post>> = withContext(dispatchers.io) {
         runCatching {
+            // Whatever was written offline goes first, so the page that follows
+            // already carries it.
+            if (Features.OFFLINE_OUTBOX) flushOutbox()
             val fresh = postApi.getPostPage(limit = PAGE_SIZE)
             // The feed aggregates everyone's posts, so an empty page means the
             // request came back wrong, not that there is genuinely nothing to
@@ -227,8 +235,36 @@ class PostRepository(
         runCatching {
             postApi.addPost(post.withUploaded(newImage))
             adoptRefetched(postApi.getAllPosts())
+        }.recoverCatching { cause ->
+            // No connection: keep it and say it worked. It shows under My Posts
+            // as "not sent yet" and goes out on the next refresh. An image is
+            // bytes in memory, not on disk, so a post with one still fails here.
+            if (!queueable(cause, newImage)) throw cause
+            localStore!!.enqueue(post, PostLocalStore.Outbox.ADD)
+            localStore.upsertMine(post)
+            previous + post
         }.onFailure {
             cache.setAllPosts(previous)
+        }
+    }
+
+    /** Offline and there is a queue to keep it in. Anything else is a real refusal. */
+    private fun queueable(cause: Throwable, newImage: ByteArray?): Boolean =
+        Features.OFFLINE_OUTBOX && localStore != null && newImage == null && cause is IOException
+
+    /**
+     * Sends what was written offline, oldest first. Stops at the first
+     * connection failure (the rest would fail the same way); a refusal for
+     * any other reason drops that one, since retrying cannot change it.
+     */
+    suspend fun flushOutbox() {
+        val store = localStore ?: return
+        for ((kind, post) in store.queued()) {
+            val result = runCatching {
+                if (kind == PostLocalStore.Outbox.ADD) postApi.addPost(post) else postApi.updatePost(post)
+            }
+            if (result.exceptionOrNull() is IOException) return
+            store.dequeue(post.guid)
         }
     }
 
@@ -238,6 +274,12 @@ class PostRepository(
         runCatching {
             postApi.updatePost(post.withUploaded(newImage))
             adoptRefetched(postApi.getAllPosts())
+        }.recoverCatching { cause ->
+            if (!queueable(cause, newImage)) throw cause
+            localStore!!.enqueue(post, PostLocalStore.Outbox.UPDATE)
+            // Still in the feed if it was there; only yours otherwise.
+            if (previous.any { it.guid == post.guid }) localStore.upsert(post) else localStore.upsertMine(post)
+            cache.getAllPosts()
         }.onFailure {
             cache.setAllPosts(previous)
         }

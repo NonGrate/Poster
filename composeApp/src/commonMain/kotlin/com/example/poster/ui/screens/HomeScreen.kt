@@ -112,6 +112,7 @@ fun HomeScreen(
     var followAuthor by remember { mutableStateOf<Post?>(null) }
     // feature.bookmarks: what the reader saved, for the menu label and the Saved filter.
     val saved by bookmarksViewModel.ids.collectAsState()
+    val unsent by postsViewModel.unsent.collectAsState()
     LaunchedEffect(Unit) {
         if (Features.FOLLOWS) followsViewModel.refresh()
         if (Features.BOOKMARKS) bookmarksViewModel.refresh()
@@ -427,6 +428,7 @@ fun HomeScreen(
                             isOwn = isOwn,
                             onAuthorClick = if (Features.FOLLOWS && !isOwn) { { followAuthor = post } } else null,
                             isBookmarked = post.guid in saved,
+                            isUnsent = post.guid in unsent,
                             onToggleBookmark = if (Features.BOOKMARKS) { { bookmarksViewModel.toggle(post.guid) } } else null,
                         )
                     }

@@ -72,6 +72,14 @@ class PostsViewModel(
     private val _myPosts = MutableStateFlow<List<Post>>(emptyList())
     val myPosts: StateFlow<List<Post>> = _myPosts.asStateFlow()
 
+    /** Written offline, not yet sent (feature.offlineOutbox); the card says so. */
+    private val _unsent = MutableStateFlow<Set<String>>(emptySet())
+    val unsent: StateFlow<Set<String>> = _unsent.asStateFlow()
+
+    init {
+        repository.unsent?.let { queue -> scope.launch { queue.collect { _unsent.value = it } } }
+    }
+
     /**
      * Posts opened from a shared link that are in neither the feed nor My
      * Posts — a stranger's public post. Kept in their own list so the feed's

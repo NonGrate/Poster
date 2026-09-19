@@ -102,6 +102,7 @@ fun MyPostsScreen(
     val isLoggedIn = currentUser != null
     val allPosts by postsViewModel.myPosts.collectAsState()
     val favorites by favoritesViewModel.state.collectAsState()
+    val unsent by postsViewModel.unsent.collectAsState()
     val isRefreshing by postsViewModel.isRefreshing.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -229,6 +230,7 @@ fun MyPostsScreen(
                                 { coroutineScope.launch { postApi.shareLink(post.guid)?.let { url -> share(url) } } }
                             } else null,
                             groupName = groupNames.nameOf(post.group),
+                            isUnsent = post.guid in unsent,
                         )
                     }
                 }

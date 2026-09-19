@@ -1,5 +1,6 @@
 package com.example.poster.repository
 
+import kotlinx.serialization.json.Json
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.example.poster.db.DatabaseManager
@@ -29,6 +30,7 @@ class PostLocalStore(
     private val tagsTable = databaseManager.getDatabase().tagQueries
     private val favoriteQueries = databaseManager.getDatabase().userPostFavoriteQueries
     private val userQueries = databaseManager.getDatabase().userQueries
+    private val outboxQueries = databaseManager.getDatabase().outboxQueries
 
     /** Re-emits whenever the table changes, which is what makes the UI follow the DB. */
     fun posts(): Flow<List<Post>> =
@@ -111,6 +113,40 @@ class PostLocalStore(
 
     suspend fun delete(guid: String) = withContext(dispatchers.io) {
         queries.deletePost(guid)
+    }
+
+    /** One of your own, kept off the feed until the server has it. */
+    suspend fun upsertMine(post: Post) = withContext(dispatchers.io) {
+        queries.transaction {
+            queries.deletePost(post.guid)
+            insert(post, inFeed = false)
+        }
+    }
+
+    // --- outbox (feature.offlineOutbox) --------------------------------------
+
+    /** What is waiting to be sent, by post id. Re-emits as the queue changes. */
+    fun unsent(): Flow<Set<String>> =
+        outboxQueries.queuedGuids().asFlow().mapToList(dispatchers.io).map { it.toSet() }
+
+    suspend fun enqueue(post: Post, kind: String) = withContext(dispatchers.io) {
+        // Editing something the server has never seen is still an add.
+        val existing = outboxQueries.queued().executeAsList().firstOrNull { it.guid == post.guid }
+        val effective = if (existing?.kind == Outbox.ADD) Outbox.ADD else kind
+        outboxQueries.enqueue(post.guid, effective, Json.encodeToString(Post.serializer(), post), post.date.toString())
+    }
+
+    suspend fun queued(): List<Pair<String, Post>> = withContext(dispatchers.io) {
+        outboxQueries.queued().executeAsList().mapNotNull { row ->
+            runCatching { Json.decodeFromString(Post.serializer(), row.payload) }.getOrNull()?.let { row.kind to it }
+        }
+    }
+
+    suspend fun dequeue(guid: String) = withContext(dispatchers.io) { outboxQueries.dequeue(guid) }
+
+    object Outbox {
+        const val ADD = "add"
+        const val UPDATE = "update"
     }
 
     /**

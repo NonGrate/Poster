@@ -399,4 +399,6 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="filter_saved">Saved</string>
     <string name="bookmark_save">Save for later</string>
     <string name="bookmark_remove">Remove from saved</string>
+    <!-- Offline outbox (feature.offlineOutbox) -->
+    <string name="post_unsent_label">Not sent yet</string>
 </resources>

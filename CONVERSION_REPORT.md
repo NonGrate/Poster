@@ -321,6 +321,18 @@ Behind `feature.follows` (on by default; the UI needs `feature.authors`):
   drafts would need a table and a list. `DraftsInstrumentedTest` (not yet
   run on the emulator, see above).
 
+### 16. Tier 2, item 4: offline outbox (2026-09-19)
+
+`feature.offlineOutbox`: an add or edit that fails on the connection is
+kept in an `Outbox` table (schema v9, device only) as JSON, shown under My
+Posts with a "Not sent yet" pill, and sent at the start of the next feed
+refresh (arrival, pull, periodic). An edit of a post the server has never
+seen stays a single add. Refusals that are not the connection are not
+queued (retrying cannot change them); posts with a new image are not
+queued (the bytes are in memory). No connectivity listener: the refresh
+cadence is the retry. `OutboxTest` covers queue, edit-while-offline, flush
+and the non-connection refusal.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)
