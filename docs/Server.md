@@ -107,6 +107,8 @@ crashes, diagnostic events, audit log. Every action writes an audit row.
 
 ## The API, briefly
 
+The web app (`feature.web`): `POSTER_WEB_DIR` serves its bundle under `/app`; `POSTER_WEB_ORIGINS` (comma separated) allows other origins to call the API (CORS; development mode allows `http://localhost:8081`). See `docs/Web.md`.
+
 Everything except the auth and public routes wants `Authorization: Bearer <access token>`.
 Access tokens live 15 minutes; `POST /auth/refresh` with the refresh token (30 days,
 rotated on use) gets a new pair. The Ktor client in `shared` does this automatically.

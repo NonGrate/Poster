@@ -1,7 +1,7 @@
 # Poster — a Kotlin Multiplatform app template with a real backend
 
 Poster is a complete, working "posts + likes + groups" app for **Android and iOS**
-(and optionally **desktop**), with a **Ktor server**, an **admin panel**, sign-in
+(and optionally **desktop and the browser**), with a **Ktor server**, an **admin panel**, sign-in
 (email, magic link, Google, Apple), comments, images, follows, bookmarks, push
 notifications, an offline cache with an outbox, in-app purchases, screenshots
 tooling and a deploy pipeline. It is meant to be forked: change a properties
@@ -35,6 +35,7 @@ already there and already tested.
 | Posts | Create, edit, delete. Title + text, up to 5 tags, language, visibility (everyone / one group / only me). Feed with cursor paging, pull to refresh, "N new posts" offer, offline cache. |
 | Likes | Like/unlike with undo, like counts, a "Liked" tab, an opt-in "who liked this" roster. |
 | Desktop | Optional JVM desktop app with the same code (`feature.desktop`, off by default, needs `feature.support=false`; see docs/Desktop.md). |
+| Web | Optional browser app (Kotlin/Wasm) with the same code, online only, served by the Ktor server or any static host (`feature.web`, off by default; see docs/Web.md). |
 | Offline outbox | Posts written or edited offline wait on the device and are sent on the next refresh (`feature.offlineOutbox`). |
 | Bookmarks & drafts | Save posts for later (private) with a "Saved" feed filter; an unsent post is kept on the device and restored (`feature.bookmarks`, `feature.drafts`). |
 | Follows | Follow people from a post's author line; a "Following" feed filter (`feature.follows`, needs authors). |
@@ -64,7 +65,7 @@ already there and already tested.
 
 **Not yet supported** (see [`docs/Roadmap.md`](docs/Roadmap.md))
 
-- More than one image per post (or video/files), blocking users, multiple servers/tenancy, a web (Kotlin/JS or Wasm) client, Postgres (SQLite only; the seam is documented in `docs/Database.md`).
+- More than one image per post (or video/files), blocking users, multiple servers/tenancy, an offline cache in the browser (the web app is online only), Postgres (SQLite only; the seam is documented in `docs/Database.md`).
 
 ## Five-minute start
 
@@ -98,7 +99,7 @@ AI assistant? `CLAUDE.md` holds the same list as a playbook; in Claude Code,
   scheme, domain across the whole tree. → [`docs/Renaming.md`](docs/Renaming.md)
 - Push notifications and the activity list → [`docs/PushNotifications.md`](docs/PushNotifications.md) · Comments → [`docs/Comments.md`](docs/Comments.md) · Images on posts (storage, visibility, limits) → [`docs/Images.md`](docs/Images.md) · Liquid design flags → [`docs/LiquidDesign.md`](docs/LiquidDesign.md)
 - Sign-in providers → [`docs/SignIn.md`](docs/SignIn.md) · Purchases → [`docs/InAppPurchases.md`](docs/InAppPurchases.md) · Email → [`docs/Email.md`](docs/Email.md)
-- Follows, bookmarks, public groups → [`docs/Social.md`](docs/Social.md) · Offline cache, outbox, drafts → [`docs/Offline.md`](docs/Offline.md) · Desktop target → [`docs/Desktop.md`](docs/Desktop.md)
+- Follows, bookmarks, public groups → [`docs/Social.md`](docs/Social.md) · Offline cache, outbox, drafts → [`docs/Offline.md`](docs/Offline.md) · Desktop target → [`docs/Desktop.md`](docs/Desktop.md) · Web target → [`docs/Web.md`](docs/Web.md)
 
 ## Run
 
@@ -128,6 +129,7 @@ composeApp/              Compose Multiplatform app: ui/, viewmodel/, theme/, pre
   src/androidMain        Android entry point, notifications, sign-in, adaptive controls
   src/iosMain            iOS entry point, adaptive controls
   src/desktopMain        JVM desktop entry point and adaptive controls (feature.desktop)
+  src/wasmJsMain         browser entry point, index.html, adaptive controls (feature.web)
   src/billing/{enabled,disabled}   RevenueCat code, swapped by feature.support
   src/push/{enabled,disabled}      Firebase Messaging, swapped by feature.pushNotifications
   src/androidTest        instrumented suite (needs the local server)

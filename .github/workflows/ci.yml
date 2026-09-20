@@ -74,6 +74,20 @@ jobs:
       - name: Compile the desktop app
         run: ./gradlew :composeApp:compileKotlinDesktop --no-daemon
 
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Web target on, billing off (docs/Web.md)
+        run: sed -i -e 's/^feature.web=false/feature.web=true/' -e 's/^feature.support=true/feature.support=false/' poster.properties
+      - name: Compile both browser targets and build the bundle
+        run: ./gradlew :shared:compileKotlinWasmJs :composeApp:wasmJsBrowserDistribution --no-daemon
+
   ios:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: macos-15

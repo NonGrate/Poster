@@ -479,6 +479,36 @@ about 200 findings, then fix passes per module. What changed:
 - Verified: host build and all tests green; the emulator screenshot run is
   below.
 
+### 22. Web (Kotlin/Wasm) target (2026-09-20)
+
+`feature.web` (off by default; needs `feature.support=false`) adds `wasmJs()`
+to `shared` and `composeApp`. `composeApp/src/wasmJsMain` holds `Main.kt`
+(the same Koin graph as the phones, minus the database: `PostRepository`
+runs without a `PostLocalStore`, so the browser app is online only),
+`index.html`, and the browser actuals (file-input image picker, clipboard
+sharing, no notifications, Material look shared with desktop);
+`shared/src/wasmJsMain` keeps preferences and the session in `localStorage`.
+The server hosts the bundle under `/app` when `POSTER_WEB_DIR` is set and
+allows other origins through `POSTER_WEB_ORIGINS` (CORS; development mode
+allows the Kotlin dev server on 8081). `kotlinx-datetime` on Wasm needs
+`@js-joda/timezone`, added as an npm dependency (`kotlin-js-store/` holds
+the lock file). Along the way: `androidx.datastore` moved from `shared`'s
+`commonMain` to `androidMain` (the only user; it has no browser artifact).
+
+Verified: `wasmJsBrowserDistribution` builds (17 MB); served by the Ktor
+server and loaded in headless Chrome over the DevTools protocol, the sign-in
+screen renders with text in dark and light, the app calls the API, and the
+console shows no exceptions (with WebGL disabled Skiko cannot start, which is
+the only way to make it fail). Not exercised: signing in and using the app in
+a browser session, Safari and Firefox.
+
+Also today: an IDE-written `gradle/gradle-daemon-jvm.properties` had switched
+every module to JDK 25 class files and broke the server distribution on
+JDK 21 — dropped, ignored, and JVM targets pinned to 21 (§ commit
+`27222b3`). The brand drawables and launcher icons were regenerated from the
+recoloured SVGs (they still carried the old palette in the first web
+screenshot).
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

@@ -1,5 +1,10 @@
 package com.example.poster
 
+import io.ktor.server.http.content.staticFiles
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Url
+import io.ktor.server.plugins.cors.routing.CORS
 import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
@@ -104,6 +109,27 @@ fun Application.module(
             coerceInputValues = true
             ignoreUnknownKeys = true
         })
+    }
+
+    // The web app (feature.web) calls the API from a browser. Served by this
+    // server it shares the origin and needs nothing; served from elsewhere (the
+    // Kotlin dev server on 8081, a CDN) its origin must be listed here. Tokens
+    // travel in the Authorization header, never in cookies, so allowing an
+    // origin does not hand it a session.
+    val webOrigins = (System.getenv("POSTER_WEB_ORIGINS")
+        ?: if (System.getProperty("io.ktor.development").toBoolean()) "http://localhost:8081" else "")
+        .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    if (webOrigins.isNotEmpty()) install(CORS) {
+        webOrigins.forEach { origin ->
+            val url = Url(origin)
+            val port = url.specifiedPort.takeIf { it != 0 && it != url.protocol.defaultPort }?.let { ":$it" } ?: ""
+            allowHost(url.host + port, schemes = listOf(url.protocol.name))
+        }
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Patch)
     }
 
     // So every request shows up: method, path, status. Without it a failed
@@ -244,6 +270,11 @@ fun Application.module(
     val registerThrottle = AttemptThrottle()
 
     routing {
+        // The web app's bundle, when told where it is (`wasmJsBrowserDistribution`
+        // output). Same origin as the API, so no CORS and no second host.
+        System.getenv("POSTER_WEB_DIR")?.takeIf { it.isNotBlank() }?.let { dir ->
+            staticFiles("/app", java.io.File(dir)) { default("index.html") }
+        }
         landingPage()
         privacyPage()
         termsPage()

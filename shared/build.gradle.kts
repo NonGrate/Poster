@@ -29,7 +29,7 @@ val posterFeatureKeys = listOf(
     "groups", "tags", "likes", "sharing", "postCompletion", "postVisibility",
     "dailyReminder", "feedback", "support", "reports", "crashReports", "telemetry",
     "emailVerificationRequired", "multiLanguage", "googleSignIn", "appleSignIn",
-    "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors", "publicGroups", "follows", "bookmarks", "drafts", "offlineOutbox", "desktop",
+    "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors", "publicGroups", "follows", "bookmarks", "drafts", "offlineOutbox", "desktop", "web",
 )
 
 /**
@@ -41,7 +41,7 @@ val posterFeatureKeys = listOf(
  * `desktop` is also read straight out of poster.properties by composeApp's
  * build script, which decides whether to add the jvm("desktop") target at all.
  */
-val posterOptInFeatures = setOf("desktop", "liquidDesign", "liquidNavBar")
+val posterOptInFeatures = setOf("desktop", "web", "liquidDesign", "liquidNavBar")
 
 // The colour roles live in buildSrc/PosterPalette.kt, shared with composeApp's build script.
 
@@ -153,8 +153,17 @@ kotlin {
     // Class files for Java 21 whatever JDK runs the build (the server ships this jar).
     jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
 
+    // Opt-in (feature.web): the browser. Same property composeApp reads.
+    if (posterProperties.getProperty("feature.web", "false").trim().toBoolean()) {
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+        wasmJs { browser() }
+    }
+
     sourceSets {
         androidMain.dependencies {
+            // Preferences on Android; iOS, the JVM and the browser have their own stores.
+            implementation(libs.androidx.datastore)
+            implementation(libs.androidx.datastore.preferences)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.android)
             implementation(libs.sqldelight.android.driver)
@@ -163,6 +172,12 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqldelight.native.driver)
+        }
+        if (posterProperties.getProperty("feature.web", "false").trim().toBoolean()) {
+            getByName("wasmJsMain").dependencies {
+                // localStorage for preferences and the session (docs/Web.md).
+                implementation(libs.kotlinx.browser)
+            }
         }
         jvmMain.dependencies {
             implementation(libs.sqldelight.sqlite.driver)
@@ -180,9 +195,6 @@ kotlin {
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
             implementation(libs.koin.core)
-
-            implementation(libs.androidx.datastore)
-            implementation(libs.androidx.datastore.preferences)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

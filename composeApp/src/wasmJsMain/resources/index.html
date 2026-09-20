@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Where the API lives. Empty = this page's origin (the Ktor server can host
+       this bundle under /app); the dev server on :8081 falls back to :8080. -->
+  <meta name="poster-server" content="">
+  <meta name="poster-version" content="">
+  <title>Poster</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #F9F9FA; font-family: system-ui, sans-serif; }
+    #loading { position: absolute; inset: 0; display: grid; place-items: center; color: #6D6B93; }
+  </style>
+  <script type="application/javascript" src="poster.js"></script>
+</head>
+<body>
+  <div id="loading">Loading…</div>
+</body>
+</html>

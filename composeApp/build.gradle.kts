@@ -32,6 +32,11 @@ val desktopEnabled = posterProperties.getProperty("feature.desktop", "false").tr
 if (desktopEnabled && supportEnabled) {
     throw GradleException("feature.desktop=true needs feature.support=false: the billing SDK has no desktop build. See docs/Desktop.md.")
 }
+// Same shape for the browser (feature.web): opt-in, and no billing SDK there either.
+val webEnabled = posterProperties.getProperty("feature.web", "false").trim().toBoolean()
+if (webEnabled && supportEnabled) {
+    throw GradleException("feature.web=true needs feature.support=false: the billing SDK has no browser build. See docs/Web.md.")
+}
 
 /**
  * The window colours (status/navigation bar, window background) as Android
@@ -319,6 +324,20 @@ kotlin {
     }
 
     if (desktopEnabled) jvm("desktop") { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+    if (webEnabled) {
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+        wasmJs {
+            outputModuleName.set("poster")
+            browser {
+                commonWebpackConfig {
+                    outputFileName = "poster.js"
+                    // 8080 is the local backend; the dev server sits beside it.
+                    devServer = (devServer ?: org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.DevServer()).copy(port = 8081)
+                }
+            }
+            binaries.executable()
+        }
+    }
 
     sourceSets {
         // Same pattern as billing: Firebase Messaging only when the feature is on.
@@ -382,6 +401,16 @@ kotlin {
         // emulator, so they run on every build rather than when one is up.
         androidUnitTest.dependencies {
             implementation(kotlin("test"))
+        }
+
+        if (webEnabled) {
+            getByName("wasmJsMain").dependencies {
+                // The browser's fetch, as Ktor's engine; the DOM for the file picker and storage.
+                implementation(libs.ktor.client.js)
+                implementation(libs.kotlinx.browser)
+                // Time zones other than UTC: kotlinx-datetime on Wasm reads them from js-joda's data.
+                implementation(npm("@js-joda/timezone", "2.3.0"))
+            }
         }
 
         if (desktopEnabled) {
