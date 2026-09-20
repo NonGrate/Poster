@@ -70,7 +70,7 @@ jobs:
           name: app-release.ipa
           path: ${{ runner.temp }}/export/*.ipa
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v3
+        uses: apple-actions/upload-testflight-build@v5
         with:
           # Whatever the export produced: rename-app.sh changes the product name.
           app-path: ${{ runner.temp }}/export/*.ipa
