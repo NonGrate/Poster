@@ -31,10 +31,10 @@ echo "building the desktop jar"
 ./gradlew :composeApp:packageUberJarForCurrentOS -q --no-daemon
 JAR=$(ls composeApp/build/compose/jars/*.jar | head -1)
 
-capture() { # name dark window
-  local name=$1 dark=$2 window=$3 home="$TMP/home-$1"
+capture() { # name dark window [extra preference lines]
+  local name=$1 dark=$2 window=$3 extra=${4:-} home="$TMP/home-$1"
   mkdir -p "$home"
-  printf 'user_id=%s\nfollow_system_theme=false\ndark_theme=%s\n' "$(cat "$TMP/user_id")" "$dark" > "$home/preferences.properties"
+  printf 'user_id=%s\nfollow_system_theme=false\ndark_theme=%s\n%s\n' "$(cat "$TMP/user_id")" "$dark" "$extra" > "$home/preferences.properties"
   cp "$TMP/session.json" "$home/session.json"
   POSTER_HOME=$home POSTER_WINDOW=$window POSTER_RENDER_TO="$OUT/$name.png" \
     POSTER_SERVER_HOST=${HOST%%:*} POSTER_SERVER_PORT=${HOST##*:} \
@@ -43,3 +43,4 @@ capture() { # name dark window
 capture light-01-feed false 480x900
 capture dark-01-feed true 480x900
 capture light-05-wide-feed false 1200x800
+capture light-06-wide-rail-expanded false 1200x800 'nav_rail_expanded=true'

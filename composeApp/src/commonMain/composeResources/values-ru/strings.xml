@@ -387,4 +387,7 @@
     <string name="post_unsent_label">Ещё не отправлено</string>
     <!-- Две колонки на широком экране -->
     <string name="two_pane_empty">Выберите запись, чтобы прочитать её здесь.</string>
+    <!-- Боковая навигация на широком экране -->
+    <string name="nav_expand">Показать названия вкладок</string>
+    <string name="nav_collapse">Скрыть названия вкладок</string>
 </resources>

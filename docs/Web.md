@@ -34,7 +34,7 @@ origin does not hand it a session; CORS is only about which pages may call.
 | Concern | Web |
 |---|---|
 | Storage | **No SQLite.** `PostRepository` runs without a `PostLocalStore`: the feed is fetched, not cached; My Posts and Liked come from their requests; the offline outbox and drafts are off (the flags are ignored there). Preferences and the session live in `localStorage`. |
-| Look | The Android (Material 3) components, the same file as the desktop actuals. Phone-width layouts; the two-pane layout kicks in above 840 px. |
+| Look | The Android (Material 3) components, the same file as the desktop actuals. Below 840 px the phone layout with a bottom bar; above it a left rail (icons, expandable to titles) and the post beside the list. |
 | Images | `<input type="file">`; the file goes up as it is (no re-encoding in the browser), so the 5 MB limit applies to the original. |
 | Sharing | Copies the link to the clipboard. |
 | Sign-in | Email and password, magic link (the link opens the web app when `app.webOrigin` is where the app is served). No Google or Apple sign-in. |

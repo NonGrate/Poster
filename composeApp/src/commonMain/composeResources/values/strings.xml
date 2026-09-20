@@ -406,4 +406,7 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="post_unsent_label">Not sent yet</string>
     <!-- Two-pane layout on wide screens -->
     <string name="two_pane_empty">Pick a post to read it here.</string>
+    <!-- Side navigation on wide screens -->
+    <string name="nav_expand">Show tab names</string>
+    <string name="nav_collapse">Hide tab names</string>
 </resources>

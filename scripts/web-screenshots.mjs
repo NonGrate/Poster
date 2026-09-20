@@ -41,5 +41,10 @@ await click(420, 868); await sleep(4000); await shot('light-04-settings');
 await click(60, 868); await sleep(3000);
 await size(1280, 800); await sleep(4000); await shot('light-05-wide-feed');
 await click(300, 300); await sleep(4000); await shot('light-06-wide-details');
+// The rail's toggle sits top-left; expanded it shows the tab names.
+await click(40, 36); await sleep(3000); await shot('light-07-wide-rail-expanded');
 if (errors.length) { console.error('page exceptions:\n' + errors.join('\n')); }
-chrome.kill(); fs.rmSync(profile, { recursive: true, force: true }); process.exit(errors.length ? 1 : 0);
+chrome.kill();
+// Chrome may still be writing its profile for a moment; the directory is in the temp folder anyway.
+await sleep(1000); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* left for the OS */ }
+process.exit(errors.length ? 1 : 0);

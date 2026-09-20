@@ -18,7 +18,7 @@ What the desktop app does differently:
 |---|---|
 | Server | `POSTER_SERVER_HOST`, `POSTER_SERVER_PORT`, `POSTER_SERVER_SCHEME` (env or `-Dposter.server.host=` etc.), default `localhost:8080` over http. |
 | Storage | Everything under `~/.poster`: the SQLite cache (`poster.db`), preferences (`preferences.properties`), the session (`session.json`, owner-readable). Override the database with `-Dposter.database=`. |
-| Look | The Android (Material 3) components, see `ui/platform/Adaptive.desktop.kt`. No system back gesture. |
+| Look | The Android (Material 3) components, see `ui/platform/Adaptive.desktop.kt`. No system back gesture. From 840 dp the tabs sit in a rail on the left (icons; a toggle adds the titles, remembered across launches) and the post opens beside the list. |
 | Images | The AWT file dialog; the picked file is scaled to the phones' limits with ImageIO. |
 | Sharing | Copies the link to the clipboard. |
 | Sign-in | Email and password, magic link. No Google or Apple sign-in. |

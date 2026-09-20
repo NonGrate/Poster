@@ -1,5 +1,8 @@
 package com.example.poster.ui
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.example.poster.ui.components.SideNavigation
 import poster.composeapp.generated.resources.two_pane_empty
 import com.example.poster.ui.components.ContentMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -154,6 +157,9 @@ fun MainScreen(
         draft = if (isLoggedIn) appPreferences.postDraft() else null
     }
     val draftScope = rememberCoroutineScope()
+    // The side rail's width on wide screens, remembered across launches.
+    var railExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { railExpanded = appPreferences.navRailExpanded() }
     fun keepDraft(kept: PostDraft?) {
         draft = kept
         draftScope.launch { appPreferences.setPostDraft(kept) }
@@ -362,15 +368,34 @@ fun MainScreen(
             }
             // The floating bar shows the content through itself, so the content
             // is recorded as it draws (see LiquidGlass.kt). Null with the docked bar.
-            val backdrop = if (Features.LIQUID_NAV_BAR && fixedTab == null) rememberGlassBackdrop() else null
-            Box(modifier = Modifier.fillMaxSize()) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                // Wide (the same breakpoint as the two-pane content): the tabs move
+                // to a rail on the left, and neither bottom bar is drawn. The host
+                // that owns the tabs (fixedTab) keeps its own.
+                val wideNav = maxWidth >= TwoPaneMinWidth && fixedTab == null
+                val floatingBar = Features.LIQUID_NAV_BAR && fixedTab == null && !wideNav
+                val backdrop = if (floatingBar) rememberGlassBackdrop() else null
                 CompositionLocalProvider(
                     LocalGlassBackdrop provides backdrop,
-                    LocalBottomBarInset provides if (Features.LIQUID_NAV_BAR && fixedTab == null) LiquidNavBarInset else 0.dp,
+                    LocalBottomBarInset provides if (floatingBar) LiquidNavBarInset else 0.dp,
                 ) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                if (wideNav) {
+                    SideNavigation(
+                        destinations = mainDestinations(),
+                        selectedRoute = selectedTab,
+                        onSelect = selectTab,
+                        expanded = railExpanded,
+                        onToggleExpanded = {
+                            railExpanded = !railExpanded
+                            draftScope.launch { appPreferences.setNavRailExpanded(railExpanded) }
+                        },
+                    )
+                }
                 Scaffold(
+                    modifier = Modifier.weight(1f),
                     bottomBar = {
-                        if (!Features.LIQUID_NAV_BAR && fixedTab == null) BottomNavigationBar(selectedTab, selectTab)
+                        if (!wideNav && !Features.LIQUID_NAV_BAR && fixedTab == null) BottomNavigationBar(selectedTab, selectTab)
                     }
                 ) { paddingValues ->
                     Box(
@@ -466,8 +491,9 @@ fun MainScreen(
                       }
                     }
                 }
+                }  // Row
                 }
-                if (Features.LIQUID_NAV_BAR && fixedTab == null) {
+                if (floatingBar) {
                     LiquidNavBar(
                         destinations = mainDestinations(),
                         selectedRoute = selectedTab,

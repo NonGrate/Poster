@@ -574,6 +574,25 @@ the list); README, CLAUDE.md and `/add-feature-flag` point at the catalogue.
 Verified: the default build and tests, and the dependency error firing for
 `authors=false` with `follows=true`.
 
+### 26. Side navigation on wide screens (2026-09-20)
+
+From the two-pane breakpoint (840 dp) the tabs leave the bottom bar for a
+rail on the left: `ui/components/SideNavigation.kt`, a Material
+`NavigationRail` of icons that a toggle at its top turns into a permanent
+drawer with icons and titles; the choice is kept in `AppPreferences`
+(`nav_rail_expanded`, a device setting). `MainScreen` decides rail vs bottom
+bar in the same `BoxWithConstraints` that decides one or two panes; the
+floating glass bar is not drawn when the rail is. Same destinations and test
+tags as the bottom bar. Desktop and web screenshots retaken, with an
+expanded-rail shot added to both; Android phones are unaffected (they never
+reach the breakpoint), tablets in landscape get the rail.
+
+Asked at the same time: why the iOS screenshots show no Liquid Glass bar —
+`feature.liquidNavBar` is opt-in, and the XCUITest that drives the capture
+taps by Compose test tag, which the SwiftUI tab buttons do not carry; a
+native-bar screenshot set needs identifiers on those buttons (or a
+title fallback in the test helper) and a run with the flag on.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

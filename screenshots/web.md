@@ -31,3 +31,7 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ![wide details](web/light-06-wide-details.png)
 
+## wide rail expanded
+
+![wide rail expanded](web/light-07-wide-rail-expanded.png)
+

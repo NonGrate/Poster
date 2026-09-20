@@ -49,6 +49,7 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private val KEY_PUSH_TOKEN = "push_token"
     private val KEY_PUSH_PROMPTED = "push_prompted"
     private val KEY_POST_DRAFT = "post_draft"
+    private val KEY_NAV_RAIL_EXPANDED = "nav_rail_expanded"
 
     /** The push token the server was last told about, so signing out can withdraw it. */
     suspend fun pushToken(): String? = dataStore.getString(KEY_PUSH_TOKEN, null)
@@ -115,6 +116,10 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private var userIdWritten = false
     private var defaultVisibilityWritten = false
     private var reminderWritten = false
+
+    /** Whether the side rail on wide screens shows titles beside the icons. A device setting, not a session one. */
+    suspend fun navRailExpanded(): Boolean = dataStore.getBoolean(KEY_NAV_RAIL_EXPANDED, false)
+    suspend fun setNavRailExpanded(expanded: Boolean) = dataStore.putBoolean(KEY_NAV_RAIL_EXPANDED, expanded)
 
     /** The unsent post, if any (feature.drafts). Goes with the session. */
     suspend fun postDraft(): PostDraft? =

@@ -15,3 +15,7 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ![wide feed](desktop/light-05-wide-feed.png)
 
+## wide rail expanded
+
+![wide rail expanded](desktop/light-06-wide-rail-expanded.png)
+
