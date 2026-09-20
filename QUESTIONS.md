@@ -6,7 +6,7 @@ to revisit, plus things only you can answer. Delete this file (and
 
 ## Decisions to confirm
 
-1. **Location and name.** The copy is at `/Users/alisunov/Code/poster-template`
+1. **Location and name.** The copy is at `<your checkout>/poster-template`
    (a sibling of the Share-Pray checkout, which I did not touch). The template is
    called **Poster**, after the directory you were working in; package
    `com.example.poster`, app id `com.example.poster`, scheme `poster://`, domain
@@ -17,7 +17,7 @@ to revisit, plus things only you can answer. Delete this file (and
    which is the point (Share-Pray's history contains real user data, personal
    emails, a RevenueCat key and an Apple team id). When you are happy:
    ```bash
-   cd /Users/alisunov/Code/poster-template && git init -b main && git add -A && git commit -m "Poster: KMP app template"
+   cd poster-template && git init -b main && git add -A && git commit -m "Poster: KMP app template"
    ```
    Note `versionCode` is counted from commits, so the first release build wants
    at least one.
@@ -45,15 +45,15 @@ to revisit, plus things only you can answer. Delete this file (and
    files for little gain at this size. *Good enough, or do you want the module
    split?*
 
-7. **Comments** (your example of a toggle) do not exist in Share-Pray, so there
-   is no `feature.comments`. Listed in `docs/Roadmap.md` with where it would go.
-   *Should the template ship a comments feature?*
+7. **Comments** (your example of a toggle) did not exist in the original app.
+   Shipped 2026-09-18 as `feature.comments` (Tier 1 of the roadmap), see
+   `docs/Comments.md`.
 
-8. **Migrations collapsed to v1.** The 15 historical `.sqm` files and baseline
-   `.db` files are gone; the schema is the current `.sq` files, `databases/1.db`
-   is regenerated. The server's legacy "pre-versioning" column patch-up code is
-   removed. `SchemaMigrationTest` is now data-driven and will exercise real
-   migrations as soon as a `2.sqm` exists.
+8. **Migrations collapsed to v1** at conversion time: the 15 historical `.sqm`
+   files and baseline `.db` files are gone, the server's legacy column patch-up
+   code with them. Every feature since added one clean migration (`1.sqm` …),
+   and `SchemaMigrationTest` exercises each of them; `docs/Database.md` lists
+   the current version.
 
 9. **Legal pages** (privacy, terms, child safety) were rewritten generically and
    carry "Operator:" comments for the hotline, hosting location and dates. They
@@ -88,10 +88,9 @@ to revisit, plus things only you can answer. Delete this file (and
     `feature.liquidNavBar` (floating glass capsule over the content). The glass
     is drawn by Compose — a recorded layer, blurred and tinted — so it is the
     same on Android 12+ and iOS; Android 8–11 gets the tint without the blur.
-    It is **not** the native iOS 26 `UIGlassEffect` tab bar: that needs SwiftUI
-    to own the tabs, which is a navigation rewrite (noted in `Roadmap.md`).
-    *Is the Compose version what you meant, or do you want the native iOS bar
-    even at that cost?*
+    On iOS the tabs are owned by SwiftUI when `feature.liquidNavBar` is on
+    (decision 2026-09-19), so iOS 26 draws its own Liquid Glass bar and the
+    Compose capsule is Android's.
 
 15. **Tier 1 defaults** (authors on confirmed 2026-09-19). Comments, push/activity, magic link and authors are
     all **on** by default, so a fresh fork looks like a modern posts app;
@@ -127,8 +126,8 @@ to revisit, plus things only you can answer. Delete this file (and
 
 - `AGP 9` escape hatches (`android.builtInKotlin=false`, `android.newDsl=false`)
   in `gradle.properties` — still needed with the KMP plugin; the comment says so.
-- `compose.materialIconsExtended` is deprecated upstream (pinned to 1.7.3);
-  the build warns. Migrating to Material Symbols is a chore for later.
+- `compose.materialIconsExtended` is deprecated upstream; the build warns.
+  Migrating to Material Symbols is a chore for later.
 - The admin panel is not feature-flagged; it shows whatever tables have data.
 - `login_google_soon` string and `googleCredentials.comingSoon` path are dead
   on both platforms now that native Google sign-in exists on iOS; harmless.

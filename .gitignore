@@ -412,3 +412,4 @@ iosApp/Configuration/Local.xcconfig
 # A server started from the repo root with no path configured writes here.
 /post.db
 /uploads/
+/backups/

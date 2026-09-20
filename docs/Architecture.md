@@ -69,8 +69,8 @@ authors, so cascades would break its cache. `DatabaseDriverFactory` (jvm) reads
 Layouts and hierarchy are shared. Only controls a user would notice as foreign
 differ, and they go through `ui/platform/Adaptive.kt` — a closed list of
 `expect` composables (switch, back button, nav bar, time picker, confirm dialog,
-text field, settings section, card elevation, edge-swipe back). Adding a
-fourteenth divergence is a decision to argue for, not a convenience.
+text field, settings section, card elevation, edge-swipe back, and a few
+more). Adding one more divergence is a decision to argue for, not a convenience.
 
 ### Deep links
 
@@ -101,7 +101,8 @@ never from ids in the body.
    column to `CREATE TABLE`, and to `insertPost` / `insertMyPost` / `updatePost`
    / `SELECT *` mappers as needed.
 2. Write the migration: `shared/src/commonMain/sqldelight/<current version>.sqm`
-   (`1.sqm` took 1→2 for `Post.image`, so the next is `2.sqm`) with the
+   (`N.sqm` migrates *from* version N; `1.sqm` took 1→2 for `Post.image`, and
+   the highest `.sqm` present tells you the current N) with the
    `ALTER TABLE`, then `./gradlew :shared:generatePostDatabaseSchema` and commit
    the new `databases/<N+1>.db`. [`Database.md`](Database.md) has the rules;
    `Post.image` is the worked example across every layer below.

@@ -3,11 +3,11 @@
 | Suite | Command | Needs | Roughly |
 |---|---|---|---|
 | Shared unit (jvm) | `./gradlew :shared:jvmTest` | nothing | validation rules, invite-link parsing, session restore, local store, migrations |
-| Server routes | `./gradlew :server:test` | nothing (temp SQLite per test) | ~350 tests: auth, posts, feed paging/filters, groups, invites, admin panel, mail, sign-in verifiers, backups |
+| Server routes | `./gradlew :server:test` | nothing (temp SQLite per test) | ~400 tests: auth, posts, feed paging/filters, groups, invites, admin panel, mail, sign-in verifiers, backups |
 | App unit | `./gradlew :composeApp:testRemoteDebugUnitTest` | nothing | ViewModel and feed-rule tests from `commonTest` (`PeriodicRefreshTest` is excluded here and runs on the iOS simulator) |
 | Architecture | `scripts/check-architecture.sh` | python3 | layer rules, hardcoded text, string placeholders in both languages |
-| Android instrumented | `./gradlew :composeApp:connectedE2eDebugAndroidTest` | emulator + `scripts/run-local-backend.sh` | 50 scenarios against the real server |
-| iOS UI | `scripts/run-ios-integration-tests.sh` | simulator + local server | 7 scenarios (XCUITest) |
+| Android instrumented | `./gradlew :composeApp:connectedE2eDebugAndroidTest` | emulator + `scripts/run-local-backend.sh` | 25 classes against the real server |
+| iOS UI | `scripts/run-ios-integration-tests.sh` | simulator + local server | 10 scenarios (XCUITest) |
 
 CI (`.github/workflows/ci.yml`) runs the first four on every push.
 
@@ -29,7 +29,7 @@ catalogue. `TestUtils` waits for test tags rather than asserting immediately —
 screens arrive after a network round trip.
 
 Run it **class by class** rather than in one invocation. A process crash ends
-the whole run with `Expected 50 tests, received N`, which says nothing about the
+the whole run with `Expected N tests, received M`, which says nothing about the
 code; per-class runs contain it.
 
 When it fails and the code is fine (it happens):

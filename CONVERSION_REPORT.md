@@ -359,6 +359,87 @@ flags flipped; started once under an isolated `HOME`. Docs: `docs/Desktop.md`.
   fourteen `DatabaseManager(DatabaseDriverFactory())` constructions). That
   is also a review item, see below.
 
+### 19. Code review round (2026-09-19/20)
+
+Five read-only review passes (server, shared, app, tests, docs and tooling),
+about 200 findings, then fix passes per module. What changed:
+
+**Server** (395 tests, 0 failures after; 390 before)
+- Security: `POST /posts` now checks the visibility value, forces public when
+  `feature.postVisibility` is off, and refuses a group post from somebody
+  not in the group; likes and comment counts from the body are no longer
+  stored. `/favorites` answers 404 for a post the caller cannot see, as
+  `/bookmarks` did. `GET /groups` (every group with its invite code, to any
+  signed-in caller; nothing used it) is gone, and `byId` / `user` / `public`
+  responses carry the invite code only to owners and admins. Admin login and
+  registration are throttled; group routes authorise before they reveal
+  whether a group exists; the owner cannot "leave" their own group; crash and
+  event intake no longer let a client overwrite rows by replaying a guid.
+- Correctness: account merge now carries comments, follows, bookmarks,
+  notifications and devices across (they were cascaded away); `postById`
+  is a query instead of a full-table scan; expired account tokens are swept
+  at startup.
+- Structure: one SQLite connection for the whole server (it was 17, each
+  re-running the migration check), passed into every repository; one
+  `withLikeCount`, one `displayAuthor`, one invite-code generator (the admin
+  copy had a weaker alphabet and no collision check); the admin panel, the
+  `/magic` page and the social verifiers now respect their flags.
+- Left for later: splitting `Application.kt` (~1,650 lines) into route files
+  as comments/uploads/push already are; dropping the `{userId}` segment from
+  the favourites paths (client and server together).
+
+**Shared**
+- Schema v10: indexes on the feed order, the author, the share token and
+  user status (`9.sqm`). Ten dead queries, two duplicate queries and eight
+  dead API methods removed (`TagApi` is one method now); the extra
+  `GET favorites/me` on every post write is gone, and so is the mutable
+  `isFavorite` field on `Post`. `PostRepository` lost its unused `UserApi`.
+- Flags reach the DI graph: comments, feedback and the matching view models
+  are bound only when on; the opt-in flags (`desktop`, `liquidDesign`,
+  `liquidNavBar`) default to false in the generator too. A no-op `CrashStore`
+  on the JVM so the desktop app resolves `CrashUploader`.
+- `KtorIdSetApi` under follows and bookmarks; `bodyOr` / `failIfNotSuccess`
+  replace eight copies of the same response handling.
+
+**App**
+- Compose hygiene: the scroll-collapse fraction is read in `graphicsLayer`
+  instead of recomposing whole screens per frame; list items are keyed by
+  guid; an unremembered `derivedStateOf`, an unsynchronised image cache, a
+  set mutated while iterated in the glass layer, and a side effect inside
+  `remember` are fixed; the unread badge, follows, bookmarks and the draft
+  now re-read when the signed-in user changes.
+- Flags: follows need authors; the "Everyone" chip needs groups; the
+  visibility picker offers "group" only with groups; the four overlay
+  screens are compiled out with their flags.
+- Less code: `Overlay` replaces four booleans in `MainScreen`; `SettingsRow`
+  grew a chevron; `PostCard.kt` split into `PostPills.kt` and
+  `PostBadges.kt` (two pill pairs and two like pills folded into one each);
+  dead composables, view-model functions and a shadowed string removed.
+  Details shows the same save / follow actions as the feed.
+- Accessibility: the liquid tab bar announces tabs, pills carry semantics,
+  the notification row is a button.
+
+**Tests, docs, tooling**
+- The architecture check's "shared must not import the UI" rule had a
+  typo in its regex and could never fail; fixed (and still passes). The
+  release and deploy workflows read `secrets` in a step `if`, which does not
+  parse in a fresh fork; the Dockerfile's image name did not match what CI
+  publishes; the iOS upload path assumed the unrenamed product. `.dockerignore`
+  now excludes signing material. Docs: schema version, API table, feature
+  table columns, comments doc, the `AGENTS.md` copy (now a pointer), stale
+  counts and next-migration numbers.
+- Tests: one `ServerTestSupport.kt` replaced 38 private `withServer` copies,
+  12 `confirmed`, 7 hand-written `postPost` JSON strings (about 900 lines);
+  shared fakes (`NoopPostApi`, `NoopUserApi`, `withTempDatabase`) did the
+  same for the unit tests. Every flag-dependent test now returns early or
+  `assumeTrue`s on its flag, so the whole suite passes with **every flag off**
+  as well as on (it did not before: 17 failures). Instrumented tests clean up
+  what they seed and no longer delete the shared backend's fixtures. Fixed
+  sleeps in negative assertions replaced by anchored positive ones; two SQL
+  list queries got a `rowid` tiebreaker. Totals after: server 400, shared 75,
+  app unit 59, all green; the version catalog lost seven unused aliases and
+  its string-literal test dependencies.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

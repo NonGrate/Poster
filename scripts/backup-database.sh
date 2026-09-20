@@ -28,7 +28,7 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 
-stamp="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
+stamp="${POSTER_BACKUP_STAMP:-$(date -u +%Y-%m-%dT%H-%M-%SZ)}"
 target="$BACKUP_DIR/post-$stamp.db.gz"
 working="$(mktemp "${TMPDIR:-/tmp}/poster-backup.XXXXXX")"
 trap 'rm -f "$working" "$working.gz"' EXIT

@@ -6,7 +6,10 @@ admin panel.
 
 ```
 server/src/main/kotlin/com/example/poster/
-  Application.kt        wiring + the /posts, /accounts, /favorites, /groups routes
+  Application.kt        wiring + the /posts, /accounts, /favorites, /bookmarks, /follows, /groups routes
+  comments/             /posts/{id}/comments and the comments repository (feature.comments)
+  push/                 device registration, the activity list, FCM/APNs senders (feature.pushNotifications)
+  uploads/              /uploads: the image store and routes (feature.images)
   auth/                 JWT config, register/login/refresh, verification, reset, social sign-in,
                         account pages (verify, reset, delete), group invitation page
   admin/                the HTMX admin panel and its session/CSRF handling
@@ -14,6 +17,7 @@ server/src/main/kotlin/com/example/poster/
   mail/                 Mailer interface, Resend implementation, invitation emails
   notify/               Telegram alerts (crashes, feedback, reports)
   LandingPage.kt, PrivacyPage.kt, TermsPage.kt, ChildSafetyPage.kt, PostSharePage.kt
+  SiteChrome.kt, SiteLanguage.kt   shared page frame and language pick for the web pages
   WellKnownRoutes.kt    assetlinks.json, apple-app-site-association, Apple domain association
   DebugFixtures.kt      /debug/fixtures/* — reset and seed, development mode only
   HealthRoutes.kt       GET /health
@@ -109,10 +113,15 @@ rotated on use) gets a new pair. The Ktor client in `shared` does this automatic
 
 | Area | Routes |
 |---|---|
-| Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/verify`, `/auth/verify/resend`, `/auth/password/forgot`, `/auth/password/reset`, `/auth/social` (Google/Apple id token), `/auth/apple/callback` (Apple form_post), `/auth/social/link`, `/auth/social/merge`, `GET /auth/me` |
-| Posts | `GET /posts?limit&beforeDate&beforeGuid&tags&groups`, `GET /posts/mine`, `GET /posts/byId/{id}`, `POST /posts` (create or update, author-gated), `DELETE /posts/{id}`, `POST /posts/{id}/complete`, `/reopen`, `/share`, `/report`, `GET /shared/{token}` |
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/verify`, `/auth/verify/resend`, `/auth/password/forgot`, `/auth/password/reset`, `/auth/magic/request` + `/auth/magic` (feature.magicLink), `/auth/social` (Google/Apple id token), `/auth/apple/callback` (Apple form_post), `/auth/social/link`, `/auth/social/merge`, `GET /auth/me` |
+| Posts | `GET /posts?limit&beforeDate&beforeGuid&tags&groups&q&following&saved`, `GET /posts/mine`, `GET /posts/byId/{id}`, `POST /posts` (create or update, author-gated), `DELETE /posts/{id}`, `POST /posts/{id}/complete`, `/reopen`, `/share`, `/report`, `GET /shared/{token}` |
+| Comments | `GET|POST /posts/{id}/comments`, `DELETE /posts/{id}/comments/{commentId}` (feature.comments) |
+| Images | `POST /uploads` (multipart, the caller's own), `GET /uploads/{id}` (under the post's visibility; avatars readable by any signed-in user) (feature.images) |
+| Bookmarks | `GET /bookmarks`, `POST|DELETE /bookmarks/{postId}` (feature.bookmarks) |
+| Follows | `GET /follows`, `POST|DELETE /follows/{userId}` (feature.follows) |
+| Activity & push | `POST|DELETE /devices` (push tokens), `GET /notifications`, `GET /notifications/unread`, `POST /notifications/read` (feature.pushNotifications) |
 | Likes | `GET /favorites/me`, `POST|DELETE /favorites/{userId}/{postId}`, `GET /favorites/check/{userId}/{postId}`, `GET /favorites/count/{postId}`, `GET /favorites/post/{postId}/people` |
-| Groups | `GET /groups`, `/byId/{id}`, `/byInvite/{code}`, `/user/{userId}`, `POST /groups/create`, `/join`, `DELETE /groups/leave`, `/{id}`, members: `GET /{id}/members`, `DELETE /{id}/members/{memberId}`, `POST /{id}/members/{memberId}/role`; invites: `GET|POST /{id}/invites`, `POST /{id}/invites/email`, `/{id}/invites/{code}/revoke` |
+| Groups | `GET /groups/public` (feature.publicGroups), `/byId/{id}`, `/byInvite/{code}`, `/user/{userId}`, `POST /groups/create`, `/join`, `POST /groups/{id}/visibility`, `DELETE /groups/leave`, `/{id}`, members: `GET /{id}/members`, `DELETE /{id}/members/{memberId}`, `POST /{id}/members/{memberId}/role`; invites: `GET|POST /{id}/invites`, `POST /{id}/invites/email`, `/{id}/invites/{code}/revoke` |
 | Tags | `GET /tags`, `/tags/byName/{q}`, `/tags/forPost/{id}` |
 | Accounts | `GET /accounts/byId/{id}` (own only), `POST /accounts` (own profile; role/status are never client-writable), `DELETE /accounts/{id}` |
 | Feedback | `GET|POST /feedback` |

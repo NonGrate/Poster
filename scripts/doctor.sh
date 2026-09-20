@@ -15,7 +15,9 @@ bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
 echo "Required for the server and the shared module:"
 if command -v java >/dev/null; then
   v=$(java -version 2>&1 | head -1)
-  case "$v" in *"21"*|*"22"*|*"23"*|*"24"*|*"25"*) ok "java: $v" ;; *) warn "java found but 21+ is expected: $v" ;; esac
+  # The major version is the first number in the quoted string ("21.0.7" -> 21; "1.8.0" -> 8).
+  major=$(printf '%s' "$v" | sed -n 's/.*"\([0-9]*\)\.\([0-9]*\).*/\1 \2/p' | awk '{ print ($1 == 1) ? $2 : $1 }')
+  if [ -n "$major" ] && [ "$major" -ge 21 ] 2>/dev/null; then ok "java: $v"; else warn "java found but 21+ is expected: $v"; fi
 else bad "java not found — install a JDK 21 (e.g. brew install --cask temurin@21)"; fi
 [ -x ./gradlew ] && ok "gradlew present" || bad "gradlew missing or not executable (chmod +x gradlew)"
 command -v sqlite3 >/dev/null && ok "sqlite3 (backups, inspecting the database)" || warn "sqlite3 not found — only needed for scripts/backup-database.sh"

@@ -31,6 +31,8 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -69,8 +71,9 @@ jobs:
           docker push "${IMAGE_LC}:${GITHUB_REF_NAME}"
           docker push "${IMAGE_LC}:${GITHUB_SHA}"
 
+      # `secrets` cannot be read in a step `if`; the value is copied to env first.
       - name: Trigger deployment
-        if: ${{ secrets.DEPLOY_WEBHOOK != '' }}
+        if: ${{ env.DEPLOY_WEBHOOK != '' }}
         env:
           DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}

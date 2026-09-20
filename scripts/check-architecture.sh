@@ -29,7 +29,7 @@ fi
 # 2. shared/ must not reach up into the UI.
 #
 # shared is consumed by the server too, which has no Compose on its classpath.
-up_refs=$(grep -rn "kg\.example\.poster\.ui\." shared/src --include="*.kt" 2>/dev/null || true)
+up_refs=$(grep -rn "com\.example\.poster\.ui\." shared/src --include="*.kt" 2>/dev/null || true)
 if [ -n "$up_refs" ]; then
   fail "shared/ references the UI layer:"
   echo "$up_refs" >&2

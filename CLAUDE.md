@@ -31,8 +31,9 @@ scripts/check-architecture.sh
 ```
 
 If the schema changed: add `shared/src/commonMain/sqldelight/<N>.sqm` where N is
-the *current* version (`1.sqm` took 1→2), run
-`./gradlew :shared:generatePostDatabaseSchema`, commit the new `databases/<N+1>.db`.
+the *current* version — the highest `databases/<N>.db` present (`1.sqm` took
+1→2) — run `./gradlew :shared:generatePostDatabaseSchema`, commit the new
+`databases/<N+1>.db`.
 Never edit an existing `.sqm` or `.db`.
 
 ## Where things go
@@ -121,8 +122,8 @@ Russian, RevenueCat off, default colours, no extra fields.
 3. If `feature.support=false`, tell the developer to remove `purchases-ios-spm`
    in Xcode (you cannot); if `feature.groups=false`, also remove the group
    invite intent-filter hosts from `AndroidManifest.xml` only if asked — they
-   are harmless.
-3. Rebuild. Commit: "Configure features".
+   are harmless. `feature.desktop=true` needs `feature.support=false`.
+4. Rebuild. Commit: "Configure features".
 
 ### Phase 3 — vocabulary
 
@@ -141,7 +142,7 @@ If the developer's words differ from post / group / like:
 5. Do **not** rename Kotlin identifiers or SQL tables for this; it buys nothing
    and costs a schema migration. Only if the developer explicitly asks,
    proceed as `docs/Renaming.md` describes (script over the tree, regenerate
-   `databases/1.db`, run everything).
+   the current `databases/<N>.db` baseline, run everything).
 6. `scripts/check-architecture.sh`, tests. Commit: "Vocabulary: <words>".
 
 ### Phase 4 — tags

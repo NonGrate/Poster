@@ -65,10 +65,13 @@ The same file also feeds, in `composeApp/build.gradle.kts`:
 
 ## Features
 
-Every flag defaults to `true`. Turning one off removes it from the app **and**
-from the server (the routes are not registered, so a stale client gets 404).
+Every flag defaults to `true` except `feature.liquidDesign`, `feature.liquidNavBar`
+and `feature.desktop`, which are opt-in. Turning one off removes it from the app
+**and** from the server (the routes are not registered, so a stale client gets 404).
+The table reads "what the flag controls" on each side; for the opt-in flags it is
+what turning them on adds.
 
-| Flag | Removes from the app | Removes from the server |
+| Flag | App side | Server / build side |
 |---|---|---|
 | `feature.groups` | Groups screen and settings section, group picker in the post form, group filter, invite-code field at registration, invite deep links, "joined" announcements | `/groups/*`, `/join/{code}` page |
 | `feature.tags` | Tag picker in the post form (and the "at least one tag" rule), tag chips on cards, tag filter | `/tags/*` (tags on posts are still stored and returned) |

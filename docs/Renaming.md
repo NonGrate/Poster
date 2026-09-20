@@ -94,3 +94,12 @@ a good starting point and a bad thing to leave unread: if you add analytics,
 media or DMs, the pages become false. Each has an "Operator:" comment where a
 value is yours to fill (contact email via `POSTER_CONTACT_EMAIL`, hosting
 location, the child-safety hotline for your country, the "last updated" date).
+
+## 6. What the rename script leaves alone
+
+Two internal identifiers keep the word "poster" on purpose, and nothing user
+facing depends on them: the `SOURCE_IMAGE` default in `Dockerfile` (set it to
+your registry path, `docs/Deployment.md`) and the Keychain service name
+`poster-upload` in `composeApp/build.gradle.kts` (renaming it would only sign
+out everybody once).
+

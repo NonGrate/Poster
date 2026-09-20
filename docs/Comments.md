@@ -3,8 +3,9 @@
 `feature.comments` (on by default). A text-only thread under each post.
 
 - **Details screen**: the comments oldest first, a composer at the bottom.
-  Comments carry no name (posts are anonymous by default; `feature.authors`
-  on the roadmap changes both); the reader's own are marked *You*.
+  With `feature.authors` on (the default) each comment carries the writer's
+  name and avatar; off, comments are anonymous like the posts. The reader's own
+  are marked *You*.
 - **Cards**: a comment count chip next to the like control when there are any.
 - **Who may**: read — whoever may see the post (`visiblePostById`, the same
   rule as the post); write — anybody who can see it, with a confirmed email

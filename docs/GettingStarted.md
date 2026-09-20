@@ -16,6 +16,10 @@ phone, against a server on your own machine.
 `scripts/doctor.sh` checks all of it and tells you what is missing. It never
 installs anything.
 
+Android Studio writes `local.properties` (`sdk.dir=…`) the first time it opens
+the project; building from the command line before that fails with "SDK
+location not found" — create the file by hand or open the project once.
+
 Windows: the server, the shared module and the Android app build fine; the iOS
 app needs a Mac. The scripts are bash — use Git Bash or WSL.
 
@@ -97,7 +101,7 @@ Two product flavours, one dimension (`server`):
 | Flavour | Talks to | Package suffix | Use |
 |---|---|---|---|
 | `e2e` | `http://10.0.2.2:8080` — the host machine as the **emulator** sees it | `.test` | development, instrumented tests |
-| `remote` | `https://<app.webOrigin>` (override with `-PposterRemote*`) | none | what ships |
+| `remote` | `https://<app.webOrigin>` (override with `-PposterRemote*`) | none | what ships — every request fails until a server is deployed there, so use `e2e` locally |
 
 ```bash
 ./gradlew :composeApp:installE2eDebug        # emulator running, local server running

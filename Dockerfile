@@ -3,5 +3,6 @@
 # runtime image and this just pulls it, so the host never needs Gradle or the
 # Android SDK. Point SOURCE_IMAGE at your registry path (docs/Deployment.md), or
 # replace this file with Dockerfile.runtime's contents if you build on the host.
-ARG SOURCE_IMAGE=ghcr.io/OWNER/poster-server:main
+# The CI workflow names the image <owner>/<repository>-server.
+ARG SOURCE_IMAGE=ghcr.io/OWNER/REPOSITORY-server:main
 FROM ${SOURCE_IMAGE}

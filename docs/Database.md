@@ -31,10 +31,13 @@ without their authors and must not cascade.
 
 ## Changing the schema
 
-The template ships at **version 2**: `databases/1.db` is the original baseline,
+The template ships at **version 10**: `databases/1.db` is the original baseline,
 `1.sqm` adds `Post.image` (the worked example of a migration, for
-`feature.images`), `databases/2.db` is the result. Every further change is
-another migration.
+`feature.images`), and each later feature added one more (`2.sqm` comments,
+`3.sqm` devices and notifications, `4.sqm` group visibility, `5.sqm` follows,
+`6.sqm` the device's comment count, `7.sqm` bookmarks, `8.sqm` the offline
+outbox, `9.sqm` indexes). The highest `databases/<N>.db` is the current
+version; the next migration is `<N>.sqm`.
 
 1. Edit the `.sq` file (the `CREATE TABLE` is always the *current* shape).
 2. Add `shared/src/commonMain/sqldelight/<N>.sqm` where **`N` is the version

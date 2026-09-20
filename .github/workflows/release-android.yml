@@ -21,6 +21,8 @@ permissions:
 jobs:
   play-internal:
     runs-on: ubuntu-latest
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,8 +49,9 @@ jobs:
         with:
           name: app-release.aab
           path: composeApp/build/outputs/bundle/remoteRelease/*.aab
+      # `secrets` cannot be read in a step `if`; the job copies it to env.
       - name: Upload to the Play internal track
-        if: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        if: ${{ env.PLAY_SERVICE_ACCOUNT_JSON != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}

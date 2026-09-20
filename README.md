@@ -30,7 +30,7 @@ already there and already tested.
 |---|---|
 | Posts | Create, edit, delete. Title + text, up to 5 tags, language, visibility (everyone / one group / only me). Feed with cursor paging, pull to refresh, "N new posts" offer, offline cache. |
 | Likes | Like/unlike with undo, like counts, a "Liked" tab, an opt-in "who liked this" roster. |
-| Desktop | Optional JVM desktop app with the same code (`feature.desktop`, see docs/Desktop.md). |
+| Desktop | Optional JVM desktop app with the same code (`feature.desktop`, off by default, needs `feature.support=false`; see docs/Desktop.md). |
 | Offline outbox | Posts written or edited offline wait on the device and are sent on the next refresh (`feature.offlineOutbox`). |
 | Bookmarks & drafts | Save posts for later (private) with a "Saved" feed filter; an unsent post is kept on the device and restored (`feature.bookmarks`, `feature.drafts`). |
 | Follows | Follow people from a post's author line; a "Following" feed filter (`feature.follows`, needs authors). |
@@ -56,11 +56,11 @@ already there and already tested.
 | Reminders | A local daily notification at a chosen time (Android alarm + iOS notification). |
 | Themes & i18n | Light/dark (follow system or manual), English + Russian, platform-adaptive controls (Material on Android, iOS-flavoured on iPhone). |
 | Tooling | Feature flags + palette from one properties file, rename script, environment doctor, device tunnel helper, screenshot capture (Android + iOS) and store-image composition, icon generation, architecture checks, GitHub Actions CI + server deploy + tag-driven releases to the Play internal track and TestFlight. |
-| Tests | Server route tests, shared unit tests, ViewModel tests, Android instrumented suite (50 scenarios), iOS XCUITest suite. |
+| Tests | Server route tests (~400), shared unit tests, ViewModel tests, an Android instrumented suite (25 classes), an iOS XCUITest suite. |
 
 **Not yet supported** (see [`docs/Roadmap.md`](docs/Roadmap.md))
 
-- More than one image per post (or video/files), search, user profiles/avatars, blocking users, multiple servers/tenancy, web client, Postgres (SQLite only), Kotlin/JS or desktop targets.
+- More than one image per post (or video/files), blocking users, multiple servers/tenancy, a web (Kotlin/JS or Wasm) client, Postgres (SQLite only; the seam is documented in `docs/Database.md`).
 
 ## Five-minute start
 
@@ -71,7 +71,8 @@ scripts/rename-app.sh --package com.acme.chirp --app-id com.acme.chirp \
                       --name "Chirp" --scheme chirp --domain chirp.acme.com
 $EDITOR poster.properties                          # features on/off, colours
 scripts/run-local-backend.sh                       # Ktor on http://localhost:8080
-./gradlew :composeApp:installE2eDebug              # Android emulator, talks to that server
+scripts/seed-demo-data.sh --host localhost:8080 --reset   # demo accounts + posts (demo.reader.en@example.com / demo123456)
+./gradlew :composeApp:installE2eDebug              # Android emulator, talks to that server (the `remote` flavour needs a deployed server)
 open iosApp/iosApp.xcodeproj                       # iOS simulator, same server
 ```
 
