@@ -7,87 +7,61 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ## home
 
-| Light | Dark |
-|---|---|
-| ![home, light](android/light-01-home.png) | ![home, dark](android/dark-01-home.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-01-home.png" width="280" alt="home, light"></td><td><img src="android/dark-01-home.png" width="280" alt="home, dark"></td></tr></table>
 
 ## my posts
 
-| Light | Dark |
-|---|---|
-| ![my posts, light](android/light-02-my-posts.png) | ![my posts, dark](android/dark-02-my-posts.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-02-my-posts.png" width="280" alt="my posts, light"></td><td><img src="android/dark-02-my-posts.png" width="280" alt="my posts, dark"></td></tr></table>
 
 ## add post dialog
 
-| Light | Dark |
-|---|---|
-| ![add post dialog, light](android/light-03-add-post-dialog.png) | ![add post dialog, dark](android/dark-03-add-post-dialog.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-03-add-post-dialog.png" width="280" alt="add post dialog, light"></td><td><img src="android/dark-03-add-post-dialog.png" width="280" alt="add post dialog, dark"></td></tr></table>
 
 ## add post scrolled
 
-| Light | Dark |
-|---|---|
-| ![add post scrolled, light](android/light-03b-add-post-scrolled.png) | ![add post scrolled, dark](android/dark-03b-add-post-scrolled.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-03b-add-post-scrolled.png" width="280" alt="add post scrolled, light"></td><td><img src="android/dark-03b-add-post-scrolled.png" width="280" alt="add post scrolled, dark"></td></tr></table>
 
 ## edit post dialog
 
-| Light | Dark |
-|---|---|
-| ![edit post dialog, light](android/light-04-edit-post-dialog.png) | ![edit post dialog, dark](android/dark-04-edit-post-dialog.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-04-edit-post-dialog.png" width="280" alt="edit post dialog, light"></td><td><img src="android/dark-04-edit-post-dialog.png" width="280" alt="edit post dialog, dark"></td></tr></table>
 
 ## delete confirmation
 
-| Light | Dark |
-|---|---|
-| ![delete confirmation, light](android/light-05-delete-confirmation.png) | ![delete confirmation, dark](android/dark-05-delete-confirmation.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-05-delete-confirmation.png" width="280" alt="delete confirmation, light"></td><td><img src="android/dark-05-delete-confirmation.png" width="280" alt="delete confirmation, dark"></td></tr></table>
 
 ## favorites
 
-| Light | Dark |
-|---|---|
-| ![favorites, light](android/light-06-favorites.png) | ![favorites, dark](android/dark-06-favorites.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-06-favorites.png" width="280" alt="favorites, light"></td><td><img src="android/dark-06-favorites.png" width="280" alt="favorites, dark"></td></tr></table>
 
 ## settings
 
-| Light | Dark |
-|---|---|
-| ![settings, light](android/light-07-settings.png) | ![settings, dark](android/dark-07-settings.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-07-settings.png" width="280" alt="settings, light"></td><td><img src="android/dark-07-settings.png" width="280" alt="settings, dark"></td></tr></table>
 
 ## groups
 
-| Light | Dark |
-|---|---|
-| ![groups, light](android/light-08-groups.png) | ![groups, dark](android/dark-08-groups.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-08-groups.png" width="280" alt="groups, light"></td><td><img src="android/dark-08-groups.png" width="280" alt="groups, dark"></td></tr></table>
 
 ## post details
 
-| Light | Dark |
-|---|---|
-| ![post details, light](android/light-09-post-details.png) | ![post details, dark](android/dark-09-post-details.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-09-post-details.png" width="280" alt="post details, light"></td><td><img src="android/dark-09-post-details.png" width="280" alt="post details, dark"></td></tr></table>
 
 ## undo snackbar
 
-| Light | Dark |
-|---|---|
-| ![undo snackbar, light](android/light-10-undo-snackbar.png) | ![undo snackbar, dark](android/dark-10-undo-snackbar.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-10-undo-snackbar.png" width="280" alt="undo snackbar, light"></td><td><img src="android/dark-10-undo-snackbar.png" width="280" alt="undo snackbar, dark"></td></tr></table>
 
 ## profile
 
-| Light | Dark |
-|---|---|
-| ![profile, light](android/light-11-profile.png) | ![profile, dark](android/dark-11-profile.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-11-profile.png" width="280" alt="profile, light"></td><td><img src="android/dark-11-profile.png" width="280" alt="profile, dark"></td></tr></table>
 
 ## sign out confirmation
 
-| Light | Dark |
-|---|---|
-| ![sign out confirmation, light](android/light-12-sign-out-confirmation.png) | ![sign out confirmation, dark](android/dark-12-sign-out-confirmation.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="android/light-12-sign-out-confirmation.png" width="280" alt="sign out confirmation, light"></td><td><img src="android/dark-12-sign-out-confirmation.png" width="280" alt="sign out confirmation, dark"></td></tr></table>
 
 ## 00-login
 
-![00-login](android/00-login.png)
+<table><tr><td><img src="android/00-login.png" width="280" alt="00-login"></td></tr></table>
 
 ## 00b-register
 
-![00b-register](android/00b-register.png)
+<table><tr><td><img src="android/00b-register.png" width="280" alt="00b-register"></td></tr></table>
 

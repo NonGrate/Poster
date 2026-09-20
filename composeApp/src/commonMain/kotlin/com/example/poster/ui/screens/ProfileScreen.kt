@@ -181,35 +181,41 @@ fun ProfileScreen(
                     }
                 }
             }
-            AdaptiveTextField(
-                value = name,
-                onValueChange = { if (it.length <= AccountRules.NAME_LIMIT) name = it },
-                label = stringResource(Res.string.profile_name),
-                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md).testTag("profile_name"),
-            )
-            AdaptiveTextField(
-                value = surname,
-                onValueChange = { if (it.length <= AccountRules.SURNAME_LIMIT) surname = it },
-                label = stringResource(Res.string.profile_surname),
-                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md).testTag("profile_surname"),
-            )
+            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                AdaptiveTextField(
+                    value = name,
+                    onValueChange = { if (it.length <= AccountRules.NAME_LIMIT) name = it },
+                    label = stringResource(Res.string.profile_name),
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                    modifier = Modifier.fillMaxWidth().testTag("profile_name"),
+                )
+            }
+            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                AdaptiveTextField(
+                    value = surname,
+                    onValueChange = { if (it.length <= AccountRules.SURNAME_LIMIT) surname = it },
+                    label = stringResource(Res.string.profile_surname),
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                    modifier = Modifier.fillMaxWidth().testTag("profile_surname"),
+                )
+            }
             // Disabled, not just read-only: an email change is an identity change
             // that needs re-verification (and for a Google/Apple account the
             // provider owns it), so it is not an inline edit. Greyed and
             // unfocusable so it plainly reads as "not editable here" — a
             // read-only field still took focus and looked the same as the others,
             // which is the "why can't I type" confusion this replaces.
-            AdaptiveTextField(
-                value = email,
-                onValueChange = {},
-                enabled = false,
-                label = stringResource(Res.string.profile_email),
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
-                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md).testTag("profile_email"),
-            )
+            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                AdaptiveTextField(
+                    value = email,
+                    onValueChange = {},
+                    enabled = false,
+                    label = stringResource(Res.string.profile_email),
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                    modifier = Modifier.fillMaxWidth().testTag("profile_email"),
+                )
+            }
 
             if (Features.MULTI_LANGUAGE) {
             LanguagesField(

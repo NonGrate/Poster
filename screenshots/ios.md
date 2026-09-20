@@ -7,53 +7,49 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ## home
 
-| Light | Dark |
-|---|---|
-| ![home, light](ios/light-01-home.png) | ![home, dark](ios/dark-01-home.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="ios/light-01-home.png" width="280" alt="home, light"></td><td><img src="ios/dark-01-home.png" width="280" alt="home, dark"></td></tr></table>
 
 ## my posts
 
-![my posts](ios/light-02-my-posts.png)
+<table><tr><td><img src="ios/light-02-my-posts.png" width="280" alt="my posts"></td></tr></table>
 
 ## add post
 
-![add post](ios/light-03-add-post.png)
+<table><tr><td><img src="ios/light-03-add-post.png" width="280" alt="add post"></td></tr></table>
 
 ## delete confirmation
 
-![delete confirmation](ios/light-05-delete-confirmation.png)
+<table><tr><td><img src="ios/light-05-delete-confirmation.png" width="280" alt="delete confirmation"></td></tr></table>
 
 ## liked
 
-![liked](ios/light-06-liked.png)
+<table><tr><td><img src="ios/light-06-liked.png" width="280" alt="liked"></td></tr></table>
 
 ## settings
 
-| Light | Dark |
-|---|---|
-| ![settings, light](ios/light-07-settings.png) | ![settings, dark](ios/dark-07-settings.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="ios/light-07-settings.png" width="280" alt="settings, light"></td><td><img src="ios/dark-07-settings.png" width="280" alt="settings, dark"></td></tr></table>
 
 ## groups
 
-![groups](ios/light-08-groups.png)
+<table><tr><td><img src="ios/light-08-groups.png" width="280" alt="groups"></td></tr></table>
 
 ## post details
 
-![post details](ios/light-09-post-details.png)
+<table><tr><td><img src="ios/light-09-post-details.png" width="280" alt="post details"></td></tr></table>
 
 ## support paywall
 
-![support paywall](ios/light-10-support-paywall.png)
+<table><tr><td><img src="ios/light-10-support-paywall.png" width="280" alt="support paywall"></td></tr></table>
 
 ## profile
 
-![profile](ios/light-11-profile.png)
+<table><tr><td><img src="ios/light-11-profile.png" width="280" alt="profile"></td></tr></table>
 
 ## 00-login
 
-![00-login](ios/00-login.png)
+<table><tr><td><img src="ios/00-login.png" width="280" alt="00-login"></td></tr></table>
 
 ## 00b-register
 
-![00b-register](ios/00b-register.png)
+<table><tr><td><img src="ios/00b-register.png" width="280" alt="00b-register"></td></tr></table>
 

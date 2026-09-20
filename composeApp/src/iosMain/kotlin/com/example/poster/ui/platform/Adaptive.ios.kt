@@ -331,7 +331,9 @@ actual fun AdaptiveTextField(
     // it carries the testTag, and the automation types into the node that holds
     // it — which must be the editable field, not this wrapper. Callers that want
     // horizontal margins wrap the whole field in padding instead, which insets
-    // it on both platforms. This Column just fills width.
+    // it on both platforms (padding passed *in* the modifier would land inside
+    // the field here and leave the label and the frame at the screen edge — the
+    // profile fields did exactly that). This Column just fills width.
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,

@@ -608,6 +608,23 @@ title fallback in the test helper) and a run with the flag on.
   (desktop with the expanded rail, web with a post open); `docs/Desktop.md`,
   `docs/Web.md` and `docs/LiquidDesign.md` embed the relevant pairs.
 
+### 28. Profile fields on iOS; screenshot page widths (2026-09-20)
+
+- Bug (also in the original app): on iOS the Profile screen's Name, Surname
+  and Email fields ran edge to edge, label included, while everything else on
+  the screen kept its margin. The iOS `AdaptiveTextField` puts the caller's
+  modifier on the inner text field (the test tag has to sit on the editable
+  node, which the automation types into) and documents that callers wrap the
+  field in padding rather than pass it in the modifier; `ProfileScreen` and
+  the feed's search field passed `.padding(horizontal = …)` in the modifier,
+  so on iOS the inset landed inside the field. Both callers now wrap the field
+  in a padded `Box`; Android is unchanged (its `OutlinedTextField` took the
+  padding outside anyway). The same two-line change applies to Share-Pray's
+  `ProfileScreen.kt` and `HomeScreen.kt`.
+- `scripts/screenshot-pages.sh` emits HTML tables with fixed widths (280 px
+  for a phone shot, 640 px for a wide one), so a screen without a dark twin no
+  longer stretches across the page.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

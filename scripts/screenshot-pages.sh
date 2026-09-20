@@ -31,22 +31,27 @@ for platform in android ios ios-liquid desktop web; do
       if [ "$other" != "$platform" ] && [ -d "$other" ]; then printf '[%s](%s.md) · ' "$(title_of "$other")" "$other"; fi
     done; echo; echo
     # One row per screen: the light shot and, when there is one, its dark twin.
+    # HTML tables with explicit widths, so a screen without a twin does not
+    # stretch across the page: a phone shot at 280px, a wide one at 640px.
+    img() { # path alt
+      local w=280; case $1 in *wide*) w=640 ;; esac
+      printf '<img src="%s" width="%s" alt="%s">' "$1" "$w" "$2"
+    }
     for light in $(ls "$dir" | { grep -E '^light-.*\.png$' || true; } | sort); do
       name=${light#light-}; name=${name%.png}
       dark="dark-$name.png"
       label=$(echo "$name" | sed -E 's/^[0-9]+[a-z]?-//; s/-/ /g')
       echo "## $label"; echo
       if [ -f "$dir/$dark" ]; then
-        echo "| Light | Dark |"; echo "|---|---|"
-        echo "| ![$label, light]($dir/$light) | ![$label, dark]($dir/$dark) |"
+        echo "<table><tr><th>Light</th><th>Dark</th></tr><tr><td>$(img "$dir/$light" "$label, light")</td><td>$(img "$dir/$dark" "$label, dark")</td></tr></table>"
       else
-        echo "![$label]($dir/$light)"
+        echo "<table><tr><td>$(img "$dir/$light" "$label")</td></tr></table>"
       fi
       echo
     done
     # Anything not in the light-/dark- convention (login, register, store composites).
     for file in $(ls "$dir" | { grep -E '\.png$' || true; } | { grep -vE '^(light|dark)-' || true; } | sort); do
-      echo "## ${file%.png}"; echo; echo "![${file%.png}]($dir/$file)"; echo
+      echo "## ${file%.png}"; echo; echo "<table><tr><td>$(img "$dir/$file" "${file%.png}")</td></tr></table>"; echo
     done
   } > "$page"
   echo "  screenshots/$page"

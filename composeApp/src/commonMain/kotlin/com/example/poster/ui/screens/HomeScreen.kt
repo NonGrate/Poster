@@ -331,16 +331,18 @@ fun HomeScreen(
                     kotlinx.coroutines.delay(300)
                     postsViewModel.search(searchText.trim())
                 }
-                AdaptiveTextField(
-                    value = searchText,
-                    onValueChange = { searchText = it },
-                    label = stringResource(Res.string.feed_search_hint),
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = Spacing.xs)
-                        .testTag("feed_search_field"),
-                )
+                Box(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)) {
+                    AdaptiveTextField(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        label = stringResource(Res.string.feed_search_hint),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                        
+                            .testTag("feed_search_field"),
+                    )
+                }
             }
             AppliedFilterRow(
                 selected = tagFilter,

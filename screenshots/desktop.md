@@ -7,17 +7,13 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ## feed
 
-| Light | Dark |
-|---|---|
-| ![feed, light](desktop/light-01-feed.png) | ![feed, dark](desktop/dark-01-feed.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="desktop/light-01-feed.png" width="280" alt="feed, light"></td><td><img src="desktop/dark-01-feed.png" width="280" alt="feed, dark"></td></tr></table>
 
 ## wide feed
 
-| Light | Dark |
-|---|---|
-| ![wide feed, light](desktop/light-05-wide-feed.png) | ![wide feed, dark](desktop/dark-05-wide-feed.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="desktop/light-05-wide-feed.png" width="640" alt="wide feed, light"></td><td><img src="desktop/dark-05-wide-feed.png" width="640" alt="wide feed, dark"></td></tr></table>
 
 ## wide rail expanded
 
-![wide rail expanded](desktop/light-06-wide-rail-expanded.png)
+<table><tr><td><img src="desktop/light-06-wide-rail-expanded.png" width="640" alt="wide rail expanded"></td></tr></table>
 

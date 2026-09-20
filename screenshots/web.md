@@ -7,33 +7,29 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ## feed
 
-| Light | Dark |
-|---|---|
-| ![feed, light](web/light-01-feed.png) | ![feed, dark](web/dark-01-feed.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="web/light-01-feed.png" width="280" alt="feed, light"></td><td><img src="web/dark-01-feed.png" width="280" alt="feed, dark"></td></tr></table>
 
 ## my posts
 
-![my posts](web/light-02-my-posts.png)
+<table><tr><td><img src="web/light-02-my-posts.png" width="280" alt="my posts"></td></tr></table>
 
 ## liked
 
-![liked](web/light-03-liked.png)
+<table><tr><td><img src="web/light-03-liked.png" width="280" alt="liked"></td></tr></table>
 
 ## settings
 
-![settings](web/light-04-settings.png)
+<table><tr><td><img src="web/light-04-settings.png" width="280" alt="settings"></td></tr></table>
 
 ## wide feed
 
-| Light | Dark |
-|---|---|
-| ![wide feed, light](web/light-05-wide-feed.png) | ![wide feed, dark](web/dark-05-wide-feed.png) |
+<table><tr><th>Light</th><th>Dark</th></tr><tr><td><img src="web/light-05-wide-feed.png" width="640" alt="wide feed, light"></td><td><img src="web/dark-05-wide-feed.png" width="640" alt="wide feed, dark"></td></tr></table>
 
 ## wide details
 
-![wide details](web/light-06-wide-details.png)
+<table><tr><td><img src="web/light-06-wide-details.png" width="640" alt="wide details"></td></tr></table>
 
 ## wide rail expanded
 
-![wide rail expanded](web/light-07-wide-rail-expanded.png)
+<table><tr><td><img src="web/light-07-wide-rail-expanded.png" width="640" alt="wide rail expanded"></td></tr></table>
 
