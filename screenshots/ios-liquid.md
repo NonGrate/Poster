@@ -3,7 +3,7 @@
 Captured from the running app with demo data, in the default palette. How: the same run with `feature.liquidNavBar=true`: the tabs are a SwiftUI TabView, the system's Liquid Glass bar on iOS 26 (docs/LiquidDesign.md).
 
 [← README](../README.md) · other platforms:
-[Android](android.md) · [iOS](ios.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
+[Android](android.md) · [iOS](ios.md) · [iPad](ipad.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
 
 ## home
 

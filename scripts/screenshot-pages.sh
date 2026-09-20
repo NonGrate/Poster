@@ -5,17 +5,18 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT/screenshots"
-title_of() { case $1 in android) echo Android ;; ios) echo iOS ;; ios-liquid) echo "iOS, Liquid Glass tab bar" ;; desktop) echo "Desktop (JVM)" ;; web) echo "Web (Kotlin/Wasm)" ;; *) echo "$1" ;; esac; }
+title_of() { case $1 in android) echo Android ;; ios) echo iOS ;; ios-liquid) echo "iOS, Liquid Glass tab bar" ;; ipad) echo "iPad" ;; desktop) echo "Desktop (JVM)" ;; web) echo "Web (Kotlin/Wasm)" ;; *) echo "$1" ;; esac; }
 how_of() {
   case $1 in
     android) echo "\`scripts/ui-screenshots.sh --local --build --out screenshots/android\` against \`scripts/run-local-backend.sh\` and \`scripts/seed-demo-data.sh\`; the store composites come from \`scripts/store-screenshots.sh\` (docs/Screenshots.md)." ;;
     ios) echo "\`scripts/ios-screenshots.sh\` on a simulator against the local backend; the app is driven by the XCUITest suite (docs/Screenshots.md)." ;;
+    ipad) echo "\`scripts/ios-screenshots.sh --sim \"iPad Pro 11-inch (M5)\"\`: the same XCUITest run on an iPad, where the tabs sit in the left rail and the post opens beside the list." ;;
     ios-liquid) echo "the same run with \`feature.liquidNavBar=true\`: the tabs are a SwiftUI TabView, the system's Liquid Glass bar on iOS 26 (docs/LiquidDesign.md)." ;;
     desktop) echo "\`scripts/desktop-screenshots.sh\`: the desktop app renders itself into PNGs headlessly (\`POSTER_RENDER_TO\`), signed in as the demo reader (docs/Desktop.md)." ;;
     web) echo "\`scripts/web-screenshots.sh\`: headless Chrome over the DevTools protocol against the bundle the Ktor server hosts under \`/app\` (docs/Web.md)." ;;
   esac
 }
-for platform in android ios ios-liquid desktop web; do
+for platform in android ios ios-liquid ipad desktop web; do
   [ -d "$platform" ] || continue
   page="$platform.md"
   # ios-screenshots.sh writes per language (screenshots/ios/en/); the others flat.
@@ -27,14 +28,14 @@ for platform in android ios ios-liquid desktop web; do
     echo "Captured from the running app with demo data, in the default palette. How: $(how_of "$platform")"
     echo
     echo "[← README](../README.md) · other platforms:"
-    for other in android ios ios-liquid desktop web; do
+    for other in android ios ios-liquid ipad desktop web; do
       if [ "$other" != "$platform" ] && [ -d "$other" ]; then printf '[%s](%s.md) · ' "$(title_of "$other")" "$other"; fi
     done; echo; echo
     # One row per screen: the light shot and, when there is one, its dark twin.
     # HTML tables with explicit widths, so a screen without a twin does not
     # stretch across the page: a phone shot at 280px, a wide one at 640px.
     img() { # path alt
-      local w=280; case $1 in *wide*) w=640 ;; esac
+      local w=280; case $1 in *wide*|ipad/*) w=640 ;; esac
       printf '<img src="%s" width="%s" alt="%s">' "$1" "$w" "$2"
     }
     for light in $(ls "$dir" | { grep -E '^light-.*\.png$' || true; } | sort); do

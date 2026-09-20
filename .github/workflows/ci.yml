@@ -60,6 +60,22 @@ jobs:
       - name: Tests and compile with flags off
         run: ./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest :composeApp:compileE2eDebugKotlinAndroid --no-daemon
 
+  # A mixed configuration, the kind a fork ends up with: a couple of features off,
+  # an opt-in one on. Catches tests that guard one flag but lean on another.
+  mixed-flags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Comments and images off, liquid look on
+        run: sed -i -e 's/^feature.comments=true/feature.comments=false/' -e 's/^feature.images=true/feature.images=false/' -e 's/^feature.liquidDesign=false/feature.liquidDesign=true/' poster.properties
+      - name: Tests and compile
+        run: ./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest :composeApp:compileE2eDebugKotlinAndroid --no-daemon
+
   desktop:
     runs-on: ubuntu-latest
     steps:

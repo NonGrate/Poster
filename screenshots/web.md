@@ -3,7 +3,7 @@
 Captured from the running app with demo data, in the default palette. How: `scripts/web-screenshots.sh`: headless Chrome over the DevTools protocol against the bundle the Ktor server hosts under `/app` (docs/Web.md).
 
 [← README](../README.md) · other platforms:
-[Android](android.md) · [iOS](ios.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [Desktop (JVM)](desktop.md) · 
+[Android](android.md) · [iOS](ios.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [iPad](ipad.md) · [Desktop (JVM)](desktop.md) · 
 
 ## feed
 

@@ -29,7 +29,7 @@ already there and already tested.
 ## Screenshots
 
 The same app from the running demo data. Narrow windows get a bottom tab bar;
-from 840 dp the tabs move to a left rail and the post opens beside the list.
+from 600 dp the tabs move to a left rail, and from 840 dp the post opens beside the list.
 Click a platform for its full set (light and dark, every screen).
 
 <table>
@@ -51,10 +51,12 @@ Click a platform for its full set (light and dark, every screen).
   <tr>
     <th><a href="screenshots/desktop.md">Desktop, wide</a></th>
     <th><a href="screenshots/web.md">Web, wide</a></th>
+    <th><a href="screenshots/ipad.md">iPad</a></th>
   </tr>
   <tr>
-    <td><a href="screenshots/desktop.md"><img src="screenshots/desktop/light-06-wide-rail-expanded.png" width="400" alt="Desktop: rail with titles, feed and an empty detail pane"></a></td>
-    <td><a href="screenshots/web.md"><img src="screenshots/web/light-06-wide-details.png" width="400" alt="Web: rail, feed and an open post side by side"></a></td>
+    <td><a href="screenshots/desktop.md"><img src="screenshots/desktop/light-06-wide-rail-expanded.png" width="330" alt="Desktop: rail with titles, feed and an empty detail pane"></a></td>
+    <td><a href="screenshots/web.md"><img src="screenshots/web/light-06-wide-details.png" width="330" alt="Web: rail, feed and an open post side by side"></a></td>
+    <td><a href="screenshots/ipad.md"><img src="screenshots/ipad/light-01-home.png" width="230" alt="iPad: rail and feed"></a></td>
   </tr>
 </table>
 

@@ -26,7 +26,14 @@ echo
 echo "Android:"
 SDK=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 if [ -z "$SDK" ] && [ -f local.properties ]; then SDK=$(sed -n 's/^sdk\.dir=//p' local.properties); fi
-if [ -n "$SDK" ] && [ -d "$SDK" ]; then ok "Android SDK at $SDK"
+# Android Studio's default install location, when nothing else says.
+[ -n "$SDK" ] || { [ -d "$HOME/Library/Android/sdk" ] && SDK="$HOME/Library/Android/sdk"; }
+[ -n "$SDK" ] || { [ -d "$HOME/Android/Sdk" ] && SDK="$HOME/Android/Sdk"; }
+if [ -n "$SDK" ] && [ -d "$SDK" ]; then
+  ok "Android SDK at $SDK"
+  # Gradle reads the path from local.properties, which is git-ignored, so a fresh
+  # clone fails with "SDK location not found" until somebody writes it. Do it.
+  if [ ! -f local.properties ]; then printf 'sdk.dir=%s\n' "$SDK" > local.properties; ok "wrote local.properties (sdk.dir)"; fi
 else bad "Android SDK not found — install Android Studio, then write sdk.dir=/path/to/sdk into local.properties"; fi
 command -v adb >/dev/null || [ -x "$SDK/platform-tools/adb" ] && ok "adb" || warn "adb not on PATH (add \$ANDROID_HOME/platform-tools)"
 

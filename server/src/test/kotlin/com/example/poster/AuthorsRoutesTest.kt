@@ -36,10 +36,12 @@ class AuthorsRoutesTest {
         val author = confirmed("author@example.com", "Ada", "Lovelace")
         val reader = confirmed("reader@example.com", "Rea", "Der")
         postPost(author, "p1")
-        client.post("/posts/p1/comments") { bearerAuth(reader.tokens.accessToken); contentType(ContentType.Application.Json); setBody("""{"text":"Hi"}""") }
-
         val feed = Json.parseToJsonElement(client.get("/posts") { bearerAuth(reader.tokens.accessToken) }.bodyAsText()).jsonArray
         assertEquals("Ada Lovelace", feed.first().jsonObject["authorName"]!!.jsonPrimitive.content)
+        // The comments half only with comments: authors on, comments off is a
+        // valid configuration (it is the one the fork trial builds).
+        if (!Features.COMMENTS) return@withServer
+        client.post("/posts/p1/comments") { bearerAuth(reader.tokens.accessToken); contentType(ContentType.Application.Json); setBody("""{"text":"Hi"}""") }
         val thread = Json.parseToJsonElement(client.get("/posts/p1/comments") { bearerAuth(author.tokens.accessToken) }.bodyAsText()).jsonArray
         assertEquals("Rea Der", thread.first().jsonObject["authorName"]!!.jsonPrimitive.content)
     }

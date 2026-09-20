@@ -58,7 +58,7 @@ Never edit an existing `.sqm` or `.db`.
 | The liquid look / glass surfaces | `composeApp/.../ui/liquid/` (`liquidGlass`, `LiquidNavBar`), `theme/LiquidShapes.kt`; flags `feature.liquidDesign`, `feature.liquidNavBar` |
 | Follows, bookmarks, public groups | `docs/Social.md`; `IdSetViewModel.kt` (Follows/Bookmarks view models), `KtorIdSetApi`, the `/follows`, `/bookmarks`, `/groups/public` routes |
 | Offline outbox, drafts | `docs/Offline.md`; `PostLocalStore` (outbox queries), `PostRepository.flushOutbox`, `PostDraft` in `AppPreferences`, `MainScreen` (draft restore) |
-| Wide screens | `MainScreen.kt`: `BoxWithConstraints`, `TwoPaneMinWidth`, the rail vs bottom bar choice; `ui/components/SideNavigation.kt`; `ReadableWidth.kt` |
+| Wide screens | `MainScreen.kt`: `BoxWithConstraints`, `RailMinWidth` (600 dp) and `TwoPaneMinWidth` (840 dp), the rail vs bottom bar choice; `ui/components/SideNavigation.kt`; `ReadableWidth.kt` |
 | Web | `docs/Web.md`; `composeApp/src/wasmJsMain` (`Main.kt`, `resources/index.html`, actuals), `shared/src/wasmJsMain` (localStorage stores), server `POSTER_WEB_DIR` / `POSTER_WEB_ORIGINS` in `Application.kt` |
 | Desktop | `docs/Desktop.md`; `composeApp/src/desktopMain` (`Main.kt`, `Adaptive.desktop.kt`, file-backed storage); `feature.desktop` in `composeApp/build.gradle.kts` |
 | Platform-specific UI behaviour | `composeApp/.../ui/platform/Adaptive.kt` and its `.android.kt` / `.ios.kt` / `.desktop.kt` — a closed list, add deliberately |

@@ -214,10 +214,12 @@ fun MainScreen(
             // The floating bar shows the content through itself, so the content
             // is recorded as it draws (see LiquidGlass.kt). Null with the docked bar.
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                // Wide (the same breakpoint as the two-pane content): the tabs move
-                // to a rail on the left, and neither bottom bar is drawn. The host
-                // that owns the tabs (fixedTab) keeps its own.
-                val wideNav = maxWidth >= TwoPaneMinWidth && fixedTab == null
+                // From Material's medium window (600 dp: tablets in portrait, a
+                // half-screen desktop window) the tabs move to a rail on the left and
+                // neither bottom bar is drawn; from the expanded window (840 dp) the
+                // content splits in two as well. The host that owns the tabs
+                // (fixedTab) keeps its own bar.
+                val wideNav = maxWidth >= RailMinWidth && fixedTab == null
                 val floatingBar = Features.LIQUID_NAV_BAR && fixedTab == null && !wideNav
                 val backdrop = if (floatingBar) rememberGlassBackdrop() else null
                 CompositionLocalProvider(
@@ -409,6 +411,8 @@ fun MainScreenDarkPreview() {
     }
 }
 
+/** From here up the tabs sit in a rail on the left instead of a bottom bar. Material's "medium" width. */
+private val RailMinWidth = 600.dp
 /** From here up the post opens beside the list rather than over it. Material's "expanded" width. */
 private val TwoPaneMinWidth = 840.dp
 /** Two readable columns, not one stretched one. */

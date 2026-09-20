@@ -3,7 +3,7 @@
 Captured from the running app with demo data, in the default palette. How: `scripts/ios-screenshots.sh` on a simulator against the local backend; the app is driven by the XCUITest suite (docs/Screenshots.md).
 
 [← README](../README.md) · other platforms:
-[Android](android.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
+[Android](android.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [iPad](ipad.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
 
 ## home
 
