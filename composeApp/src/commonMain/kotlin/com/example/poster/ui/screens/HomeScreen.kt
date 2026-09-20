@@ -1,25 +1,11 @@
 package com.example.poster.ui.screens
 
 import com.example.poster.viewmodel.BookmarksViewModel
-import com.example.poster.ui.components.FollowDialog
 import com.example.poster.viewmodel.FollowsViewModel
-import poster.composeapp.generated.resources.feed_search_clear
-import poster.composeapp.generated.resources.feed_search_open
-import poster.composeapp.generated.resources.feed_search_hint
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Search
-import poster.composeapp.generated.resources.notifications_open
-import com.example.poster.viewmodel.NotificationsViewModel
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Badge
-import androidx.compose.material.icons.outlined.Notifications
 import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.config.Features
 import androidx.compose.foundation.layout.*
@@ -38,9 +24,7 @@ import com.example.poster.theme.isApplePlatform
 import com.example.poster.ui.components.EmptyState
 import com.example.poster.ui.components.PostCard
 import com.example.poster.ui.components.LargePageTitle
-import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.ui.components.rememberCollapseFraction
-import com.example.poster.ui.platform.AdaptiveTextField
 import com.example.poster.network.PostApi
 import com.example.poster.util.rememberShareText
 import com.example.poster.ui.components.PostCardVariant
@@ -54,13 +38,6 @@ import com.example.poster.viewmodel.FavoritesViewModel
 import com.example.poster.viewmodel.PostsViewModel
 import org.jetbrains.compose.resources.stringResource
 import poster.composeapp.generated.resources.Res
-import poster.composeapp.generated.resources.report_title
-import poster.composeapp.generated.resources.report_body
-import poster.composeapp.generated.resources.report_confirm
-import poster.composeapp.generated.resources.report_reason_hint
-import poster.composeapp.generated.resources.report_sent
-import poster.composeapp.generated.resources.post_completed_toast
-import poster.composeapp.generated.resources.cancel
 import poster.composeapp.generated.resources.nav_home
 import poster.composeapp.generated.resources.empty_home
 import poster.composeapp.generated.resources.empty_home_action
@@ -70,18 +47,11 @@ import poster.composeapp.generated.resources.feed_new_many
 import poster.composeapp.generated.resources.feed_new_one
 import poster.composeapp.generated.resources.feed_load_older
 import com.example.poster.preview.rememberPreviewGraph
-import poster.composeapp.generated.resources.post_unfavorite
-import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.clickable
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import com.example.poster.ui.components.PeriodicRefresh
 import com.example.poster.ui.components.AppliedFilterRow
-import com.example.poster.ui.components.FeedFilterButton
 import com.example.poster.ui.components.FeedFilterSheet
 import com.example.poster.viewmodel.TagViewModel
 import androidx.compose.ui.text.intl.Locale
@@ -182,8 +152,6 @@ fun HomeScreen(
     var postToDelete by remember { mutableStateOf<Post?>(null) }
     var postToComplete by remember { mutableStateOf<Post?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val reportSent = stringResource(Res.string.report_sent)
-    val resolvedMessage = stringResource(Res.string.post_completed_toast)
     val scope = rememberCoroutineScope()
     val moreToLoad by postsViewModel.moreToLoad.collectAsState()
     val loadingMore by postsViewModel.loadingMore.collectAsState()
@@ -205,54 +173,21 @@ fun HomeScreen(
     // rearranging the list under whoever is reading it.
     PeriodicRefresh { postsViewModel.loadPosts() }
 
-    reporting?.let { post ->
-        ReportPostDialog(
-            onConfirm = { reason ->
-                reporting = null
-                postsViewModel.reportPost(post.guid, reason)
-                // Said regardless of what the network did. Somebody who has
-                // just seen something upsetting should not also be handed a
-                // failure to think about; the report is retried by them
-                // pressing it again, and the server takes it either way.
-                scope.launch { snackbarHostState.showSnackbar(reportSent) }
-            },
-            onDismiss = { reporting = null },
-        )
-    }
-
-    postToComplete?.let { post ->
-        CompletePostDialog(
-            onDismiss = { postToComplete = null },
-            onConfirm = { message ->
-                postsViewModel.completePost(post, message)
-                postToComplete = null
-                scope.launch { snackbarHostState.showSnackbar(resolvedMessage) }
-            },
-        )
-    }
-
-    postToDelete?.let { post ->
-        DeleteConfirmationDialog(
-            post = post,
-            onDismiss = { postToDelete = null },
-            onConfirm = {
-                scope.launch {
-                    postsViewModel.deletePost(post).join()
-                    tagViewModel.refreshTagSuggestions().join()
-                    postToDelete = null
-                }
-            },
-        )
-    }
-
-    followAuthor?.let { post ->
-        FollowDialog(
-            authorName = post.authorName.orEmpty(),
-            following = post.author in following,
-            onToggle = { followsViewModel.toggle(post.author) },
-            onDismiss = { followAuthor = null },
-        )
-    }
+    HomeDialogs(
+        reporting = reporting,
+        onReportingChange = { reporting = it },
+        postToComplete = postToComplete,
+        onPostToCompleteChange = { postToComplete = it },
+        postToDelete = postToDelete,
+        onPostToDeleteChange = { postToDelete = it },
+        followAuthor = followAuthor,
+        onFollowAuthorChange = { followAuthor = it },
+        following = following,
+        snackbarHostState = snackbarHostState,
+        postsViewModel = postsViewModel,
+        tagViewModel = tagViewModel,
+        followsViewModel = followsViewModel,
+    )
 
     // Nothing to filter by room without the feature; the sheet and the applied
     // row read the same list so they cannot disagree.
@@ -287,63 +222,18 @@ fun HomeScreen(
                 .fillMaxSize()
                 .testTag("feed_screen")
         ) {
-            ScreenTopBar(
-                // The tab's own name, like every other screen. The app name
-                // belongs on the launcher, not on the screen somebody is
-                // already looking at.
-                title = stringResource(Res.string.nav_home),
-                titleAlpha = collapseFraction,
-                actions = {
-                    IconButton(
-                        onClick = { searchOpen = !searchOpen; if (!searchOpen) { searchText = ""; postsViewModel.search("") } },
-                        modifier = Modifier.testTag("feed_search_button"),
-                    ) {
-                        Icon(
-                            if (searchOpen) Icons.Outlined.Close else Icons.Outlined.Search,
-                            contentDescription = stringResource(if (searchOpen) Res.string.feed_search_clear else Res.string.feed_search_open),
-                        )
-                    }
-                    if (Features.PUSH_NOTIFICATIONS) {
-                        val notificationsViewModel: NotificationsViewModel = koinInject()
-                        val unread by notificationsViewModel.unread.collectAsState()
-                        LaunchedEffect(currentUser?.guid) { notificationsViewModel.refreshUnread() }
-                        IconButton(onClick = onNotifications, modifier = Modifier.testTag("notifications_bell")) {
-                            BadgedBox(badge = { if (unread > 0) Badge(modifier = Modifier.testTag("notifications_dot")) }) {
-                                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(Res.string.notifications_open))
-                            }
-                        }
-                    }
-                    // Nothing to filter by without tags or groups.
-                    if (Features.TAGS || Features.GROUPS || Features.FOLLOWS || Features.BOOKMARKS) {
-                        FeedFilterButton(
-                            selected = tagFilter,
-                            onClick = { filterOpen = true },
-                        )
-                    }
-                },
+            FeedTopBar(
+                collapseFraction = collapseFraction,
+                searchOpen = searchOpen,
+                onSearchToggle = { searchOpen = !searchOpen; if (!searchOpen) { searchText = ""; postsViewModel.search("") } },
+                searchText = searchText,
+                onSearchTextChange = { searchText = it },
+                tagFilter = tagFilter,
+                onFilterClick = { filterOpen = true },
+                onNotifications = onNotifications,
+                currentUser = currentUser,
+                postsViewModel = postsViewModel,
             )
-            // What is in force, under the bar and above the posts, outside
-            // the horizontal padding so it can scroll edge to edge.
-            if (searchOpen) {
-                // Typed text reaches the ViewModel after a pause, not per key: a
-                // search is a question, and half a word is not one yet.
-                LaunchedEffect(searchText) {
-                    kotlinx.coroutines.delay(300)
-                    postsViewModel.search(searchText.trim())
-                }
-                Box(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)) {
-                    AdaptiveTextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
-                        label = stringResource(Res.string.feed_search_hint),
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                        
-                            .testTag("feed_search_field"),
-                    )
-                }
-            }
             AppliedFilterRow(
                 selected = tagFilter,
                 groups = filterGroups,
@@ -490,52 +380,6 @@ fun MainContentPreview() {
     )
 }
 
-/**
- * Report, with room to say what is wrong.
- *
- * The reason is optional — the report is counted either way — but when it is
- * given it is the difference between "somebody objected" and something a
- * moderator can act on, so there has to be somewhere to type it. The confirm is
- * tinted with the error colour to keep the weight the old confirm dialog had.
- */
-@Composable
-fun ReportPostDialog(onDismiss: () -> Unit, onConfirm: (String?) -> Unit) {
-    var reason by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.report_title)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(Res.string.report_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(Spacing.sm))
-                AdaptiveTextField(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = stringResource(Res.string.report_reason_hint),
-                    singleLine = false,
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth().testTag("report_reason_field"),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(reason.trim().takeIf { it.isNotBlank() }) },
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.testTag("confirm_report_button"),
-            ) {
-                Text(stringResource(Res.string.report_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
-        },
-    )
-}
 
 /** Small, quiet, and at the top: an offer to move the list, not a notification. */
 @Composable

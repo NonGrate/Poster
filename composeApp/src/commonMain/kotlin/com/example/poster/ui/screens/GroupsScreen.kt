@@ -1,20 +1,7 @@
 package com.example.poster.ui.screens
 
-import poster.composeapp.generated.resources.group_members
-import poster.composeapp.generated.resources.group_visibility_private
-import poster.composeapp.generated.resources.group_visibility_public
-import poster.composeapp.generated.resources.group_create_public_body
-import poster.composeapp.generated.resources.group_create_public
-import poster.composeapp.generated.resources.group_join_public
-import poster.composeapp.generated.resources.group_public_empty
-import poster.composeapp.generated.resources.group_public_groups
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.material3.TextButton
-import org.jetbrains.compose.resources.pluralStringResource
-import com.example.poster.ui.platform.AdaptiveSwitch
-import com.example.poster.model.GroupVisibility
 import com.example.poster.config.Features
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,8 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,24 +19,17 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.testTag
-import com.example.poster.domain.validation.GroupRules
 import com.example.poster.model.Group
 import com.example.poster.network.GroupApi
-import com.example.poster.network.JoinResult
-import com.example.poster.invite.InviteLink
 import com.example.poster.theme.Spacing
 import com.example.poster.theme.isApplePlatform
-import com.example.poster.util.rememberShareText
 import com.example.poster.ui.platform.AdaptiveBackButton
 import com.example.poster.ui.platform.AdaptiveBackHandler
 import com.example.poster.ui.platform.AdaptiveConfirmDialog
-import com.example.poster.ui.platform.AdaptiveTextField
-import com.example.poster.ui.components.PrimaryButton
 import com.example.poster.ui.components.SettingsDivider
 import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.ui.components.SettingsRow
 import com.example.poster.ui.components.SettingsSectionHeader
-import com.example.poster.ui.platform.AdaptiveSettingsSection
 import com.example.poster.viewmodel.AccountViewModel
 import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.PostsViewModel
@@ -59,20 +37,10 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import poster.composeapp.generated.resources.Res
-import poster.composeapp.generated.resources.post_message_count
-import poster.composeapp.generated.resources.action_back
-import poster.composeapp.generated.resources.action_close
 import poster.composeapp.generated.resources.settings
 import poster.composeapp.generated.resources.cancel
 import poster.composeapp.generated.resources.groups_title
-import poster.composeapp.generated.resources.group_create_action
-import poster.composeapp.generated.resources.group_create_failed
-import poster.composeapp.generated.resources.group_create_name
-import poster.composeapp.generated.resources.group_create_title
 import poster.composeapp.generated.resources.group_created
-import poster.composeapp.generated.resources.group_invite_email_bad
-import poster.composeapp.generated.resources.group_invite_email_failed
-import poster.composeapp.generated.resources.group_invite_email_sent
 import poster.composeapp.generated.resources.group_close
 import poster.composeapp.generated.resources.group_close_body
 import poster.composeapp.generated.resources.group_close_title
@@ -81,21 +49,9 @@ import poster.composeapp.generated.resources.group_leave
 import poster.composeapp.generated.resources.more_options
 import poster.composeapp.generated.resources.group_leave_body
 import poster.composeapp.generated.resources.group_leave_title
-import poster.composeapp.generated.resources.settings_already_in_group
-import poster.composeapp.generated.resources.settings_enter_code_or_login
-import poster.composeapp.generated.resources.group_invite_message
-import poster.composeapp.generated.resources.group_share_invite
-import poster.composeapp.generated.resources.settings_enter_invite_code
-import poster.composeapp.generated.resources.error_no_connection
-import poster.composeapp.generated.resources.settings_invalid_invite
-import poster.composeapp.generated.resources.settings_invite_wrong_address
-import poster.composeapp.generated.resources.settings_join
-import poster.composeapp.generated.resources.settings_join_group
 import poster.composeapp.generated.resources.settings_joined_group
-import poster.composeapp.generated.resources.settings_no_groups
 import com.example.poster.model.GroupInvite
 import com.example.poster.model.GroupMember
-import com.example.poster.ui.components.GroupManagePanel
 import poster.composeapp.generated.resources.groups_you_look_after
 import poster.composeapp.generated.resources.groups_you_are_in
 import poster.composeapp.generated.resources.groups_none_owned
@@ -104,7 +60,6 @@ import poster.composeapp.generated.resources.groups_none_joined
 import poster.composeapp.generated.resources.group_remove_title
 import poster.composeapp.generated.resources.group_remove_body
 import poster.composeapp.generated.resources.group_remove_member
-import poster.composeapp.generated.resources.settings_your_groups
 
 /**
  * Was a dialog inside Settings; now a screen you push into, so joining and
@@ -160,14 +115,7 @@ fun GroupsScreen(
     // it is a deliberate two-step, not a one-tap mistake).
     var menuFor by remember { mutableStateOf<String?>(null) }
 
-    // Read here rather than inside the lambda: stringResource needs a
-    // composable, and the send happens in a coroutine.
-    val invitationSent = stringResource(Res.string.group_invite_email_sent, "%1\$s")
-    val invitationBad = stringResource(Res.string.group_invite_email_bad)
-    val invitationFailed = stringResource(Res.string.group_invite_email_failed)
-
     val scope = rememberCoroutineScope()
-    val share = rememberShareText()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -194,15 +142,7 @@ fun GroupsScreen(
         }
     }
 
-    val inviteMessageFor = stringResource(Res.string.group_invite_message, "%1\$s", "%2\$s")
-    val alreadyIn = stringResource(Res.string.settings_already_in_group)
     val joined = stringResource(Res.string.settings_joined_group)
-    val invalid = stringResource(Res.string.settings_invalid_invite)
-    val wrongAddress = stringResource(Res.string.settings_invite_wrong_address)
-    val needCode = stringResource(Res.string.settings_enter_code_or_login)
-    val offline = stringResource(Res.string.error_no_connection)
-    val created = stringResource(Res.string.group_created)
-    val createFailed = stringResource(Res.string.group_create_failed)
 
     // "Look after" is the owner plus anyone promoted to admin: both manage
     // members and invites. Everyone else is only "in" it. Computed up here so
@@ -350,261 +290,44 @@ fun GroupsScreen(
 
     // A group you look after, opened as its own screen over the list.
     if (managingGroup != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .testTag("group_detail_screen"),
-        ) {
-            // The same header as the new-post screen: a close button and a
-            // left-aligned title that truncates, so a long group name cannot
-            // run into the back control the way a centred title did.
-            Row(
-                modifier = Modifier.fillMaxWidth().height(64.dp).padding(end = Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    onClick = { managing = null },
-                    modifier = Modifier.size(48.dp).testTag("group_detail_back"),
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
-                }
-                Text(
-                    text = managingGroup.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(start = Spacing.xs),
-                )
-            }
-            if (Features.PUBLIC_GROUPS) {
-                var public by remember(managingGroup.id, managingGroup.visibility) { mutableStateOf(managingGroup.visibility == GroupVisibility.PUBLIC) }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md).testTag("group_visibility_row"),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.group_create_public), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            text = stringResource(if (public) Res.string.group_visibility_public else Res.string.group_visibility_private),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AdaptiveSwitch(
-                        checked = public,
-                        onCheckedChange = { wanted ->
-                            public = wanted
-                            scope.launch {
-                                val ok = runCatching { groupApi.setVisibility(managingGroup.id, if (wanted) GroupVisibility.PUBLIC else GroupVisibility.PRIVATE) }.getOrDefault(false)
-                                if (ok) groupViewModel.refresh().join() else public = !wanted
-                            }
-                        },
-                        modifier = Modifier.testTag("group_visibility_switch"),
-                    )
-                }
-            }
-            GroupManagePanel(
-                members = members,
-                invites = invites,
-                onNewInvite = {
-                    mutate(managingGroup.id) { groupApi.createInvite(managingGroup.id) }
-                },
-                onShareInvite = { code ->
-                    share(inviteMessageFor.replace("%1\$s", code).replace("%2\$s", InviteLink.buildUrl(code)))
-                },
-                onRevokeInvite = { code ->
-                    mutate(managingGroup.id) { groupApi.revokeInvite(managingGroup.id, code) }
-                },
-                onRemoveMember = { removing = it },
-                onCloseGroup = { closing = managingGroup },
-                isOwner = managingGroup.owner != null && managingGroup.owner == meGuid,
-                onSetRole = { member, role ->
-                    mutate(managingGroup.id) { groupApi.setMemberRole(managingGroup.id, member.id, role) }
-                },
-                onLeave = { leaving = managingGroup },
-                emailStatus = emailStatus,
-                onInviteByEmail = { address ->
-                    // Whether the address reaches anybody is the server's answer,
-                    // deliberately withheld; whether it is an address at all is the
-                    // sender's own typing, which the app can check.
-                    if (!address.contains('@') || address.contains(' ')) {
-                        emailStatus = invitationBad
-                    } else {
-                        emailStatus = null
-                        mutate(managingGroup.id) {
-                            val taken = runCatching { groupApi.inviteByEmail(managingGroup.id, address) }.getOrDefault(false)
-                            emailStatus = if (taken) invitationSent.replace("%1\$s", address) else invitationFailed
-                        }
-                    }
-                },
-                // Fills the space under the fixed header and scrolls its own
-                // content, like the post form. The panel adds its own padding.
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-            )
-        }
+        GroupDetailPane(
+            group = managingGroup,
+            members = members,
+            invites = invites,
+            isOwner = managingGroup.owner != null && managingGroup.owner == meGuid,
+            emailStatus = emailStatus,
+            onEmailStatusChange = { emailStatus = it },
+            onMutate = { change -> mutate(managingGroup.id, change) },
+            onClose = { managing = null },
+            onRemoveMember = { removing = it },
+            onCloseGroup = { closing = managingGroup },
+            onLeave = { leaving = managingGroup },
+            groupApi = groupApi,
+            groupViewModel = groupViewModel,
+        )
     }
     }
 
     if (showAddSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showAddSheet = false },
-            modifier = Modifier.testTag("group_add_sheet"),
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .imePadding()
-                    .padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.xl),
-            ) {
-                SettingsSectionHeader(stringResource(Res.string.settings_join_group))
-                AdaptiveTextField(
-                    value = inviteCode,
-                    onValueChange = { inviteCode = it },
-                    label = stringResource(Res.string.settings_enter_invite_code),
-                    singleLine = true,
-                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters,
-                    modifier = Modifier.fillMaxWidth().testTag("group_code_input"),
-                )
-                PrimaryButton(
-                    onClick = {
-                        keyboardController?.hide(); focusManager.clearFocus()
-                        scope.launch {
-                            val userId = user?.guid
-                            if (userId == null || inviteCode.isBlank()) {
-                                joinStatus = needCode
-                                return@launch
-                            }
-                            val before = groups.map { it.id }.toSet()
-                            val outcome = runCatching { groupApi.joinWithInvite(userId, inviteCode) }
-                            if (outcome.isFailure) {
-                                joinStatus = offline
-                                return@launch
-                            }
-                            when (outcome.getOrThrow()) {
-                                JoinResult.JOINED -> Unit
-                                JoinResult.WRONG_ADDRESS -> { joinStatus = wrongAddress; return@launch }
-                                JoinResult.INVALID -> { joinStatus = invalid; return@launch }
-                            }
-                            groupViewModel.refresh().join()
-                            val after = groupViewModel.groups.value
-                            val entered = after.firstOrNull { it.id !in before }
-                            if (entered == null) {
-                                joinStatus = alreadyIn
-                            } else {
-                                // The group appearing in the list behind the
-                                // sheet is the confirmation, so the sheet leaves.
-                                joinStatus = null; inviteCode = ""
-                                showAddSheet = false
-                            }
-                            postsViewModel.refresh()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().testTag("join_group_submit_button"),
-                ) { Text(stringResource(Res.string.settings_join)) }
-
-                if (Features.PUBLIC_GROUPS) {
-                    Spacer(modifier = Modifier.height(Spacing.sm))
-                    SettingsSectionHeader(stringResource(Res.string.group_public_groups))
-                    val joinable = publicGroups.filter { candidate -> groups.none { it.id == candidate.id } }
-                    if (joinable.isEmpty()) {
-                        Text(
-                            text = stringResource(Res.string.group_public_empty),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("public_groups_empty"),
-                        )
-                    }
-                    joinable.forEach { candidate ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().testTag("public_group_${candidate.id}"),
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(candidate.name, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    text = pluralStringResource(Res.plurals.group_members, candidate.memberCount ?: 0, candidate.memberCount ?: 0),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            TextButton(
-                                onClick = {
-                                    scope.launch {
-                                        val userId = user?.guid ?: return@launch
-                                        runCatching { groupApi.addUserToGroup(userId, candidate.id) }
-                                        groupViewModel.refresh().join()
-                                        postsViewModel.refresh()
-                                        showAddSheet = false
-                                    }
-                                },
-                                modifier = Modifier.testTag("join_public_${candidate.id}"),
-                            ) { Text(stringResource(Res.string.group_join_public)) }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(Spacing.sm))
-                SettingsSectionHeader(stringResource(Res.string.group_create_title))
-                AdaptiveTextField(
-                    value = newName,
-                    onValueChange = { if (it.length <= GroupRules.NAME_LIMIT) newName = it },
-                    label = stringResource(Res.string.group_create_name),
-                    singleLine = true,
-                    supportingText = if (newName.isNotEmpty()) {
-                        stringResource(Res.string.post_message_count, newName.length, GroupRules.NAME_LIMIT)
-                    } else null,
-                    supportingTextTag = "group_name_counter",
-                    modifier = Modifier.fillMaxWidth().testTag("group_name_input"),
-                )
-                if (Features.PUBLIC_GROUPS) Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().testTag("group_create_public_row"),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.group_create_public), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            text = stringResource(Res.string.group_create_public_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AdaptiveSwitch(checked = newPublic, onCheckedChange = { newPublic = it }, modifier = Modifier.testTag("group_create_public_switch"))
-                }
-                PrimaryButton(
-                    enabled = !creating && newName.isNotBlank(),
-                    onClick = {
-                        keyboardController?.hide(); focusManager.clearFocus()
-                        creating = true
-                        scope.launch {
-                            val visibility = if (Features.PUBLIC_GROUPS && newPublic) GroupVisibility.PUBLIC else GroupVisibility.PRIVATE
-                            val group = runCatching { groupApi.createGroup(newName.trim(), visibility) }.getOrNull()
-                            creating = false
-                            if (group == null) {
-                                joinStatus = createFailed
-                                return@launch
-                            }
-                            groupViewModel.refresh().join()
-                            joinStatus = null; newName = ""
-                            showAddSheet = false
-                            postsViewModel.refresh()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().testTag("create_group_submit_button"),
-                ) { Text(stringResource(Res.string.group_create_action)) }
-
-                // Only failures show here — a success closes the sheet.
-                joinStatus?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = Spacing.xs),
-                    )
-                }
-            }
-        }
+        GroupAddSheet(
+            user = user,
+            groups = groups,
+            publicGroups = publicGroups,
+            inviteCode = inviteCode,
+            onInviteCodeChange = { inviteCode = it },
+            newName = newName,
+            onNewNameChange = { newName = it },
+            newPublic = newPublic,
+            onNewPublicChange = { newPublic = it },
+            creating = creating,
+            onCreatingChange = { creating = it },
+            joinStatus = joinStatus,
+            onJoinStatusChange = { joinStatus = it },
+            groupApi = groupApi,
+            groupViewModel = groupViewModel,
+            postsViewModel = postsViewModel,
+            onDismiss = { showAddSheet = false },
+        )
     }
 
     removing?.let { member ->

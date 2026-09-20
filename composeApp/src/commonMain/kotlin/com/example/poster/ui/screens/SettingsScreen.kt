@@ -6,7 +6,6 @@ import poster.composeapp.generated.resources.settings_notifications
 import androidx.compose.material.icons.outlined.Notifications
 import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.config.Features
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,12 +15,10 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.example.poster.theme.Spacing
@@ -31,18 +28,12 @@ import com.example.poster.ui.components.SettingsDivider
 import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.ui.components.rememberCollapseFraction
 import com.example.poster.ui.components.SettingsRow
-import com.example.poster.ui.components.MergeAccountDialog
 import androidx.compose.material.icons.filled.SwapHoriz
 import poster.composeapp.generated.resources.merge_settings_button
 import poster.composeapp.generated.resources.merge_settings_hint
-import poster.composeapp.generated.resources.merge_cancel
-import poster.composeapp.generated.resources.merge_done
 import com.example.poster.ui.platform.AdaptiveSettingsSection
-import com.example.poster.ui.platform.AdaptiveConfirmDialog
 import com.example.poster.ui.platform.AdaptiveSwitch
-import com.example.poster.ui.platform.AdaptiveTimePicker
 import com.example.poster.ui.platform.rememberUses24HourClock
-import com.example.poster.model.PostVisibility
 import com.example.poster.notification.DailyReminders
 import com.example.poster.notification.rememberNotificationPermissionRequest
 import com.example.poster.util.AppPreferences
@@ -70,45 +61,20 @@ import poster.composeapp.generated.resources.settings_no_groups
 import poster.composeapp.generated.resources.reminder_permission_denied
 import poster.composeapp.generated.resources.settings_reminder_summary
 import poster.composeapp.generated.resources.settings_reminder_time
-import poster.composeapp.generated.resources.time_picker_confirm
-import poster.composeapp.generated.resources.cancel
 import poster.composeapp.generated.resources.settings_manage_groups
 import poster.composeapp.generated.resources.settings_default_visibility
 import poster.composeapp.generated.resources.settings_posts
 import poster.composeapp.generated.resources.settings_show_name
 import poster.composeapp.generated.resources.settings_show_name_body
-import poster.composeapp.generated.resources.visibility_group
-import poster.composeapp.generated.resources.visibility_private
-import poster.composeapp.generated.resources.visibility_public
-import poster.composeapp.generated.resources.settings_support_action
-import poster.composeapp.generated.resources.settings_support_body
-import poster.composeapp.generated.resources.settings_support_manage
-import poster.composeapp.generated.resources.settings_support_restore
-import poster.composeapp.generated.resources.settings_support_thanks
-import poster.composeapp.generated.resources.settings_support_title
 import poster.composeapp.generated.resources.settings_delete_account
-import poster.composeapp.generated.resources.delete_account_title
-import poster.composeapp.generated.resources.delete_account_body
-import poster.composeapp.generated.resources.delete_account_confirm
 import poster.composeapp.generated.resources.delete_account_failed
 import poster.composeapp.generated.resources.settings_sign_out
 import poster.composeapp.generated.resources.settings_feedback_title
 import poster.composeapp.generated.resources.settings_feedback
 import poster.composeapp.generated.resources.settings_feedback_body
-import poster.composeapp.generated.resources.sign_out_body
-import poster.composeapp.generated.resources.sign_out_title
 import poster.composeapp.generated.resources.settings_your_groups
 import com.example.poster.preview.rememberPreviewGraph
 import kotlinx.coroutines.launch
-import com.example.poster.ui.components.SettingsSectionHeader
-import com.example.poster.ui.components.SupportPaywall
-import com.example.poster.ui.components.SupportCustomerCenter
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.KeyboardActions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,7 +113,6 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     // Read here, not at the press: stringResource is composable and the press
     // happens in a coroutine.
-    val deleteFailed = stringResource(Res.string.delete_account_failed)
     val reminderDenied = stringResource(Res.string.reminder_permission_denied)
 
     /**
@@ -171,50 +136,6 @@ fun SettingsScreen(
                 if (!scheduled) snackbarHostState.showSnackbar(reminderDenied)
             }
         }
-    }
-    var showPaywall by remember { mutableStateOf(false) }
-    var showCustomerCenter by remember { mutableStateOf(false) }
-    val isSupporter by supportViewModel.isSupporter.collectAsState()
-    val hasSubscription by supportViewModel.hasSubscription.collectAsState()
-    val activeSubscriptions by supportViewModel.activeSubscriptions.collectAsState()
-    val renewalDates by supportViewModel.renewalDates.collectAsState()
-    val subscriptionWillRenew by supportViewModel.subscriptionWillRenew.collectAsState()
-    val offering by supportViewModel.offering.collectAsState()
-    val purchasing by supportViewModel.purchasing.collectAsState()
-    val supportError by supportViewModel.error.collectAsState()
-    val justSupported by supportViewModel.justSupported.collectAsState()
-
-    // Said once, and the sheet closes on it: a purchase that leaves the tiers
-    // on screen looks like it did not happen.
-    LaunchedEffect(justSupported) {
-        if (justSupported) {
-            showPaywall = false
-            supportViewModel.acknowledgeThanks()
-        }
-    }
-
-    // What is on offer can change without an app release, so it is asked for
-    // when this screen opens rather than once at launch.
-    LaunchedEffect(Unit) { if (Features.SUPPORT) supportViewModel.refresh() }
-
-    if (showPaywall) {
-        SupportPaywall(
-            offering = offering,
-            purchasing = purchasing,
-            error = supportError?.message,
-            onDismiss = { showPaywall = false },
-            onBuy = { pkg -> supportViewModel.buy(pkg) },
-            onRestore = { supportViewModel.restore() },
-            demoTiers = supportViewModel.demoTiers,
-            activeSubscriptionIds = activeSubscriptions,
-            renewalDates = renewalDates,
-            subscriptionWillRenew = subscriptionWillRenew,
-        )
-    }
-    if (showCustomerCenter) {
-        // Re-ask the store on the way out: a cancel done in there is exactly the
-        // change the paywall and this screen need to stop showing "renews".
-        SupportCustomerCenter(onDismiss = { showCustomerCenter = false; supportViewModel.refresh() })
     }
 
     val scrollState = rememberScrollState()
@@ -446,39 +367,7 @@ fun SettingsScreen(
             )
         }
 
-        // Supporting the app, above signing out and below everything that is
-        // actually about using it. Absent entirely in builds with no API key,
-        // rather than present and dead.
-        if (Features.SUPPORT && supportViewModel.available) {
-            AdaptiveSettingsSection(
-                title = stringResource(Res.string.settings_support_title),
-                modifier = Modifier.testTag("support_section"),
-            ) {
-                SettingsRow(
-                    label = if (isSupporter) {
-                        stringResource(Res.string.settings_support_thanks)
-                    } else {
-                        stringResource(Res.string.settings_support_action)
-                    },
-                    icon = Icons.Default.Favorite,
-                    supporting = stringResource(Res.string.settings_support_body),
-                    onClick = { showPaywall = true },
-                    modifier = Modifier.testTag("support_button"),
-                    chevron = true,
-                )
-                // Only when there is a subscription to manage. A coffee has
-                // nothing to cancel, and a row that opens a screen about
-                // nothing is worse than no row.
-                if (hasSubscription) {
-                    SettingsRow(
-                        label = stringResource(Res.string.settings_support_manage),
-                        icon = Icons.Default.Person,
-                        onClick = { showCustomerCenter = true },
-                        modifier = Modifier.testTag("support_manage_button"),
-                    )
-                }
-            }
-        }
+        SettingsSupportSection(supportViewModel)
 
         Spacer(modifier = Modifier.height(Spacing.lg))
         SettingsDivider()
@@ -516,69 +405,28 @@ fun SettingsScreen(
     }
 
     if (showDeleteConfirmation) {
-        AdaptiveConfirmDialog(
-            title = stringResource(Res.string.delete_account_title),
-            body = stringResource(Res.string.delete_account_body),
-            confirmLabel = stringResource(Res.string.delete_account_confirm),
-            cancelLabel = stringResource(Res.string.cancel),
-            destructive = true,
-            confirmTestTag = "confirm_delete_account_button",
-            onConfirm = {
-                showDeleteConfirmation = false
-                coroutineScope.launch {
-                    // Says so when it fails. A person told their posts are
-                    // gone when they are not is the worst way to be wrong here,
-                    // and the session is deliberately left alone on failure.
-                    if (userViewModel.deleteAccount()) {
-                        // Same reason as sign-out: the alarm is not part of the
-                        // account and nothing on the server can cancel it.
-                        reminders.disable()
-                    } else {
-                        snackbarHostState.showSnackbar(deleteFailed)
-                    }
-                }
-            },
+        DeleteAccountDialog(
+            userViewModel = userViewModel,
+            reminders = reminders,
+            snackbarHostState = snackbarHostState,
             onDismiss = { showDeleteConfirmation = false },
         )
     }
 
     if (showSignOutConfirmation) {
-        AdaptiveConfirmDialog(
-            title = stringResource(Res.string.sign_out_title),
-            body = stringResource(Res.string.sign_out_body),
-            confirmLabel = stringResource(Res.string.settings_sign_out),
-            cancelLabel = stringResource(Res.string.cancel),
-            destructive = true,
-            confirmTestTag = "confirm_sign_out_button",
-            onConfirm = {
-                showSignOutConfirmation = false
-                // The alarm outlives the session unless it is cancelled here.
-                // AppPreferences.clear() forgets the setting, but forgetting a
-                // scheduled alarm does not unschedule it — whoever signs in
-                // next would keep being reminded at a time they never chose.
-                reminders.disable()
-                // Same reason: the list is this account's, and the next person
-                // to sign in on this device must not find it waiting.
-                notificationsViewModel?.clearForSignOut()
-                // Signing out updates the session; the screen follows it.
-                userViewModel.logOut()
-            },
+        SignOutDialog(
+            userViewModel = userViewModel,
+            reminders = reminders,
+            notificationsViewModel = notificationsViewModel,
             onDismiss = { showSignOutConfirmation = false },
         )
     }
 
     if (showMergeDialog) {
-        val mergedMessage = stringResource(Res.string.merge_done)
-        MergeAccountDialog(
-            accountViewModel = userViewModel,
-            dismissLabel = stringResource(Res.string.merge_cancel),
+        SettingsMergeDialog(
+            userViewModel = userViewModel,
+            snackbarHostState = snackbarHostState,
             onDismiss = { showMergeDialog = false },
-            onMerged = {
-                showMergeDialog = false
-                // The session now points at the surviving account; the screen
-                // follows it, and the merge row disappears with the relay email.
-                coroutineScope.launch { snackbarHostState.showSnackbar(mergedMessage) }
-            },
         )
     }
 
@@ -597,53 +445,12 @@ fun SettingsScreen(
     }
 
     if (showVisibilityPicker) {
-        AlertDialog(
-            onDismissRequest = { showVisibilityPicker = false },
-            title = { Text(stringResource(Res.string.settings_default_visibility)) },
-            text = {
-                Column {
-                    listOfNotNull(
-                        PostVisibility.PUBLIC,
-                        PostVisibility.GROUP.takeIf { Features.GROUPS },
-                        PostVisibility.PRIVATE,
-                    ).forEach { option ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    appPreferences.setDefaultVisibility(option)
-                                    showVisibilityPicker = false
-                                }
-                                .padding(vertical = Spacing.sm)
-                                .testTag("default_visibility_option_$option"),
-                        ) {
-                            RadioButton(
-                                selected = defaultVisibility == option,
-                                onClick = {
-                                    appPreferences.setDefaultVisibility(option)
-                                    showVisibilityPicker = false
-                                },
-                            )
-                            Text(visibilityLabel(option))
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showVisibilityPicker = false }) {
-                    Text(stringResource(Res.string.cancel))
-                }
-            },
+        DefaultVisibilityDialog(
+            current = defaultVisibility,
+            appPreferences = appPreferences,
+            onDismiss = { showVisibilityPicker = false },
         )
     }
-}
-
-@Composable
-private fun visibilityLabel(visibility: String): String = when (visibility) {
-    PostVisibility.GROUP -> stringResource(Res.string.visibility_group)
-    PostVisibility.PRIVATE -> stringResource(Res.string.visibility_private)
-    else -> stringResource(Res.string.visibility_public)
 }
 
 @Preview
@@ -653,49 +460,5 @@ fun SettingsScreenPreview() {
     SettingsScreen(
         userViewModel = graph.accountViewModel,
         themeViewModel = graph.themeViewModel,
-    )
-}
-
-/**
- * Minutes since midnight as a clock reading, in the device's 12- or 24-hour
- * convention so the settings row matches the picker.
- */
-internal fun formatTimeOfDay(minutesSinceMidnight: Int, uses24Hour: Boolean): String {
-    val total = minutesSinceMidnight.coerceIn(0, 1439)
-    val hour = total / 60
-    val minute = (total % 60).toString().padStart(2, '0')
-    if (uses24Hour) return "${hour.toString().padStart(2, '0')}:$minute"
-    val hour12 = ((hour + 11) % 12) + 1
-    val period = if (hour < 12) "AM" else "PM"
-    return "$hour12:$minute $period"
-}
-
-/**
- * The reminder time dialog. The picker inside it is native per platform (see
- * [AdaptiveTimePicker]); this keeps the surrounding dialog and its confirm/cancel
- * shared.
- */
-@Composable
-private fun ReminderTimeDialog(
-    minutesSinceMidnight: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit,
-) {
-    var minutes by remember { mutableStateOf(minutesSinceMidnight) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.settings_reminder_time)) },
-        text = { AdaptiveTimePicker(minutesSinceMidnight) { minutes = it } },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(minutes) },
-                modifier = Modifier.testTag("reminder_time_confirm"),
-            ) {
-                Text(stringResource(Res.string.time_picker_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
-        },
     )
 }
