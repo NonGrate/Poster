@@ -52,15 +52,16 @@ abstract class GeneratePosterResources : DefaultTask() {
         fun colorsXml(hex: String) = """
             <?xml version="1.0" encoding="utf-8"?>
             <resources>
-                <!-- GENERATED from poster.properties (color.*.background). -->
+                <!-- GENERATED from poster.properties (the palette's background). -->
                 <color name="poster_background">${hex.trim()}</color>
             </resources>
         """.trimIndent() + "\n"
+        val palette = PosterPalette.resolve(props)
         val out = outputDir.get().asFile
         out.resolve("values").apply { mkdirs() }
-            .resolve("colors.xml").writeText(colorsXml(props.getProperty("color.light.background", "#FDF8F4")))
+            .resolve("colors.xml").writeText(colorsXml(palette.getValue("light").getValue("background")))
         out.resolve("values-night").apply { mkdirs() }
-            .resolve("colors.xml").writeText(colorsXml(props.getProperty("color.dark.background", "#1A1412")))
+            .resolve("colors.xml").writeText(colorsXml(palette.getValue("dark").getValue("background")))
     }
 }
 

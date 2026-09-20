@@ -14,8 +14,8 @@ feature.groups=true
 feature.likes=true
 ...
 
-color.light.primary=#8D4F3A
-color.dark.primary=#FFDAB9
+color.primary=#4F46E5
+color.accent=#F59E0B
 ...
 ```
 
@@ -146,10 +146,38 @@ optional; plain feature code does not need it, R8 handles that.
 
 ## Colours
 
-`color.light.<role>` and `color.dark.<role>` for every Material 3 colour role
-(`primary`, `onPrimary`, `primaryContainer`, … `surfaceContainerHighest`; the
-full list is in the file). `composeApp/src/commonMain/kotlin/com/example/poster/theme/AppTheme.kt`
-builds both colour schemes from them and documents which role is used where:
+Two seeds:
+
+```
+color.primary=#4F46E5     # buttons, selected chips, the FAB, links on the web pages
+color.accent=#F59E0B      # the Like control, the liked-by roster (Material "secondary")
+```
+
+Everything else is derived at build time by `buildSrc/src/main/kotlin/PosterPalette.kt`:
+all 36 Material 3 roles for the light **and** the dark scheme, the Android
+window colour behind the system bars, the iOS accent colour
+(`AccentColor.colorset`, rewritten on every build), the web pages' CSS
+(landing, account pages, admin panel) and the store-graphics scripts (through
+`shared/build/generated/poster/palette.properties`). Change the two lines,
+rebuild, and every surface follows.
+
+Optional seeds: `color.tertiary` (tag chips, the Resolved badge; a third hue
+derived from the primary if absent) and `color.neutral` (the tint of paper and
+cards; the primary hue at low saturation if absent). Any explicit
+`color.light.<role>=` / `color.dark.<role>=` overrides one derived value, so a
+palette exported from Material Theme Builder can be pasted in whole.
+
+How a role is derived: the seed's hue and saturation at a fixed lightness —
+primary at the seed's own lightness in light mode when text reads on it (else
+40 %), 80 % in dark mode; containers at 90 % / 30 %; paper at 98 % / 6 %. The
+text on each coloured surface is the tone that reads (an amber seed gets dark
+text, a blue one white), and if a pair still falls under **4.5:1 the build
+fails and names it**, so a colour choice cannot silently make text unreadable.
+The maths is HSL rather than Material's HCT, so a very light or very dark seed
+may want a role or two overridden by hand.
+
+Which role is used where is documented in
+`composeApp/src/commonMain/kotlin/com/example/poster/theme/AppTheme.kt`:
 
 - **primary** family — filled buttons, selected chips, the selected tab pill, the FAB
 - **secondary** family — the Like control and the liked-by roster
@@ -158,14 +186,9 @@ builds both colour schemes from them and documents which role is used where:
 - **background / surface\*** — paper, cards (`surfaceContainerLowest`), nav bar (`surfaceContainer`), dialogs and pills (`surfaceContainerHigh`)
 - **outlineVariant** — hairlines and card borders
 
-Keep text roles at ≥ 4.5:1 against what they sit on. The default palette is
-around 10:1 for body text and 6:1 for the destructive red.
-
-Web pages have their own small CSS palette in `server/.../LandingPage.kt`
-(`SITE_STYLE`) and `auth/AccountPages.kt` (`simplePage`), and the placeholder
-mark in `assets/*.svg` uses the same hex values. Those are not generated — a
-web page is styled once and rarely — so if you change the primary colour, change
-the `.button` background there too.
+The placeholder mark and icon in `assets/*.svg` carry the default palette's
+hex values; they are yours to replace, or run `scripts/build-brand-assets.sh`
+after recolouring them.
 
 ## What is *not* here
 

@@ -9,12 +9,12 @@
   -->
   <g>
     <rect class="wash" x="150" y="120" width="600" height="540" rx="56" fill="#FFFFFF"/>
-    <rect x="150" y="120" width="600" height="540" rx="56" fill="none" stroke="#9C5A3C" stroke-width="18"/>
-    <rect x="230" y="230" width="360" height="34" rx="17" fill="#E6CBB4"/>
-    <rect x="230" y="310" width="440" height="24" rx="12" fill="#F0E4DC"/>
-    <rect x="230" y="366" width="400" height="24" rx="12" fill="#F0E4DC"/>
-    <rect x="230" y="422" width="300" height="24" rx="12" fill="#F0E4DC"/>
-    <circle cx="640" cy="560" r="46" fill="#FFD9E1" stroke="#8C4A5E" stroke-width="14"/>
-    <circle cx="640" cy="560" r="12" fill="#8C4A5E"/>
+    <rect x="150" y="120" width="600" height="540" rx="56" fill="none" stroke="#4C43E4" stroke-width="18"/>
+    <rect x="230" y="230" width="360" height="34" rx="17" fill="#D4D2F8"/>
+    <rect x="230" y="310" width="440" height="24" rx="12" fill="#E1E1E9"/>
+    <rect x="230" y="366" width="400" height="24" rx="12" fill="#E1E1E9"/>
+    <rect x="230" y="422" width="300" height="24" rx="12" fill="#E1E1E9"/>
+    <circle cx="640" cy="560" r="46" fill="#FCEBCE" stroke="#F49D0A" stroke-width="14"/>
+    <circle cx="640" cy="560" r="12" fill="#F49D0A"/>
   </g>
 </svg>

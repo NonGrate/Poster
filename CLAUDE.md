@@ -49,7 +49,7 @@ Never edit an existing `.sqm` or `.db`.
 | A new API endpoint | model in `shared/.../model/`, interface in `shared/.../network/`, Ktor impl in `shared/.../ktor/`, route in `server/.../Application.kt`, test in `server/src/test/` |
 | A new field on Post | `.sq` + `.sqm`, `model/Post.kt`, mappers (`PostLocalStore`, server `PostsLocalRepository`), server validation, `PostFormDialog`, `PostCard`, strings, tests — recipe in `docs/Architecture.md` |
 | A new feature flag | `posterFeatureKeys` in `shared/build.gradle.kts`, a line in `poster.properties`, `Features.X` at the UI entry points and around the server routes |
-| A new colour | `poster.properties` (`color.light.*` / `color.dark.*`), nothing else |
+| Colours | `poster.properties`: `color.primary`, `color.accent` (optional `color.tertiary`, `color.neutral`, or an explicit `color.light.<role>`); the palette, the web CSS, the iOS accent and the scripts' paper colour all derive from them (`buildSrc/PosterPalette.kt`). Never hardcode a hex in a page or a script. |
 | Authors (names, avatars) | `feature.authors`; `Post.withAuthor` in `Application.kt`, `Avatar.kt`, the picture row in `ProfileScreen.kt` |
 | Passwordless sign-in | `docs/SignIn.md` § magic link; `AuthService.signInWithMagicLink`, `AccountMail.sendMagicLink`, `AppLinkHandler.MagicDialog` |
 | Push / activity | `docs/PushNotifications.md`; `server/.../push/`, `composeApp/.../notification/` (`PushRegistrar`, `push/{enabled,disabled}` for Firebase) |
@@ -182,10 +182,12 @@ languages, a server route test and a rules test. Build and commit per field.
 
 0. Ask whether they want the liquid look (`feature.liquidDesign`) and/or the
    floating glass tab bar (`feature.liquidNavBar`); both default off. Set, rebuild.
-1. `poster.properties` colours. Keep body-text contrast ≥ 4.5:1; say so if the
-   developer's choice does not.
-2. Match the primary in `SITE_STYLE` (`LandingPage.kt`) and `simplePage`
-   (`AccountPages.kt`) CSS.
+1. `poster.properties`: `color.primary` and `color.accent` (and `color.tertiary`
+   if they named a third). The build derives the rest and fails on any text
+   pair under 4.5:1 — if it does, show the developer the pair and offer a
+   nearby seed or an explicit `color.light.<role>` override.
+2. The web pages and the store scripts follow the palette on their own;
+   nothing to edit there.
 3. If artwork was provided: drop SVGs into `assets/`, run
    `scripts/build-brand-assets.sh` and `scripts/build-icons.sh --install`.
    Otherwise tell the developer the placeholder mark is still in place.

@@ -4,5 +4,5 @@
     once the launcher masks it: the eye sees a border enclosing a smaller disc
     instead of one icon filling its circle.
   -->
-  <rect width="512" height="512" fill="#FBEDE4"/>
+  <rect width="512" height="512" fill="#F4F3F5"/>
 </svg>

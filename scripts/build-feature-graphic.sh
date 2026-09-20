@@ -29,9 +29,10 @@ LANGUAGES="${2:-en ru}"
 FONT_BOLD=assets/fonts/Roboto-Bold.ttf
 FONT_REGULAR=assets/fonts/Roboto-Regular.ttf
 
-PAPER="#FDF8F4"
-INK="#2B211D"
-QUIET="#6D5A51"
+source "$(cd "$(dirname "$0")" && pwd)/lib/palette.sh"; palette_ensure
+PAPER="$(palette light.background "#FDF8F4")"
+INK="$(palette light.onSurface "#2B211D")"
+QUIET="$(palette light.onSurfaceVariant "#6D5A51")"
 
 play_locale() {
   case $1 in
@@ -91,7 +92,7 @@ MARK_X=$((MARK_CX - MARK_W / 2))
 CENTROID=$(magick "$TMP/mark.png" -background "$PAPER" -alpha remove -alpha off \
   -colorspace sRGB txt:- | python3 -c '
 import sys
-paper = (0xFD, 0xF8, 0xF4)
+paper = tuple(int(sys.argv[2].lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
 rows = {}
 for line in sys.stdin.read().splitlines()[1:]:
     try:
@@ -104,7 +105,7 @@ for line in sys.stdin.read().splitlines()[1:]:
         rows[y] = rows.get(y, 0.0) + d
 total = sum(rows.values())
 print(round(sum(y * w for y, w in rows.items()) / total))
-')
+' _ "$PAPER")
 MARK_Y=$((MARK_CY - CENTROID))
 
 for language in $LANGUAGES; do

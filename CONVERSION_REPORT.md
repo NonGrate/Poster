@@ -458,6 +458,27 @@ about 200 findings, then fix passes per module. What changed:
   files parse; the runners themselves have not been exercised (no GitHub
   remote yet).
 
+### 21. Palette from two seeds; new default colours (2026-09-20)
+
+- `poster.properties` now carries `color.primary` and `color.accent` (plus
+  optional `color.tertiary`, `color.neutral`, and explicit `color.<mode>.<role>`
+  overrides) instead of 72 hand-written Material roles. `buildSrc/PosterPalette.kt`
+  derives every role for both schemes (HSL tones in the Material 3 layout; the
+  seed itself is the light primary when text reads on it), picks the text tone
+  that reads, nudges a container until it does, and **fails the build** on any
+  text pair under 4.5:1 — which it did twice while I tuned it, once for white
+  on amber and once for a teal container.
+- One palette everywhere: `BrandPalette.kt` (app), `palette.properties` (the
+  store-graphics scripts through `scripts/lib/palette.sh`), the Android window
+  colours, the iOS `AccentColor.colorset` (rewritten on every build), and the
+  web pages — landing, account pages, admin panel — whose 59 hardcoded hex
+  literals became `${css(BrandPalette.…)}`.
+- New default: indigo `#4F46E5`, amber `#F59E0B`, teal `#0D9488`; the
+  placeholder mark and icon SVGs were recoloured to match. Nothing of the
+  original terracotta palette remains outside the two handover files.
+- Verified: host build and all tests green; the emulator screenshot run is
+  below.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

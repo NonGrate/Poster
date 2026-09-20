@@ -1,5 +1,7 @@
 package com.example.poster.auth
 
+import com.example.poster.css
+import com.example.poster.config.BrandPalette
 import com.example.poster.config.AppInfo
 import com.example.poster.config.Features
 import io.ktor.http.HttpStatusCode
@@ -368,36 +370,36 @@ internal fun HTML.simplePage(heading: String, content: BODY.() -> Unit) {
             unsafe {
                 +"""
                 body { font: 17px -apple-system, system-ui, sans-serif; margin: 0 auto;
-                       padding: 48px 24px; max-width: 32rem; color: #2b211d;
-                       background: #fdf7f4; }
+                       padding: 48px 24px; max-width: 32rem; color: ${css(BrandPalette.Light.onSurface)};
+                       background: ${css(BrandPalette.Light.surface)}; }
                 h1 { font-size: 22px; }
                 input[type=submit] { font-size: 17px; padding: 12px 20px; border: 0;
-                       border-radius: 10px; background: #8c4a32; color: #fff; }
+                       border-radius: 10px; background: ${css(BrandPalette.Light.primary)}; color: #fff; }
                 input[type=password], input[type=email] { font-size: 17px; padding: 12px;
                        width: 100%; box-sizing: border-box; margin: 8px 0 16px;
-                       border: 1px solid #d8c9c1; border-radius: 10px; }
-                input[type=submit].danger { background: #9c4238; }
-                p.problem { color: #9c4238; font-weight: 600; }
+                       border: 1px solid ${css(BrandPalette.Light.outlineVariant)}; border-radius: 10px; }
+                input[type=submit].danger { background: ${css(BrandPalette.Light.error)}; }
+                p.problem { color: ${css(BrandPalette.Light.error)}; font-weight: 600; }
                 p.confirm { display: flex; gap: 10px; align-items: flex-start; }
                 p.confirm input { margin-top: 3px; }
                 label { font-size: 15px; }
                 h2 { font-size: 18px; margin-top: 32px; }
                 ul { padding-left: 22px; }
                 li { margin-bottom: 10px; }
-                a { color: #8c4a32; }
-                small { color: #6d5a51; }
+                a { color: ${css(BrandPalette.Light.primary)}; }
+                small { color: ${css(BrandPalette.Light.onSurfaceVariant)}; }
                 p.hint { font-size: 15px; opacity: 0.7; }
                 button.social { font-size: 17px; padding: 12px 20px; border-radius: 10px;
-                       border: 1px solid #d8c9c1; background: #fff; color: #2b211d; }
+                       border: 1px solid ${css(BrandPalette.Light.outlineVariant)}; background: #fff; color: ${css(BrandPalette.Light.onSurface)}; }
                 button.social.disabled { opacity: 0.45; }
                 h2 { font-size: 18px; margin-top: 32px; }
                 @media (prefers-color-scheme: dark) {
-                  body { background: #3a2e28; color: #f4ebe5; }
-                  input[type=password], input[type=email] { background: #48392f;
-                       color: #f4ebe5; border-color: #6f5c52; }
-                  p.problem { color: #f0a196; }
-                  a { color: #e8b09c; }
-                  small { color: #c3ada2; }
+                  body { background: ${css(BrandPalette.Dark.surface)}; color: ${css(BrandPalette.Dark.onSurface)}; }
+                  input[type=password], input[type=email] { background: ${css(BrandPalette.Dark.surfaceContainerHigh)};
+                       color: ${css(BrandPalette.Dark.onSurface)}; border-color: ${css(BrandPalette.Dark.outline)}; }
+                  p.problem { color: ${css(BrandPalette.Dark.error)}; }
+                  a { color: ${css(BrandPalette.Dark.primary)}; }
+                  small { color: ${css(BrandPalette.Dark.onSurfaceVariant)}; }
                 }
                 """
             }

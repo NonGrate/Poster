@@ -1,5 +1,7 @@
 package com.example.poster
 
+import com.example.poster.css
+import com.example.poster.config.BrandPalette
 import com.example.poster.config.AppInfo
 import io.ktor.server.html.respondHtml
 import io.ktor.server.routing.Route
@@ -209,26 +211,26 @@ internal val SITE_STYLE = """
        attribute on the root.
     */
     :root {
-      --bg: #fdf7f4; --fg: #2b211d; --quiet: #6d5a51;
-      --edge: #c3ab9f; --field: #ffffff;
-      --sp-outline: #a26a52; --sp-dot: #7d3f4c; --wash: 1;
+      --bg: ${css(BrandPalette.Light.surface)}; --fg: ${css(BrandPalette.Light.onSurface)}; --quiet: ${css(BrandPalette.Light.onSurfaceVariant)};
+      --edge: ${css(BrandPalette.Light.outline)}; --field: ${css(BrandPalette.Light.surfaceContainerLowest)};
+      --sp-outline: ${css(BrandPalette.Light.primary)}; --sp-dot: ${css(BrandPalette.Light.secondary)}; --wash: 1;
     }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --bg: #3a2e28; --fg: #f4ebe5; --quiet: #cbbcb2;
-        --edge: #6f5c52; --field: #48392f;
+        --bg: ${css(BrandPalette.Dark.surface)}; --fg: ${css(BrandPalette.Dark.onSurface)}; --quiet: ${css(BrandPalette.Dark.onSurfaceVariant)};
+        --edge: ${css(BrandPalette.Dark.outline)}; --field: ${css(BrandPalette.Dark.surfaceContainerHigh)};
         /*
            The drawing is ink on paper: a mid-brown outline and a dark red dot,
            both of which sink into a dark ground. Lifted here, and only the
            washes are dimmed — dimming the whole drawing took the ink with it.
         */
-        --sp-outline: #eec3a6; --sp-dot: #f0b8c4; --wash: .72;
+        --sp-outline: ${css(BrandPalette.Dark.primary)}; --sp-dot: ${css(BrandPalette.Dark.secondary)}; --wash: .72;
       }
     }
     :root[data-theme="dark"] {
-      --bg: #3a2e28; --fg: #f4ebe5; --quiet: #cbbcb2;
-      --edge: #6f5c52; --field: #48392f;
-      --sp-outline: #eec3a6; --sp-dot: #f0b8c4; --wash: .72;
+      --bg: ${css(BrandPalette.Dark.surface)}; --fg: ${css(BrandPalette.Dark.onSurface)}; --quiet: ${css(BrandPalette.Dark.onSurfaceVariant)};
+      --edge: ${css(BrandPalette.Dark.outline)}; --field: ${css(BrandPalette.Dark.surfaceContainerHigh)};
+      --sp-outline: ${css(BrandPalette.Dark.primary)}; --sp-dot: ${css(BrandPalette.Dark.secondary)}; --wash: .72;
     }
 
     body { font: 17px -apple-system, system-ui, sans-serif; margin: 0 auto;
@@ -243,7 +245,7 @@ internal val SITE_STYLE = """
     .tagline { font-size: 19px; margin: 0 0 32px; }
     .downloads { margin: 0 0 8px; }
     .button { display: inline-block; margin: 0 8px 8px 0; padding: 14px 22px;
-              border-radius: 12px; background: #8c4a32; color: #fff;
+              border-radius: 12px; background: ${css(BrandPalette.Light.primary)}; color: #fff;
               text-decoration: none; font-size: 17px; }
     .soon { display: inline-block; padding: 14px 22px; border-radius: 12px;
             border: 1px dashed var(--edge); color: var(--quiet); margin: 0; }
@@ -274,7 +276,7 @@ internal val SITE_STYLE = """
                      background: none; color: var(--fg); text-decoration: none;
                      border: 1px solid var(--edge); border-radius: 999px;
                      padding: 4px 10px; }
-    .chrome-choice.on { border-color: #8c4a32; color: #8c4a32; }
+    .chrome-choice.on { border-color: ${css(BrandPalette.Light.primary)}; color: ${css(BrandPalette.Light.primary)}; }
     /*
        The brown that marks the current choice is a paper colour and vanishes
        on a dark ground, so it follows the ink. Guarded the same way the

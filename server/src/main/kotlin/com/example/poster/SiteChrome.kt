@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.BrandPalette
 import kotlinx.html.BODY
 import kotlinx.html.HEAD
 import kotlinx.html.meta
@@ -117,3 +118,6 @@ val SITE_VERIFICATION: String?
 fun HEAD.siteVerification() {
     SITE_VERIFICATION?.let { meta(name = "google-site-verification", content = it) }
 }
+
+/** A palette colour as CSS (`#rrggbb`), so the web pages wear poster.properties too. */
+internal fun css(argb: Long): String = "#%06x".format(argb and 0xFFFFFF)

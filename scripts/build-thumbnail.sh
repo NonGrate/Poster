@@ -24,10 +24,11 @@ LANGUAGES="${2:-en ru}"
 FONT_BOLD=assets/fonts/Roboto-Bold.ttf
 FONT_REGULAR=assets/fonts/Roboto-Regular.ttf
 
-PAPER="#FDF8F4"
-PAPER_WARM="#F6E7DE"
-INK="#2B211D"
-QUIET="#6D5A51"
+source "$(cd "$(dirname "$0")" && pwd)/lib/palette.sh"; palette_ensure
+PAPER="$(palette light.background "#FDF8F4")"
+PAPER_WARM="$(palette light.surfaceContainerLow "#F6E7DE")"
+INK="$(palette light.onSurface "#2B211D")"
+QUIET="$(palette light.onSurfaceVariant "#6D5A51")"
 
 # 1200x800. Big enough that nobody has to upscale it, small enough to upload
 # anywhere, and exactly 3:2.

@@ -4,11 +4,11 @@
     guaranteed to show is the middle 66dp of the 108dp canvas: a circle of
     radius ~157 around (256, 256). The card stays inside it.
   -->
-  <rect x="146" y="150" width="220" height="200" rx="26" fill="#FFFFFF" stroke="#9C5A3C" stroke-width="12"/>
-  <rect x="176" y="192" width="120" height="14" rx="7" fill="#E6CBB4"/>
-  <rect x="176" y="222" width="150" height="10" rx="5" fill="#F0E4DC"/>
-  <rect x="176" y="244" width="136" height="10" rx="5" fill="#F0E4DC"/>
-  <rect x="176" y="266" width="100" height="10" rx="5" fill="#F0E4DC"/>
-  <circle cx="322" cy="308" r="18" fill="#FFD9E1" stroke="#8C4A5E" stroke-width="7"/>
-  <circle cx="322" cy="308" r="5" fill="#8C4A5E"/>
+  <rect x="146" y="150" width="220" height="200" rx="26" fill="#FFFFFF" stroke="#4C43E4" stroke-width="12"/>
+  <rect x="176" y="192" width="120" height="14" rx="7" fill="#D4D2F8"/>
+  <rect x="176" y="222" width="150" height="10" rx="5" fill="#E1E1E9"/>
+  <rect x="176" y="244" width="136" height="10" rx="5" fill="#E1E1E9"/>
+  <rect x="176" y="266" width="100" height="10" rx="5" fill="#E1E1E9"/>
+  <circle cx="322" cy="308" r="18" fill="#FCEBCE" stroke="#F49D0A" stroke-width="7"/>
+  <circle cx="322" cy="308" r="5" fill="#F49D0A"/>
 </svg>

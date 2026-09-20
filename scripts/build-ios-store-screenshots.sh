@@ -22,8 +22,10 @@ OUT="${2:?where to write}"
 LANGUAGES="${3:-en}"
 DEVICE="${4:-iphone}"
 
-PAPER="#FDF8F4"
-INK="#2B211D"
+source "$(cd "$(dirname "$0")" && pwd)/lib/palette.sh"; palette_ensure
+PAPER="$(palette light.background "#FDF8F4")"
+INK="$(palette light.onSurface "#2B211D")"
+PAPER_WARM="$(palette light.surfaceContainerLow "#F6E7DE")"
 
 # One profile per App Store device slot. The canvas must be an exact accepted
 # size; the rest is layout — a taller iPad shot leaves less caption room, so it
@@ -98,7 +100,7 @@ for language in $LANGUAGES; do
       -font "Helvetica-Bold" -pointsize "$CAP_PT" -gravity center \
       caption:"$text" "$TMP/caption.png"
 
-    magick -size "${WIDTH}x${HEIGHT}" "gradient:$PAPER-#F6E7DE" \
+    magick -size "${WIDTH}x${HEIGHT}" "gradient:$PAPER-$PAPER_WARM" \
       \( "$TMP/caption.png" \) -gravity north -geometry "+0+${CAP_Y}" -composite \
       \( "$TMP/rounded.png" \) -gravity north -geometry "+0+${SHOT_Y}" -composite \
       "$target/$shot.png"

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "$0")" && pwd)/lib/palette.sh"; palette_ensure
+ICON_BG="$(palette light.surfaceContainerLow "#FBEDE4")"
 
 # Builds every launcher icon from assets/icon-*.svg.
 #
@@ -41,7 +43,7 @@ for entry in $BUCKETS; do
   # alpha; an adaptive background is meant to be fully opaque, and a launcher
   # is entitled to do what it likes with one that is not.
   rsvg-convert -w "$adaptive" -h "$adaptive" assets/icon-background.svg -o "$OUT/bg-raw.png"
-  magick "$OUT/bg-raw.png" -background "#FBEDE4" -alpha remove -alpha off \
+  magick "$OUT/bg-raw.png" -background "$ICON_BG" -alpha remove -alpha off \
     "$RES/mipmap-$density/ic_launcher_background.png"
 
   # Legacy: composite at high resolution, crop to the masked area, then size.
@@ -86,7 +88,7 @@ done
 # zoom, enough presence for a store tile without the safe-zone crop's bulk.
 rsvg-convert -w 4096 -h 4096 assets/icon-background.svg -o "$OUT/bg.png"
 rsvg-convert -w 4096 -h 4096 assets/icon-foreground.svg -o "$OUT/fg.png"
-magick "$OUT/bg.png" -background "#FBEDE4" -alpha remove -alpha off \
+magick "$OUT/bg.png" -background "$ICON_BG" -alpha remove -alpha off \
   \( "$OUT/fg.png" \) -gravity center -geometry +0-144 -composite \
   -gravity center -crop 3470x3470+0+0 +repage -resize 512x512 build/icons/play-icon-512.png
 echo "  build/icons/play-icon-512.png"

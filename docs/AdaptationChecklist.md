@@ -19,7 +19,7 @@ Legend: **must** — every app needs it · *should* — most apps · optional.
 - [ ] *should* Languages: keep English only, keep English + Russian, or add another
   ([`Localization.md`](Localization.md)).
 - [ ] *should* Monetisation: none, tips/subscription via RevenueCat, or something else.
-- [ ] optional Brand colours (a primary, a secondary accent, a tertiary, paper/background)
+- [ ] optional Brand colours (a primary and an accent; a tertiary if you have one)
   and a mark.
 
 ## 1. Identity (one script, one commit)
@@ -91,10 +91,10 @@ Legend: **must** — every app needs it · *should* — most apps · optional.
 
 - [ ] optional The liquid look: `feature.liquidDesign` (rounder shapes, translucent
   cards) and/or `feature.liquidNavBar` (floating glass tab bar). [`LiquidDesign.md`](LiquidDesign.md)
-- [ ] *should* `poster.properties` → `color.light.*` / `color.dark.*`. Check contrast
-  (`docs/Configuration.md#colours`). Web pages have their own small palette in
-  `LandingPage.kt` (`SITE_STYLE`) and `auth/AccountPages.kt` (`simplePage`) —
-  match the primary.
+- [ ] *should* `poster.properties` → `color.primary` and `color.accent` (optional
+  `color.tertiary`, `color.neutral`). The build derives the light and dark
+  palette, the web pages, the iOS accent and the store graphics from them and
+  fails on any text pair under 4.5:1 (`docs/Configuration.md#colours`).
 - [ ] *should* Mark: replace `assets/poster-mark.svg` + `poster-mark-dark.svg`, run
   `scripts/build-brand-assets.sh`. Launcher: replace `assets/icon-*.svg`, run
   `scripts/build-icons.sh --install`. iOS icon: drop a 1024² PNG into

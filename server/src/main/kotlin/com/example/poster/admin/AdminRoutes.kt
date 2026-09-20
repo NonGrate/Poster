@@ -1,5 +1,7 @@
 package com.example.poster.admin
 
+import com.example.poster.css
+import com.example.poster.config.BrandPalette
 import com.example.poster.config.Features
 import com.example.poster.comments.CommentsRepository
 import com.example.poster.config.AppInfo
@@ -1364,15 +1366,15 @@ private fun HEAD.styleBlock() {
                read at odd hours on whatever is to hand.
             */
             :root {
-              --bg: #fdf8f4; --panel: #fffdfb; --fg: #211a16; --quiet: #6d5a51;
-              --line: #e6d8d0; --accent: #8c4a32; --danger: #9c4238;
-              --live: #2f6b4f; --badge: #f0e3db;
+              --bg: ${css(BrandPalette.Light.surface)}; --panel: ${css(BrandPalette.Light.surfaceContainerLowest)}; --fg: ${css(BrandPalette.Light.onSurface)}; --quiet: ${css(BrandPalette.Light.onSurfaceVariant)};
+              --line: ${css(BrandPalette.Light.outlineVariant)}; --accent: ${css(BrandPalette.Light.primary)}; --danger: ${css(BrandPalette.Light.error)};
+              --live: ${css(BrandPalette.Light.tertiary)}; --badge: ${css(BrandPalette.Light.surfaceContainerHigh)};
             }
             @media (prefers-color-scheme: dark) {
               :root {
-                --bg: #241d19; --panel: #2e2521; --fg: #f4ebe5; --quiet: #bda99e;
-                --line: #453832; --accent: #e0a184; --danger: #e08b7f;
-                --live: #7fc0a0; --badge: #3d322c;
+                --bg: ${css(BrandPalette.Dark.surface)}; --panel: ${css(BrandPalette.Dark.surfaceContainer)}; --fg: ${css(BrandPalette.Dark.onSurface)}; --quiet: ${css(BrandPalette.Dark.onSurfaceVariant)};
+                --line: ${css(BrandPalette.Dark.outlineVariant)}; --accent: ${css(BrandPalette.Dark.primary)}; --danger: ${css(BrandPalette.Dark.error)};
+                --live: ${css(BrandPalette.Dark.tertiary)}; --badge: ${css(BrandPalette.Dark.surfaceContainerHigh)};
               }
             }
             * { box-sizing: border-box; }

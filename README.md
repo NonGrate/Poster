@@ -89,9 +89,11 @@ AI assistant? `CLAUDE.md` holds the same list as a playbook; in Claude Code,
 ## Configure
 
 - [`poster.properties`](poster.properties) — the one file to edit: app name, URL
-  scheme, domain, **feature flags**, **colour palette**. Gradle turns it into
-  constants (`Features.LIKES`, `BrandPalette.Light.primary`, `AppInfo.NAME`) that
-  Android, iOS and the server all read. Off means compiled out. → [`docs/Configuration.md`](docs/Configuration.md)
+  scheme, domain, **feature flags**, and **two seed colours** from which the whole
+  light and dark palette is derived (app, web pages, store graphics; text
+  contrast checked at build time). Gradle turns it into constants
+  (`Features.LIKES`, `BrandPalette.Light.primary`, `AppInfo.NAME`) that Android,
+  iOS and the server all read. Off means compiled out. → [`docs/Configuration.md`](docs/Configuration.md)
 - [`scripts/rename-app.sh`](scripts/rename-app.sh) — package, application id, name,
   scheme, domain across the whole tree. → [`docs/Renaming.md`](docs/Renaming.md)
 - Push notifications and the activity list → [`docs/PushNotifications.md`](docs/PushNotifications.md) · Comments → [`docs/Comments.md`](docs/Comments.md) · Images on posts (storage, visibility, limits) → [`docs/Images.md`](docs/Images.md) · Liquid design flags → [`docs/LiquidDesign.md`](docs/LiquidDesign.md)

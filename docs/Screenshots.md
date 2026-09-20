@@ -20,7 +20,9 @@ scripts/store-screenshots.sh --host 10.0.2.2:8080 --languages "en ru"
 the empty states, seeds every language (`seed-demo-data.sh`), captures the full
 app in light and dark in each language, then composes the listing images into
 `store/screenshots/<locale>/` at 1080×1920 with a caption on the app's own paper
-colour. `--only "light-13-support-paywall"` recaptures one screen;
+colour (the composers read `light.background`, `light.onSurface` and friends from
+`shared/build/generated/poster/palette.properties`, so they follow `color.primary`
+/ `color.accent` in `poster.properties` without edits). `--only "light-13-support-paywall"` recaptures one screen;
 `--skip-empty` skips the empty pass; `--no-build` reuses the installed APK.
 
 Under it, `ui-screenshots.sh` drives the real app over `adb` — taps are resolved
