@@ -440,6 +440,24 @@ about 200 findings, then fix passes per module. What changed:
   app unit 59, all green; the version catalog lost seven unused aliases and
   its string-literal test dependencies.
 
+### 20. Docs, AI instructions, CI (2026-09-20)
+
+- New docs: `docs/Social.md` (follows, bookmarks, public groups),
+  `docs/Offline.md` (cache, outbox, drafts), `docs/AIAssistant.md` (which
+  file each tool reads, the slash commands, typical requests). README
+  refreshed (intro, links, layout); `CLAUDE.md` gained rows for the Tier 2
+  features and the flag-gating rules the review established.
+- AI entry points: `CLAUDE.md` (the playbook), `AGENTS.md` (pointer),
+  `.cursor/rules/poster.mdc`, `.github/copilot-instructions.md`, and five
+  Claude Code commands under `.claude/commands/`: `/adapt-template`,
+  `/add-feature-flag`, `/add-post-field`, `/toggle-feature`, `/quality-gates`.
+- CI: the `tests` job also compiles the instrumented sources; new jobs
+  `flags-off` (the suite with every feature off), `desktop` (compile with the
+  flag on), `ios` (macOS, pushes to `main` and manual runs); superseded runs
+  are cancelled. Verified locally by running the same commands; the workflow
+  files parse; the runners themselves have not been exercised (no GitHub
+  remote yet).
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

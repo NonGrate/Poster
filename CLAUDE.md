@@ -30,6 +30,10 @@ scripts/check-architecture.sh
 ./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest
 ```
 
+`/quality-gates` runs these plus the compiles and the flags-off pass. Server
+tests use `ServerTestSupport.kt` (`withServer`, `confirmed`, `postPost`,
+`guids`); do not write private copies.
+
 If the schema changed: add `shared/src/commonMain/sqldelight/<N>.sqm` where N is
 the *current* version — the highest `databases/<N>.db` present (`1.sqm` took
 1→2) — run `./gradlew :shared:generatePostDatabaseSchema`, commit the new
@@ -52,12 +56,23 @@ Never edit an existing `.sqm` or `.db`.
 | Comments | `docs/Comments.md`; `server/.../comments/`, `CommentsSection.kt`, `CommentsViewModel.kt` |
 | Anything about post images | `docs/Images.md`; rules in `shared/.../domain/validation/ImageRules.kt`, files in `server/.../uploads/`, UI in `composeApp/.../ui/images/` |
 | The liquid look / glass surfaces | `composeApp/.../ui/liquid/` (`liquidGlass`, `LiquidNavBar`), `theme/LiquidShapes.kt`; flags `feature.liquidDesign`, `feature.liquidNavBar` |
-| Platform-specific UI behaviour | `composeApp/.../ui/platform/Adaptive.kt` and its `.android.kt` / `.ios.kt` — a closed list, add deliberately |
+| Follows, bookmarks, public groups | `docs/Social.md`; `IdSetViewModel.kt` (Follows/Bookmarks view models), `KtorIdSetApi`, the `/follows`, `/bookmarks`, `/groups/public` routes |
+| Offline outbox, drafts | `docs/Offline.md`; `PostLocalStore` (outbox queries), `PostRepository.flushOutbox`, `PostDraft` in `AppPreferences`, `MainScreen` (draft restore) |
+| Wide screens | `MainScreen.kt`: `BoxWithConstraints`, `TwoPaneMinWidth`; `ReadableWidth.kt` |
+| Desktop | `docs/Desktop.md`; `composeApp/src/desktopMain` (`Main.kt`, `Adaptive.desktop.kt`, file-backed storage); `feature.desktop` in `composeApp/build.gradle.kts` |
+| Platform-specific UI behaviour | `composeApp/.../ui/platform/Adaptive.kt` and its `.android.kt` / `.ios.kt` / `.desktop.kt` — a closed list, add deliberately |
 | Server copy / emails | `server/.../*Page.kt`, `auth/AccountPages.kt`, `auth/GroupPages.kt`, `auth/AccountMail.kt`, `mail/GroupMail.kt` — English and Russian objects side by side |
 
 ## Things that look like bugs and are not
 
-- `Post.likes` is not stored on the row; it is counted from `UserPostFavorite`.
+- `Post.likes` and `Post.comments` on the row are caches the device keeps; the
+  server fills both from `UserPostFavorite` / `Comment` on the way out
+  (`withLikeCount`) and ignores what a client sends.
+- A flag gates the DI graph too: a view model or API bound only under
+  `Features.X` must be injected only behind the same check (see how
+  `SettingsScreen` injects `NotificationsViewModel`).
+- The whole test suite passes with every flag off; CI runs that matrix. A
+  test of a flagged feature returns early (server) or `assumeTrue`s (device).
 - The feed omits the reader's own posts and merges them back from `myPosts`.
 - Resolved posts leave the feed after 24 h but stay in My Posts and Liked.
 - Foreign keys are enforced only on the server (`POSTER_ENFORCE_FOREIGN_KEYS`).

@@ -1,0 +1,9 @@
+---
+description: How to work in this repository
+alwaysApply: true
+---
+
+Read `CLAUDE.md` at the repository root before changing anything: it holds the
+rules the architecture script enforces, where each kind of change goes, and
+the phased playbook for turning the template into a product. The human
+checklist is `docs/AdaptationChecklist.md`.

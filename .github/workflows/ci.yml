@@ -1,15 +1,23 @@
-# What runs on every push and pull request: the tests that need no device.
-# The instrumented Android suite and the iOS UI suite need an emulator/simulator
-# and a running server; run those locally (docs/Testing.md).
+# What runs on every push and pull request: the tests that need no device, in
+# the shipped configuration and with every feature flag off. The desktop target
+# compiles in its own job; the iOS shell builds on macOS for pushes to main and
+# on demand (macOS minutes cost ten times Linux ones). The instrumented Android
+# suite and the iOS UI suite need an emulator/simulator and a running server;
+# run those locally (docs/Testing.md).
 name: CI
 
 on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
@@ -25,8 +33,8 @@ jobs:
         run: scripts/check-architecture.sh
       - name: Shared, server and app unit tests
         run: ./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest --no-daemon
-      - name: Android debug APK (proves the app compiles with the current poster.properties)
-        run: ./gradlew :composeApp:assembleE2eDebug --no-daemon
+      - name: Android debug APK and instrumented-test sources (proves the app compiles with the current poster.properties)
+        run: ./gradlew :composeApp:assembleE2eDebug :composeApp:compileE2eDebugAndroidTestKotlinAndroid --no-daemon
       - name: Keep test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -35,3 +43,50 @@ jobs:
           path: |
             **/build/reports/tests/**
             **/build/test-results/**
+
+  # Every feature off. Flag-dependent tests skip themselves; a failure here is a
+  # missing gate in the code, not a wrong test.
+  flags-off:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Turn every feature off
+        run: sed -i 's/^\(feature\.[A-Za-z]*\)=true/\1=false/' poster.properties && grep -c '=false' poster.properties
+      - name: Tests and compile with flags off
+        run: ./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest :composeApp:compileE2eDebugKotlinAndroid --no-daemon
+
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Desktop target on, billing off (docs/Desktop.md)
+        run: sed -i -e 's/^feature.desktop=false/feature.desktop=true/' -e 's/^feature.support=true/feature.support=false/' poster.properties
+      - name: Compile the desktop app
+        run: ./gradlew :composeApp:compileKotlinDesktop --no-daemon
+
+  ios:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin framework for the simulator
+        run: ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64 --no-daemon
+      - name: Xcode build (no signing)
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build | tail -20

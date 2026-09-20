@@ -9,7 +9,18 @@
 | Android instrumented | `./gradlew :composeApp:connectedE2eDebugAndroidTest` | emulator + `scripts/run-local-backend.sh` | 25 classes against the real server |
 | iOS UI | `scripts/run-ios-integration-tests.sh` | simulator + local server | 10 scenarios (XCUITest) |
 
-CI (`.github/workflows/ci.yml`) runs the first four on every push.
+CI (`.github/workflows/ci.yml`) runs the first four on every push, then the
+same tests again with **every feature flag off** (flag-dependent tests skip
+themselves; a failure there is a missing gate), compiles the desktop target,
+and builds the iOS shell on macOS for pushes to `main`.
+
+Server tests share `ServerTestSupport.kt`: `withServer { }` (a fresh SQLite
+file per class, a recording mailer, a temp upload dir; optional social
+verifiers and push senders), `confirmed(email)`, `postPost(...)` and
+`HttpResponse.guids()`. Isolation rests on the `poster.database` system
+property, so `maxParallelForks` stays 1. Shared unit tests have `NoopPostApi`,
+`NoopUserApi` and `withTempDatabase { }`; instrumented tests pass what they
+seed to `runWrapped(seeded = …)` and it is deleted afterwards.
 
 ## Server tests
 

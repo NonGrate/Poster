@@ -1,10 +1,14 @@
 # Poster — a Kotlin Multiplatform app template with a real backend
 
-Poster is a complete, working "posts + likes + groups" app for **Android and iOS**,
-with a **Ktor server**, an **admin panel**, sign-in (email, Google, Apple), in-app
-purchases, offline cache, screenshots tooling and a deploy pipeline. It is meant
-to be forked: change a properties file, run one rename script, and you have your
-own app to fill with your own product.
+Poster is a complete, working "posts + likes + groups" app for **Android and iOS**
+(and optionally **desktop**), with a **Ktor server**, an **admin panel**, sign-in
+(email, magic link, Google, Apple), comments, images, follows, bookmarks, push
+notifications, an offline cache with an outbox, in-app purchases, screenshots
+tooling and a deploy pipeline. It is meant to be forked: change a properties
+file, run one rename script, and you have your own app to fill with your own
+product. It also carries its own instructions for AI coding assistants
+([`CLAUDE.md`](CLAUDE.md), [`docs/AIAssistant.md`](docs/AIAssistant.md)), so
+"make this my app" is one command away.
 
 It grew out of a shipped app and was scrubbed into a template, so the parts that
 usually take months — auth, email, moderation, store compliance pages, CI — are
@@ -92,6 +96,7 @@ AI assistant? `CLAUDE.md` holds the same list as a playbook; in Claude Code,
   scheme, domain across the whole tree. → [`docs/Renaming.md`](docs/Renaming.md)
 - Push notifications and the activity list → [`docs/PushNotifications.md`](docs/PushNotifications.md) · Comments → [`docs/Comments.md`](docs/Comments.md) · Images on posts (storage, visibility, limits) → [`docs/Images.md`](docs/Images.md) · Liquid design flags → [`docs/LiquidDesign.md`](docs/LiquidDesign.md)
 - Sign-in providers → [`docs/SignIn.md`](docs/SignIn.md) · Purchases → [`docs/InAppPurchases.md`](docs/InAppPurchases.md) · Email → [`docs/Email.md`](docs/Email.md)
+- Follows, bookmarks, public groups → [`docs/Social.md`](docs/Social.md) · Offline cache, outbox, drafts → [`docs/Offline.md`](docs/Offline.md) · Desktop target → [`docs/Desktop.md`](docs/Desktop.md)
 
 ## Run
 
@@ -108,6 +113,8 @@ AI assistant? `CLAUDE.md` holds the same list as a playbook; in Claude Code,
 - Adding a language → [`docs/Localization.md`](docs/Localization.md)
 - Tests: unit, server, instrumented, iOS UI → [`docs/Testing.md`](docs/Testing.md)
 - Screenshots and store images → [`docs/Screenshots.md`](docs/Screenshots.md)
+- Working with an AI assistant (Claude Code, Codex, Cursor, Copilot) → [`docs/AIAssistant.md`](docs/AIAssistant.md) · the phased playbook → [`CLAUDE.md`](CLAUDE.md) · the human checklist → [`docs/AdaptationChecklist.md`](docs/AdaptationChecklist.md)
+- What is left on the roadmap → [`docs/Roadmap.md`](docs/Roadmap.md)
 
 ## Repository layout
 
@@ -118,7 +125,9 @@ composeApp/              Compose Multiplatform app: ui/, viewmodel/, theme/, pre
   src/commonMain         shared UI
   src/androidMain        Android entry point, notifications, sign-in, adaptive controls
   src/iosMain            iOS entry point, adaptive controls
+  src/desktopMain        JVM desktop entry point and adaptive controls (feature.desktop)
   src/billing/{enabled,disabled}   RevenueCat code, swapped by feature.support
+  src/push/{enabled,disabled}      Firebase Messaging, swapped by feature.pushNotifications
   src/androidTest        instrumented suite (needs the local server)
 shared/                  domain models, validation, Ktor clients, SQLDelight schema, Koin
   src/commonMain/sqldelight   *.sq schema, migrations, databases/<v>.db baselines
@@ -127,7 +136,8 @@ iosApp/                  Xcode project, Config.xcconfig, Swift bridges, XCUITest
 scripts/                 run/seed/screenshot/build/rename/doctor/tunnel helpers
 docs/                    everything a maintainer needs
 assets/                  SVG sources for icons and the mark, fonts, Apple sign-in logos
-.github/workflows/       CI (tests) and server deploy
+.github/workflows/       CI (tests, flags-off matrix, desktop, iOS build), server deploy, tag-driven releases
+CLAUDE.md, AGENTS.md     instructions for AI coding assistants; .claude/commands/ the slash commands
 ```
 
 ## Requirements
