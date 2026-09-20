@@ -52,7 +52,7 @@ payoff today; all are mechanical.
 | Split `server/.../Application.kt` (~1,650 lines) into route files | `groups/GroupRoutes.kt`, `posts/PostRoutes.kt`, `accounts/AccountRoutes.kt`, `favorites/FavoriteRoutes.kt` … following `comments/`, `push/`, `uploads/`. |
 | Drop the `{userId}` segment from the `/favorites` paths | Server routes and `KtorPostApi` together; the caller is always the authenticated user. |
 | Drop the `Post.likes` column | Nothing reads it any more (`withLikeCount` fills it from the favourites table); one migration. |
-| Split the largest screens | `LoginScreen.kt`, `GroupsScreen.kt`, `SettingsScreen.kt`, `MainScreen.kt`, `PostsViewModel.kt`, `FeedFilterSheet.kt` are 500–700 lines each; seams are listed in `CONVERSION_REPORT.md` §19. |
+| Split the largest screens | `LoginScreen.kt`, `GroupsScreen.kt`, `SettingsScreen.kt`, `MainScreen.kt`, `PostsViewModel.kt`, `FeedFilterSheet.kt` are 500–700 lines each; seams: `PostCard` is already split into pills and badges; `SettingsScreen` → the dialogs and the support section; `GroupsScreen` → the add sheet and the detail pane; `MainScreen` → the invite handling and the post form; `HomeScreen` → the dialogs and the top bar. |
 | A `FeedQuery` value for the feed parameters | `PostApi.getPostPage` has nine parameters repeated in three places; worth it with the next filter. |
 | `PeriodicRefreshTest` on virtual time | The 400 ms negative assertion needs `mainClock` control; the test runs on the iOS simulator only. |
 

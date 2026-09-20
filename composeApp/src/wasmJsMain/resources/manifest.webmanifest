@@ -1,0 +1,11 @@
+{
+  "name": "Poster",
+  "short_name": "Poster",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F9F9FA",
+  "theme_color": "#4F46E5",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

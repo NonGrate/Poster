@@ -34,7 +34,6 @@ Legend: **must** — every app needs it · *should* — most apps · optional.
 - [ ] *should* `LICENSE` copyright holder; `POSTER_OWNER_NAME` on the server for the © line.
 - [ ] *should* `README.md`: replace the template's description with yours, delete
   the "grew out of" paragraph, keep the docs index.
-- [ ] *must* Delete `QUESTIONS.md` and `CONVERSION_REPORT.md` before publishing: they are the template's own conversion history and talk about its predecessor.
 
 ## 2. Features and configuration
 

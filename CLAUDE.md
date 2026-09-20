@@ -125,7 +125,7 @@ Russian, RevenueCat off, default colours, no extra fields.
 2. `scripts/rename-app.sh --package … --app-id … --name … --scheme … --domain …`
 3. Check `poster.properties` (`app.*`) and `iosApp/Configuration/Config.xcconfig`
    (`BUNDLE_ID`, `APP_NAME`, `POSTER_URL_SCHEME`, `POSTER_SERVER_HOST`).
-4. `LICENSE` holder if given. Delete `QUESTIONS.md` and `CONVERSION_REPORT.md`.
+4. `LICENSE` holder if given.
 5. Rewrite the first paragraph of `README.md` for the developer's app; remove
    the "grew out of a shipped app" sentence.
 6. Build: `./gradlew :shared:jvmTest :server:test :composeApp:testRemoteDebugUnitTest`. Commit: "Rename template to <Name>".
