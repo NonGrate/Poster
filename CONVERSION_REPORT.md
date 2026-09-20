@@ -537,6 +537,28 @@ pages.
 - Both new scripts sign in by writing the demo reader's session where the app
   reads it, so nothing is clicked by hand and both run on CI.
 
+### 24. The Android screenshot script, taught to scroll (2026-09-20)
+
+`scripts/ui-screenshots.sh` now captures the full set (login, register, feed,
+My Posts, the New Post form and its scrolled half, edit, delete confirmation,
+Liked, Settings, groups, post details, the undo snackbar, profile, sign-out
+confirmation; light and dark). What it took:
+
+- `tap_text` scrolls towards a label before giving up (a few swipes down, then
+  back up) — the Settings list had grown past one screen.
+- The bottom tabs are tapped by position: Compose reports their labels with
+  empty bounds in the accessibility dump, so the script had been tapping (0,0)
+  and every "switch tab" silently did nothing (the earlier "My Posts" shot was
+  the feed). `center_of` also ignores zero-area nodes now.
+- An "isn't responding" dialog over the first frames is dismissed with Wait
+  instead of failing the pass.
+- Stale labels: "Home" → "Feed", "Add Post" → "New Post", the title
+  placeholder's full text; the seeder's `--detail-title` names a post every
+  reader can see (it named a group post the demo reader was not in).
+- The support paywall is skipped by design: the e2e build has no billing key.
+- `scripts/ios-screenshots.sh`: the simulator auto-pick died silently under
+  `set -e` when nothing was booted.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

@@ -200,7 +200,9 @@ reader_email() { echo "demo.reader.$1@example.com"; }
 # The title the screenshot tool opens to photograph a post's details. The
 # reader has not liked this one, so the details screen shows an offer
 # rather than an already-filled heart.
-detail_title() { "author_posts_$1" | sed -n '3p' | cut -d'|' -f2; }
+# The post the screenshot scripts open: the first one every demo reader can see
+# (a group or private post may not be in the reader's feed at all).
+detail_title() { "author_posts_$1" | grep -v -E '\|(group|private)$' | sed -n '1p' | cut -d'|' -f2; }
 
 apply_favorites() {  # apply_favorites <lang>
   local language=$1 token reader_id author_id position guid

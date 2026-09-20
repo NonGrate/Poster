@@ -166,7 +166,10 @@ for node in re.finditer(r'<node[^>]*>', open(path, encoding='utf-8').read()):
     desc = re.search(r'content-desc="([^"]*)"', s).group(1)
     if label in (text, desc) or text.startswith(label + '&#10;'):
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', re.search(r'bounds="([^"]*)"', s).group(1)))
-        found = ((x1 + x2) // 2, (y1 + y2) // 2)
+        # Compose reports the labels inside a merged control (the bottom tabs)
+        # with empty bounds; a tap there lands on (0,0) and does nothing.
+        if x2 > x1 and y2 > y1:
+            found = ((x1 + x2) // 2, (y1 + y2) // 2)
 if found:
     print(*found)
 PY
@@ -227,10 +230,50 @@ want() {
 }
 
 # wait_text <label> [seconds]
+# An emulator under load throws "<app> isn't responding" over the first frames
+# after a launch; the app is fine a second later. Tap Wait and carry on rather
+# than letting one dialog fail the whole pass. Reads the dump has_text just made.
+dismiss_anr() {
+  grep -q "isn&apos;t responding\|isn't responding\|is not responding" "$TMP/ui.xml" 2>/dev/null || return 0
+  local xy; xy=$(center_of Wait)
+  [ -n "$xy" ] && { a shell input tap $xy; sleep 2; }
+}
+
+# Same as wait_text, without the evidence file: for the looks that expect to miss.
+wait_text_quiet() {
+  local deadline=$((SECONDS + ${2:-20}))
+  while [ $SECONDS -lt $deadline ]; do
+    has_text "$1" && return 0
+    dismiss_anr
+    sleep 1
+  done
+  return 1
+}
+
+# Brings a label on screen by scrolling the content: a few swipes towards the
+# bottom, then back up past the start. The dump only holds what is drawn, so a
+# row further down a long Settings list, or a post further down the feed, is
+# invisible to has_text until it is. The bottom bar stays put, so re-anchoring
+# on a tab still works after a scroll.
+scroll_to_text() {
+  local i from=$((HEIGHT * 7 / 10)) to=$((HEIGHT * 3 / 10))
+  has_text "$1" && return 0
+  for i in 1 2 3 4 5; do
+    a shell input swipe $((WIDTH / 2)) $from $((WIDTH / 2)) $to 300; sleep 1
+    has_text "$1" && return 0
+  done
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    a shell input swipe $((WIDTH / 2)) $to $((WIDTH / 2)) $from 300; sleep 1
+    has_text "$1" && return 0
+  done
+  return 1
+}
+
 wait_text() {
   local deadline=$((SECONDS + ${2:-20}))
   while [ $SECONDS -lt $deadline ]; do
     has_text "$1" && return 0
+    dismiss_anr
     sleep 1
   done
   # Leave evidence: a timeout means the app was on some other screen than expected.
@@ -239,8 +282,42 @@ wait_text() {
   return 1
 }
 
+# The bottom bar's items carry no text the dump can see (Compose merges the
+# label into the tab and reports it with empty bounds), so a tab is tapped as
+# the n-th item container in the bottom sixth of the screen, left to right —
+# the order the app declares them in (MainScreen.mainDestinations).
+tap_tab() {  # tap_tab <index from 0>
+  dump
+  local xy
+  xy=$(python3 - "$1" "$TMP/ui.xml" "$WIDTH" "$HEIGHT" <<'PY'
+import re, sys
+index, path, width, height = int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+# Every item container in the bar, selected or not (the selected one is not
+# reported as clickable, which would shift the indices): wider than its icon,
+# narrower than half the bar, deduplicated by centre.
+items = {}  # keyed by x-centre: an item's inner and outer containers are one tab
+for node in re.finditer(r'<node[^>]*>', open(path, encoding='utf-8').read()):
+    s = node.group(0)
+    x1, y1, x2, y2 = map(int, re.findall(r'\d+', re.search(r'bounds="([^"]*)"', s).group(1)))
+    if y1 >= height * 5 // 6 and y2 > y1 and width // 8 < (x2 - x1) < width // 2:
+        items.setdefault((x1 + x2) // 2, ((x1 + x2) // 2, (y1 + y2) // 2))
+items = [items[x] for x in sorted(items)]
+if index < len(items): print(*items[index])
+PY
+)
+  [ -n "$xy" ] || return 1
+  a shell input tap $xy
+  sleep 2
+}
+
+tab_index() { case "$1" in Feed) echo 0 ;; "My Posts") echo 1 ;; Liked) echo 2 ;; Settings) echo 3 ;; *) echo "" ;; esac; }
+
 tap_text() {
-  wait_text "$1" "${2:-20}" || return 1
+  local tab; tab=$(tab_index "$1")
+  if [ -n "$tab" ]; then tap_tab "$tab" && return 0; fi
+  # On screen within a few seconds, else somewhere down the page, else the
+  # full wait (which leaves the timeout evidence).
+  wait_text_quiet "$1" 4 || scroll_to_text "$1" || wait_text "$1" "${2:-20}" || return 1
   local xy; xy=$(center_of "$(label "$1")")
   [ -n "$xy" ] || return 1
   a shell input tap $xy
@@ -383,6 +460,8 @@ refresh_width() {
   # which under `set -o pipefail` would abort the whole run before the fallback.
   WIDTH=$(printf '%s\n' "$size" | grep -m1 'Override size' | sed 's/.*: //' | cut -dx -f1 | tr -d '\r' || true)
   [ -n "$WIDTH" ] || WIDTH=$(printf '%s\n' "$size" | grep -m1 'Physical size' | sed 's/.*: //' | cut -dx -f1 | tr -d '\r')
+  HEIGHT=$(printf '%s\n' "$size" | grep -m1 'Override size' | sed 's/.*: //' | cut -dx -f2 | tr -d '\r' || true)
+  [ -n "$HEIGHT" ] || HEIGHT=$(printf '%s\n' "$size" | grep -m1 'Physical size' | sed 's/.*: //' | cut -dx -f2 | tr -d '\r')
 }
 refresh_width
 
@@ -419,6 +498,7 @@ login_if_needed() {
   local deadline=$((SECONDS + 30))
   while [ $SECONDS -lt $deadline ]; do
     dump
+    dismiss_anr
     [ -n "$(center_of "$(label Login)")" ] && break
     [ -n "$(center_of "$(label Feed)")" ] && return 0
     sleep 1
@@ -484,14 +564,8 @@ capture_set() {  # capture_set <prefix>
 capture_paywall() {
   local t=$1 i
   tap_text Settings || return 1
-  # Settings scrolls, and the support row sits near the bottom (more so since the
-  # name-visibility toggle was added), so bring it into view before tapping — a
-  # bare tap_text only sees what is on screen and otherwise times out.
-  for i in 1 2 3 4 5; do
-    has_text "Support the developer" && break
-    a shell input swipe $((WIDTH / 2)) 1500 $((WIDTH / 2)) 600 300
-    sleep 1
-  done
+  # Settings scrolls and the support row sits near the bottom; tap_text scrolls
+  # to it.
   # The support row was renamed from "Buy me a coffee". Only present at all when
   # the build has a RevenueCat (or demo) key; otherwise the section is hidden and
   # this times out and is skipped, which is fine — it is a bonus shot.
@@ -509,7 +583,7 @@ capture_add_dialog() {
   # into a full screen and has no such label. On a miss, still fall through to
   # dismiss_dialog: the form covers the screen, and leaving it open cascades into
   # every later shot failing.
-  if wait_text "A short title"; then
+  if wait_text "A short title for your post"; then
     shot "$t-03-add-post-dialog"
     # Tags and the buttons sit low in the form; on a small screen they are cut
     # off entirely, which is worth having a shot of.
