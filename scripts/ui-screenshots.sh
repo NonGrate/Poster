@@ -187,8 +187,8 @@ label() {
     # "Email" is registration_email, profile_email and login_email; the login
     # flow means the last one.
     Email) key=login_email ;;
-    # "Home" is the feed's tab and its title, which are the same resource.
-    Home) key=nav_home ;;
+    # "Feed" is the feed's tab and its title, which are the same resource (nav_home).
+    Feed) key=nav_home ;;
   esac
   python3 - "$1" "$ROOT/composeApp/src/commonMain/composeResources" "${LOCALE%%-*}" "$key" <<'PY'
 import re, sys, os
@@ -326,7 +326,7 @@ hide_keyboard() {
   fi
 }
 
-# On a small screen the Add Post dialog overflows and its buttons are not
+# On a small screen the New Post dialog overflows and its buttons are not
 # reachable at all, so Cancel may not exist. BACK closes the dialog either way.
 dismiss_dialog() {
   dump
@@ -420,7 +420,7 @@ login_if_needed() {
   while [ $SECONDS -lt $deadline ]; do
     dump
     [ -n "$(center_of "$(label Login)")" ] && break
-    [ -n "$(center_of "$(label Home)")" ] && return 0
+    [ -n "$(center_of "$(label Feed)")" ] && return 0
     sleep 1
   done
   [ -n "$(center_of "$(label Login)")" ] || { echo "app reached neither login nor feed" >&2; return 1; }
@@ -449,7 +449,7 @@ login_if_needed() {
   tap_text Login
   # The feed, by its own tab rather than by the app's name: the name is on the
   # login screen now, so waiting for it would pass without going anywhere.
-  wait_text "$(label Home)" 30
+  wait_text "$(label Feed)" 30
 }
 
 capture_set() {  # capture_set <prefix>
@@ -461,7 +461,7 @@ capture_set() {  # capture_set <prefix>
   # falls back to the tag's id — so the feed photographs as "job_search" rather
   # than "Поиск работы", which is only obvious in a language where the ids are
   # not themselves English words.
-  want 01-home       && { tap_text Home;         shot "$t-01-home" 8; }
+  want 01-home       && { tap_text Feed;         shot "$t-01-home" 8; }
   want 02-my-posts && { tap_text "My Posts"; shot "$t-02-my-posts"; }
 
   # Each group re-anchors on a tab first and is allowed to fail on its own: one
@@ -504,7 +504,7 @@ capture_paywall() {
 capture_add_dialog() {
   local t=$1
   tap_text "My Posts" || return 1
-  tap_text "Add Post" || return 1
+  tap_text "New Post" || return 1
   # The title field's placeholder, not a "Title" label — the form was redesigned
   # into a full screen and has no such label. On a miss, still fall through to
   # dismiss_dialog: the form covers the screen, and leaving it open cascades into
@@ -551,7 +551,7 @@ capture_groups() {
 
 capture_details() {
   local t=$1
-  tap_text Home || return 1
+  tap_text Feed || return 1
   tap_text "$DETAIL_POST" || return 1
   wait_text Post || return 1
   shot "$t-09-post-details"
@@ -562,7 +562,7 @@ capture_details() {
 # then toggle back to leave the seeded data as it was.
 capture_undo() {
   local t=$1
-  tap_text Home || return 1
+  tap_text Feed || return 1
   tap_text Like || return 1
   shot "$t-10-undo-snackbar" 0
   # The snackbar is gone within 4s — faster than a dump-and-tap round trip — and
@@ -606,7 +606,7 @@ capture_profile() {
 capture_empty() {  # capture_empty <prefix>
   local t=$1
   echo "capturing $t -> $OUT"
-  tap_text Home;         shot "$t-01-home"
+  tap_text Feed;         shot "$t-01-home"
   tap_text "My Posts"; shot "$t-02-my-posts"
   tap_text Liked;      shot "$t-03-favorites"
   tap_text Settings;     shot "$t-04-settings"

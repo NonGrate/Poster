@@ -509,6 +509,34 @@ JDK 21 — dropped, ignored, and JVM targets pinned to 21 (§ commit
 recoloured SVGs (they still carried the old palette in the first web
 screenshot).
 
+### 23. Screenshots on every platform (2026-09-20)
+
+`screenshots/{android,ios,desktop,web}/` hold PNGs captured from the running
+app with the seeded demo data, in the new palette; `screenshots/<platform>.md`
+(written by `scripts/screenshot-pages.sh`) shows them light beside dark, and
+the README opens with the same feed on all four platforms linking to those
+pages.
+
+- Android: `scripts/ui-screenshots.sh` over adb (the login/register screens,
+  feed, My Posts, Liked, Settings, the undo snackbar, light and dark). Fixed
+  on the way: it still waited for a tab called "Home" and a button called
+  "Add Post"; the settings sub-screens time out because the Settings list has
+  grown past one screen and the script does not scroll — left as is.
+- iOS: `scripts/ios-screenshots.sh` on the iPhone 17 simulator (XCUITest
+  drives the app; 15 screens). Fixed: the simulator auto-pick died silently
+  under `set -e` when no simulator was booted.
+- Desktop: new `scripts/desktop-screenshots.sh`. The app gained
+  `POSTER_HOME` (profile directory), `POSTER_WINDOW` (size) and
+  `POSTER_RENDER_TO` — a headless mode that draws `App()` into a PNG with
+  `ImageComposeScene` after the feed has loaded, so screenshots need no window
+  and no screen-recording permission (the window exists but is invisible to the
+  window APIs from a non-GUI shell, which is what sank the first attempt).
+- Web: new `scripts/web-screenshots.sh` + `.mjs`: headless Chrome over the
+  DevTools protocol, the demo session planted in `localStorage`, feed in light
+  and dark, the three other tabs, and the wide two-pane layout.
+- Both new scripts sign in by writing the demo reader's session where the app
+  reads it, so nothing is clicked by hand and both run on CI.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

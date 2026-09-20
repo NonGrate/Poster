@@ -26,6 +26,29 @@ already there and already tested.
                     └─────────┘
 ```
 
+## Screenshots
+
+The same feed on every platform, from the running app with demo data. Click a
+platform for its full set (light and dark, every screen).
+
+<table>
+  <tr>
+    <th><a href="screenshots/android.md">Android</a></th>
+    <th><a href="screenshots/ios.md">iOS</a></th>
+    <th><a href="screenshots/desktop.md">Desktop</a></th>
+    <th><a href="screenshots/web.md">Web</a></th>
+  </tr>
+  <tr>
+    <td><a href="screenshots/android.md"><img src="screenshots/android/light-01-home.png" width="190" alt="Android feed"></a></td>
+    <td><a href="screenshots/ios.md"><img src="screenshots/ios/light-01-home.png" width="190" alt="iOS feed"></a></td>
+    <td><a href="screenshots/desktop.md"><img src="screenshots/desktop/light-01-feed.png" width="190" alt="Desktop feed"></a></td>
+    <td><a href="screenshots/web.md"><img src="screenshots/web/light-01-feed.png" width="190" alt="Web feed"></a></td>
+  </tr>
+</table>
+
+Regenerate them with the capture scripts (`docs/Screenshots.md`); the pages
+under `screenshots/` are written by `scripts/screenshot-pages.sh`.
+
 ## What you get
 
 **Supported and working**

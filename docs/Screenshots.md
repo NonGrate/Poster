@@ -36,6 +36,28 @@ Captions live in `scripts/build-store-screenshots.sh` (`caption()`), one per
 language per shot. Adding a language = captions there + content in
 `seed-demo-data.sh` + a Play locale in `play_locale()`.
 
+## Desktop and web
+
+```bash
+scripts/desktop-screenshots.sh     # -> screenshots/desktop/ (light, dark, wide)
+scripts/web-screenshots.sh         # -> screenshots/web/ (feed, tabs, wide two-pane)
+```
+
+Both sign in as the demo reader without touching the UI — the session is
+planted where the app reads it (`POSTER_HOME` for desktop, `localStorage` for
+web) — so they need only the local backend and the seeded demo data. Desktop
+renders itself into PNGs (`POSTER_RENDER_TO`, no window, no screen-recording
+permission, CI-friendly); web is headless Chrome over the DevTools protocol
+against the bundle the Ktor server hosts (`POSTER_WEB_DIR`). Both need their
+flag on and `feature.support=false`; the desktop script flips and restores
+`poster.properties` itself, the web one expects the bundle to exist.
+
+## The pages under `screenshots/`
+
+`scripts/screenshot-pages.sh` rewrites `screenshots/<platform>.md` from the
+PNGs present — one section per screen, light beside dark — and the README's
+gallery links to them. Run it after any capture.
+
 ## iOS
 
 ```bash

@@ -48,8 +48,10 @@ if [ -z "$SIM_NAME" ]; then
   # leading indentation and that suffix. A booted device wins; else the last
   # iPhone listed (roughly the newest runtime's).
   avail=$(xcrun simctl list devices available)
-  SIM_NAME=$(printf '%s\n' "$avail" | grep -E 'iPhone .*\(Booted\)' | head -1 | sed -E 's/^[[:space:]]+//; s/ \(.*//')
-  [ -n "$SIM_NAME" ] || SIM_NAME=$(printf '%s\n' "$avail" | grep -E '^[[:space:]]*iPhone ' | tail -1 | sed -E 's/^[[:space:]]+//; s/ \(.*//')
+  # `|| true` inside: a grep with no match exits 1, and under `set -e -o pipefail`
+  # that would end the script here without a word.
+  SIM_NAME=$(printf '%s\n' "$avail" | { grep -E 'iPhone .*\(Booted\)' || true; } | head -1 | sed -E 's/^[[:space:]]+//; s/ \(.*//')
+  [ -n "$SIM_NAME" ] || SIM_NAME=$(printf '%s\n' "$avail" | { grep -E '^[[:space:]]*iPhone ' || true; } | tail -1 | sed -E 's/^[[:space:]]+//; s/ \(.*//')
   [ -n "$SIM_NAME" ] || { echo "no available iPhone simulator found — create one in Xcode or pass --sim" >&2; exit 1; }
   echo "auto-selected simulator: $SIM_NAME"
 fi

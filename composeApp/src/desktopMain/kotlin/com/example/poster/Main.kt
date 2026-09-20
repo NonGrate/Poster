@@ -1,5 +1,9 @@
 package com.example.poster
 
+import org.jetbrains.skia.EncodedImageFormat
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -29,7 +33,8 @@ import java.io.File
  * or the local backend, and everything the app keeps lives under `~/.poster`.
  */
 fun main() {
-    val home = File(System.getProperty("user.home"), ".poster").apply { mkdirs() }
+    // POSTER_HOME moves everything the app keeps (tests, screenshots, a second profile).
+    val home = File(System.getenv("POSTER_HOME") ?: (System.getProperty("user.home") + "/.poster")).apply { mkdirs() }
     if (System.getProperty("poster.database") == null) {
         System.setProperty("poster.database", File(home, "poster.db").path)
     }
@@ -57,11 +62,20 @@ fun main() {
             viewModelModule(),
         )
     }
+    val window = System.getenv("POSTER_WINDOW")?.split("x")?.takeIf { it.size == 2 }
+        ?.let { (w, h) -> (w.toIntOrNull() ?: 480) to (h.toIntOrNull() ?: 900) } ?: (480 to 900)
+    // Headless render for screenshots and CI: the same App(), drawn into a PNG
+    // instead of a window, after the feed has had time to load.
+    System.getenv("POSTER_RENDER_TO")?.let { path ->
+        renderToPng(File(path), window.first, window.second, System.getenv("POSTER_RENDER_WAIT_MS")?.toLongOrNull() ?: 10_000L)
+        return
+    }
     application {
         Window(
             onCloseRequest = ::exitApplication,
             title = "Poster",
-            state = rememberWindowState(width = 480.dp, height = 900.dp),
+            // POSTER_WINDOW=1200x800 for a wide window (the two-pane layout starts at 840).
+            state = rememberWindowState(width = window.first.dp, height = window.second.dp),
         ) {
             App()
         }
@@ -70,3 +84,19 @@ fun main() {
 
 private fun setting(name: String, default: String): String =
     System.getenv(name) ?: System.getProperty(name.lowercase().replace('_', '.')) ?: default
+
+@OptIn(ExperimentalComposeUiApi::class)
+private fun renderToPng(file: File, width: Int, height: Int, waitMs: Long) {
+    val scene = ImageComposeScene(width = width * 2, height = height * 2, density = Density(2f)) { App() }
+    val start = System.nanoTime()
+    // Frames while the view models fetch: each render applies what arrived.
+    while ((System.nanoTime() - start) / 1_000_000 < waitMs) {
+        scene.render(System.nanoTime() - start)
+        Thread.sleep(50)
+    }
+    val image = scene.render(System.nanoTime() - start)
+    file.parentFile?.mkdirs()
+    file.writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+    scene.close()
+    println("rendered ${file.path}")
+}
