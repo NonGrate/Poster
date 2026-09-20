@@ -41,6 +41,20 @@ shipped after the first version; the rest are notes on where each would go.
 | `scripts/add-language.sh`, RTL check | Scaffold `values-xx` from English; the architecture check already enforces parity. |
 | Material Symbols | `compose.materialIconsExtended` is deprecated upstream; pinned for now. |
 
+## Housekeeping the review left for later
+
+Found in the 2026-09 review, not done because each is a larger move than its
+payoff today; all are mechanical.
+
+| Item | Where |
+|---|---|
+| Split `server/.../Application.kt` (~1,650 lines) into route files | `groups/GroupRoutes.kt`, `posts/PostRoutes.kt`, `accounts/AccountRoutes.kt`, `favorites/FavoriteRoutes.kt` … following `comments/`, `push/`, `uploads/`. |
+| Drop the `{userId}` segment from the `/favorites` paths | Server routes and `KtorPostApi` together; the caller is always the authenticated user. |
+| Drop the `Post.likes` column | Nothing reads it any more (`withLikeCount` fills it from the favourites table); one migration. |
+| Split the largest screens | `LoginScreen.kt`, `GroupsScreen.kt`, `SettingsScreen.kt`, `MainScreen.kt`, `PostsViewModel.kt`, `FeedFilterSheet.kt` are 500–700 lines each; seams are listed in `CONVERSION_REPORT.md` §19. |
+| A `FeedQuery` value for the feed parameters | `PostApi.getPostPage` has nine parameters repeated in three places; worth it with the next filter. |
+| `PeriodicRefreshTest` on virtual time | The 400 ms negative assertion needs `mainClock` control; the test runs on the iOS simulator only. |
+
 ## Deliberately not planned
 
 | Feature | Why |
