@@ -25,27 +25,11 @@ val posterProperties: Properties = Properties().apply {
 }
 
 /** feature.<camelCase> -> CONST_NAME. Unknown keys are reported, not ignored. */
-val posterFeatureKeys = listOf(
-    "groups", "tags", "likes", "sharing", "postCompletion", "postVisibility",
-    "dailyReminder", "feedback", "support", "reports", "crashReports", "telemetry",
-    "emailVerificationRequired", "multiLanguage", "googleSignIn", "appleSignIn",
-    "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors", "publicGroups", "follows", "bookmarks", "drafts", "offlineOutbox", "desktop", "web",
-)
+// The feature catalogue (keys, defaults, dependencies, docs text) is
+// buildSrc/src/main/kotlin/PosterFeatures.kt — one declaration per feature.
 
-/**
- * The flags a missing key leaves OFF, against the general rule below that a
- * missing key means on. These three are opt-ins that change the shape of a
- * build, and defaulting them on would add a desktop target and a different look
- * to anyone who deleted the line.
- *
- * `desktop` is also read straight out of poster.properties by composeApp's
- * build script, which decides whether to add the jvm("desktop") target at all.
- */
-val posterOptInFeatures = setOf("desktop", "web", "liquidDesign", "liquidNavBar")
 
 // The colour roles live in buildSrc/PosterPalette.kt, shared with composeApp's build script.
-
-fun String.toConstName(): String = replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()
 
 val generatePosterConfig by tasks.registering {
     group = "poster"
@@ -57,7 +41,7 @@ val generatePosterConfig by tasks.registering {
     doLast {
         val props = Properties().apply { source.inputStream().use(::load) }
         val unknown = props.stringPropertyNames().filter { key ->
-            key.startsWith("feature.") && key.removePrefix("feature.") !in posterFeatureKeys ||
+            key.startsWith("feature.") && !PosterFeatures.knows(key) ||
                 key.startsWith("color.") && !PosterPalette.knows(key)
         }
         if (unknown.isNotEmpty()) {
@@ -70,11 +54,13 @@ val generatePosterConfig by tasks.registering {
             appendLine()
             appendLine("/** GENERATED from poster.properties — do not edit. Flip a flag there instead. */")
             appendLine("object Features {")
-            posterFeatureKeys.forEach { key ->
-                val default = if (key in posterOptInFeatures) "false" else "true"
-                val enabled = props.getProperty("feature.$key", default).trim().toBoolean()
-                appendLine("    const val ${key.toConstName()}: Boolean = $enabled")
+            val features = PosterFeatures.resolve(props)
+            PosterFeatures.all.forEach { feature ->
+                appendLine("    const val ${feature.constName}: Boolean = ${features.getValue(feature.key)}")
             }
+            appendLine()
+            appendLine("    /** The keys that are on, for diagnostics (the admin panel, a support request). */")
+            appendLine("    val ENABLED: List<String> = listOf(${features.filterValues { it }.keys.joinToString { "\"$it\"" }})")
             appendLine("}")
         })
 
@@ -120,6 +106,9 @@ val generatePosterConfig by tasks.registering {
 }
 """
         )
+
+        // The feature catalogue as a page, from the same declarations as the constants.
+        rootProject.file("docs/Features.md").writeText(PosterFeatures.markdown())
 
         fun str(key: String, default: String) = props.getProperty(key, default).trim()
         pkgDir.resolve("AppInfo.kt").writeText(buildString {

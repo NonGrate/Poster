@@ -118,11 +118,15 @@ A flag is read at the *entry points* of a feature, not sprinkled everywhere:
 
 To add your own, e.g. `feature.polls`:
 
-1. Add `"polls"` to `posterFeatureKeys` in `shared/build.gradle.kts` (unknown keys
-   fail the build, so this is the registration).
+1. Add one `PosterFeature("polls", …)` entry to the catalogue in
+   `buildSrc/src/main/kotlin/PosterFeatures.kt`: title, area, default, what it
+   `requires` or `conflicts` with, and what turning it off removes on each
+   side. That is the registration: unknown keys fail the build, the constant
+   `Features.POLLS` is generated, and `docs/Features.md` is rewritten.
 2. Add `feature.polls=true` to `poster.properties` with a one-line comment.
-3. Use `Features.POLLS` at the UI entry points and around the server routes.
-4. Mention it in the table above.
+3. Use `Features.POLLS` at the UI entry points, around the Koin bindings only
+   that feature needs, and around the server routes; start its tests with
+   `if (!Features.POLLS) return@withServer` / `assumeTrue(Features.POLLS)`.
 
 ### `feature.support` and the swappable billing source set
 

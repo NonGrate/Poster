@@ -51,6 +51,9 @@ under `screenshots/` are written by `scripts/screenshot-pages.sh`.
 
 ## What you get
 
+Every row below is a flag in `poster.properties`; the full catalogue with defaults,
+dependencies and what turning each one off removes is [`docs/Features.md`](docs/Features.md).
+
 **Supported and working**
 
 | Area | What is in the box |
@@ -113,7 +116,7 @@ AI assistant? `CLAUDE.md` holds the same list as a playbook; in Claude Code,
 ## Configure
 
 - [`poster.properties`](poster.properties) — the one file to edit: app name, URL
-  scheme, domain, **feature flags**, and **two seed colours** from which the whole
+  scheme, domain, **feature flags** (catalogue: [`docs/Features.md`](docs/Features.md)), and **two seed colours** from which the whole
   light and dark palette is derived (app, web pages, store graphics; text
   contrast checked at build time). Gradle turns it into constants
   (`Features.LIKES`, `BrandPalette.Light.primary`, `AppInfo.NAME`) that Android,

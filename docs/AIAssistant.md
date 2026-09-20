@@ -28,9 +28,9 @@ Phase 8 quality gates), each phase ending in a green build and a commit.
 - "Add a `location` field to posts" → `/add-post-field location String
   optional`: schema + migration, model, mappers, validation, form, card,
   strings, tests, in one commit.
-- "Add a feature flag for X" → `/add-feature-flag x`: the key in
-  `posterFeatureKeys`, the property, the gate at the UI entry point and around
-  the routes, the docs row.
+- "Add a feature flag for X" → `/add-feature-flag x`: one entry in the
+  catalogue (`buildSrc/PosterFeatures.kt`), the property line, the gate at the
+  UI entry point and around the routes; `docs/Features.md` regenerates itself.
 
 ## What the assistant must not do
 

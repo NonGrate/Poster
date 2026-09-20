@@ -48,7 +48,7 @@ Never edit an existing `.sqm` or `.db`.
 | A new screen | `composeApp/.../ui/screens/`, a branch in `ui/MainScreen.kt`, a ViewModel in `di/ViewModelModule.kt` if new |
 | A new API endpoint | model in `shared/.../model/`, interface in `shared/.../network/`, Ktor impl in `shared/.../ktor/`, route in `server/.../Application.kt`, test in `server/src/test/` |
 | A new field on Post | `.sq` + `.sqm`, `model/Post.kt`, mappers (`PostLocalStore`, server `PostsLocalRepository`), server validation, `PostFormDialog`, `PostCard`, strings, tests — recipe in `docs/Architecture.md` |
-| A new feature flag | `posterFeatureKeys` in `shared/build.gradle.kts`, a line in `poster.properties`, `Features.X` at the UI entry points and around the server routes |
+| A new feature flag | One entry in `buildSrc/src/main/kotlin/PosterFeatures.kt` (key, default, `requires`/`conflicts`, the two "off removes" texts) — that generates `Features.X`, validates `poster.properties` and rewrites `docs/Features.md`; then `Features.X` at the UI entry points, the Koin bindings and around the server routes |
 | Colours | `poster.properties`: `color.primary`, `color.accent` (optional `color.tertiary`, `color.neutral`, or an explicit `color.light.<role>`); the palette, the web CSS, the iOS accent and the scripts' paper colour all derive from them (`buildSrc/PosterPalette.kt`). Never hardcode a hex in a page or a script. |
 | Authors (names, avatars) | `feature.authors`; `Post.withAuthor` in `Application.kt`, `Avatar.kt`, the picture row in `ProfileScreen.kt` |
 | Passwordless sign-in | `docs/SignIn.md` § magic link; `AuthService.signInWithMagicLink`, `AccountMail.sendMagicLink`, `AppLinkHandler.MagicDialog` |
@@ -109,8 +109,8 @@ Ask, in one message, only what you cannot infer from the request:
 1. App name; package (`com.acme.chirp`); URL scheme; public domain (or "none yet").
 2. One sentence: what is a post, who are the groups, what does a like mean.
    Derive the three words to use in the UI (e.g. *note / class / star*).
-3. Features to keep — read out the `feature.*` list from `poster.properties`
-   with one-line descriptions and ask which to turn off.
+3. Features to keep — read out `docs/Features.md`
+   (the catalogue, with one line per feature) and ask which to turn off.
 4. Languages: English only, English + Russian, other.
 5. Monetisation: none / RevenueCat tips.
 6. Colours (or "keep the defaults"): a primary, an accent, a background.

@@ -19,24 +19,17 @@ plugins {
 val posterProperties: Properties = Properties().apply {
     rootProject.file("poster.properties").inputStream().use(::load)
 }
-fun posterFeature(name: String): Boolean =
-    posterProperties.getProperty("feature.$name", "true").trim().toBoolean()
 val posterScheme: String = posterProperties.getProperty("app.scheme", "poster").trim()
 val posterWebHost: String = posterProperties.getProperty("app.webOrigin", "https://poster.example.com")
     .trim().substringAfter("://").substringBefore("/")
-val supportEnabled = posterFeature("support")
-val pushEnabled = posterFeature("pushNotifications")
-// Opt-in, default off: a desktop target changes dependency resolution for
-// everybody, and RevenueCat (feature.support) has no desktop SDK.
-val desktopEnabled = posterProperties.getProperty("feature.desktop", "false").trim().toBoolean()
-if (desktopEnabled && supportEnabled) {
-    throw GradleException("feature.desktop=true needs feature.support=false: the billing SDK has no desktop build. See docs/Desktop.md.")
-}
-// Same shape for the browser (feature.web): opt-in, and no billing SDK there either.
-val webEnabled = posterProperties.getProperty("feature.web", "false").trim().toBoolean()
-if (webEnabled && supportEnabled) {
-    throw GradleException("feature.web=true needs feature.support=false: the billing SDK has no browser build. See docs/Web.md.")
-}
+// Flags come through the catalogue (buildSrc/PosterFeatures.kt), which also
+// refuses combinations that cannot work — desktop or web with the billing SDK,
+// public groups without groups, follows without authors.
+val posterFeatures = PosterFeatures.resolve(posterProperties)
+val supportEnabled = posterFeatures.getValue("support")
+val pushEnabled = posterFeatures.getValue("pushNotifications")
+val desktopEnabled = posterFeatures.getValue("desktop")
+val webEnabled = posterFeatures.getValue("web")
 
 /**
  * The window colours (status/navigation bar, window background) as Android

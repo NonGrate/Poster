@@ -559,6 +559,21 @@ confirmation; light and dark). What it took:
 - `scripts/ios-screenshots.sh`: the simulator auto-pick died silently under
   `set -e` when nothing was booted.
 
+### 25. One declaration per feature (2026-09-20)
+
+`buildSrc/src/main/kotlin/PosterFeatures.kt` is now the single source for the
+30 feature flags: key, title, area, default, `requires`, `conflicts`, and the
+two "off removes" texts. From it the build generates `Features` (the
+constants, plus `Features.ENABLED` for diagnostics), validates
+`poster.properties` (unknown keys; a flag on while one it needs is off —
+follows without authors, public groups without groups; two that conflict —
+desktop or web with the billing SDK) with a message that names the pair, and
+rewrites `docs/Features.md`, the catalogue developers read to decide what to
+keep. The flag table left `docs/Configuration.md` (it was the third copy of
+the list); README, CLAUDE.md and `/add-feature-flag` point at the catalogue.
+Verified: the default build and tests, and the dependency error firing for
+`authors=false` with `follows=true`.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)
