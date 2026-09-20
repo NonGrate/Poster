@@ -6,7 +6,17 @@ admin panel.
 
 ```
 server/src/main/kotlin/com/example/poster/
-  Application.kt        wiring + the /posts, /accounts, /favorites, /bookmarks, /follows, /groups routes
+  Application.kt        wiring: plugins, repositories, throttles, the notifier, and a routing
+                        block that mounts the route packages below
+  RouteSupport.kt       the handful of helpers more than one route package needs
+  posts/                /posts: the feed, writing, completing, sharing, reporting
+  accounts/             /accounts: your own account, editing it, deleting it
+  groups/               /groups: rooms, members, roles, invites, joining and leaving (feature.groups)
+  favorites/            /favorites: liking a post (feature.likes)
+  social/               /bookmarks and /follows (feature.bookmarks, feature.follows)
+  tags/                 /tags (feature.tags)
+  feedback/             /feedback (feature.feedback)
+  diagnostics/          /crashes, /events, /config, /support/interest — the unauthenticated ones
   comments/             /posts/{id}/comments and the comments repository (feature.comments)
   push/                 device registration, the activity list, FCM/APNs senders (feature.pushNotifications)
   uploads/              /uploads: the image store and routes (feature.images)
@@ -122,7 +132,7 @@ rotated on use) gets a new pair. The Ktor client in `shared` does this automatic
 | Bookmarks | `GET /bookmarks`, `POST|DELETE /bookmarks/{postId}` (feature.bookmarks) |
 | Follows | `GET /follows`, `POST|DELETE /follows/{userId}` (feature.follows) |
 | Activity & push | `POST|DELETE /devices` (push tokens), `GET /notifications`, `GET /notifications/unread`, `POST /notifications/read` (feature.pushNotifications) |
-| Likes | `GET /favorites/me`, `POST|DELETE /favorites/{userId}/{postId}`, `GET /favorites/check/{userId}/{postId}`, `GET /favorites/count/{postId}`, `GET /favorites/post/{postId}/people` |
+| Likes | `GET /favorites/me`, `POST|DELETE /favorites/{postId}`, `GET /favorites/check/{postId}`, `GET /favorites/count/{postId}`, `GET /favorites/post/{postId}/people` — the liker is always the bearer token's subject, never a path segment |
 | Groups | `GET /groups/public` (feature.publicGroups), `/byId/{id}`, `/byInvite/{code}`, `/user/{userId}`, `POST /groups/create`, `/join`, `POST /groups/{id}/visibility`, `DELETE /groups/leave`, `/{id}`, members: `GET /{id}/members`, `DELETE /{id}/members/{memberId}`, `POST /{id}/members/{memberId}/role`; invites: `GET|POST /{id}/invites`, `POST /{id}/invites/email`, `/{id}/invites/{code}/revoke` |
 | Tags | `GET /tags`, `/tags/byName/{q}`, `/tags/forPost/{id}` |
 | Accounts | `GET /accounts/byId/{id}` (own only), `POST /accounts` (own profile; role/status are never client-writable), `DELETE /accounts/{id}` |

@@ -14,9 +14,9 @@ scripts/run-local-backend.sh                          # the API on :8080
 ```
 
 For a build to ship: `./gradlew :composeApp:wasmJsBrowserDistribution` writes
-`composeApp/build/dist/wasmJs/productionExecutable/` (an `index.html`, the
-loader `poster.js`, two `.wasm` files — Compose's Skia and the app — and the
-resources; about 17 MB uncompressed, so serve it gzipped or brotli'd).
+`composeApp/build/dist/wasmJs/productionExecutable/` (an `index.html`, a web manifest and icon, the loader `poster.js`, two `.wasm`
+files — Compose's Skia and the app — and the resources; about 17 MB
+uncompressed). The Ktor server gzips what it serves; another host should too.
 
 ## Where the API is
 

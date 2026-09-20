@@ -162,12 +162,16 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
         return httpClient.get("favorites/me").body()
     }
 
+    // The server takes the liker from the bearer token, so [userId] never
+    // reaches it: the path used to carry an id that had to equal the token's
+    // subject, which is a parameter with one legal value. Kept on the interface
+    // because the call sites pass the signed-in id and nothing else knows it.
     override suspend fun addFavorite(userId: String, postId: String) {
-        httpClient.post("favorites/$userId/$postId")
+        httpClient.post("favorites/$postId")
     }
 
     override suspend fun removeFavorite(userId: String, postId: String) {
-        httpClient.delete("favorites/$userId/$postId")
+        httpClient.delete("favorites/$postId")
     }
 
     override suspend fun likers(postId: String): LikerList =

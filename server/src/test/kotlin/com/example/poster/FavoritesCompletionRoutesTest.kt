@@ -59,7 +59,7 @@ class FavoritesCompletionRoutesTest {
         // Someone likes it.
         assertEquals(
             HttpStatusCode.NoContent,
-            client.post("/favorites/${postful.user.guid}/${post.guid}") {
+            client.post("/favorites/${post.guid}") {
                 bearerAuth(postful.tokens.accessToken)
             }.status,
         )
@@ -99,7 +99,7 @@ class FavoritesCompletionRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(post))
         }
-        client.post("/favorites/${postful.user.guid}/${post.guid}") {
+        client.post("/favorites/${post.guid}") {
             bearerAuth(postful.tokens.accessToken)
         }
         assertTrue(client.favorites(postful).any { it.guid == post.guid })
@@ -147,8 +147,8 @@ class FavoritesCompletionRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(post))
         }
-        client.post("/favorites/${named.user.guid}/${post.guid}") { bearerAuth(named.tokens.accessToken) }
-        client.post("/favorites/${quiet.user.guid}/${post.guid}") { bearerAuth(quiet.tokens.accessToken) }
+        client.post("/favorites/${post.guid}") { bearerAuth(named.tokens.accessToken) }
+        client.post("/favorites/${post.guid}") { bearerAuth(quiet.tokens.accessToken) }
 
         val response = client.get("/favorites/post/${post.guid}/people") {
             bearerAuth(author.tokens.accessToken)
@@ -192,30 +192,29 @@ class FavoritesCompletionRoutesTest {
     }
 
     /** What the heart is drawn from, and it answers about you only. */
+    /**
+     * The path carries no user id any more — the server takes the liker from
+     * the token — so "only about yourself" is the shape of the route rather
+     * than a check it performs.
+     */
     @Test
-    fun whetherYouLikedAPostIsReadable_andOnlyAboutYourself() = withServer {
+    fun whetherYouLikedAPostIsReadable() = withServer {
         if (!Features.LIKES) return@withServer
         val author = confirmed("author@example.com")
         val fan = confirmed("fan@example.com")
         postPost(author, "p-1")
         val token = fan.tokens.accessToken
 
-        assertEquals("false", check(fan.user.guid, token))
+        assertEquals("false", check(token))
         assertEquals(
             HttpStatusCode.NoContent,
-            client.post("/favorites/${fan.user.guid}/p-1") { bearerAuth(token) }.status,
+            client.post("/favorites/p-1") { bearerAuth(token) }.status,
         )
-        assertEquals("true", check(fan.user.guid, token))
-
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            client.get("/favorites/check/${author.user.guid}/p-1") { bearerAuth(token) }.status,
-            "somebody else's likes were readable",
-        )
+        assertEquals("true", check(token))
     }
 
-    private suspend fun io.ktor.server.testing.ApplicationTestBuilder.check(userId: String, token: String): String {
-        val response = client.get("/favorites/check/$userId/p-1") { bearerAuth(token) }
+    private suspend fun io.ktor.server.testing.ApplicationTestBuilder.check(token: String): String {
+        val response = client.get("/favorites/check/p-1") { bearerAuth(token) }
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         return response.bodyAsText()
     }

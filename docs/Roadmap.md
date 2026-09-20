@@ -49,10 +49,10 @@ payoff today; all are mechanical.
 
 | Item | Where |
 |---|---|
-| Split `server/.../Application.kt` (~1,650 lines) into route files | `groups/GroupRoutes.kt`, `posts/PostRoutes.kt`, `accounts/AccountRoutes.kt`, `favorites/FavoriteRoutes.kt` … following `comments/`, `push/`, `uploads/`. |
-| Drop the `{userId}` segment from the `/favorites` paths | Server routes and `KtorPostApi` together; the caller is always the authenticated user. |
-| Drop the `Post.likes` column | Nothing reads it any more (`withLikeCount` fills it from the favourites table); one migration. |
-| Split the largest screens | `LoginScreen.kt`, `GroupsScreen.kt`, `SettingsScreen.kt`, `MainScreen.kt`, `PostsViewModel.kt`, `FeedFilterSheet.kt` are 500–700 lines each; seams: `PostCard` is already split into pills and badges; `SettingsScreen` → the dialogs and the support section; `GroupsScreen` → the add sheet and the detail pane; `MainScreen` → the invite handling and the post form; `HomeScreen` → the dialogs and the top bar. |
+| Split `server/.../Application.kt` into route files | done — `posts/`, `groups/`, `accounts/`, `favorites/`, `social/`, `feedback/`, `tags/`, `diagnostics/` route files plus `RouteSupport.kt`; `Application.kt` is wiring. The admin panel is split the same way (`admin/AdminChrome.kt`, `AdminPostsPages.kt`, `AdminTagsPages.kt`, `AdminGroupsPages.kt`). |
+| Drop the `{userId}` segment from the `/favorites` paths | done — `POST\|DELETE /favorites/{postId}`, `GET /favorites/check/{postId}`; the liker is the caller. |
+| Drop the `Post.likes` column | not doing it — the server ignores it, but the device cache reads it back for the like count offline (like `comments`). |
+| Split the largest screens | done — `LoginScreen` → `RegisterForm`, `LoginDialogs`; `GroupsScreen` → `GroupAddSheet`, `GroupDetailPane`; `SettingsScreen` → `SettingsDialogs`, `SettingsSupportSection`; `MainScreen` → `MainInvites`, `MainPostForm`; `HomeScreen` → `HomeDialogs`, `FeedTopBar`. `PostsViewModel` stays one class (its remaining state is shared by every method). |
 | A `FeedQuery` value for the feed parameters | `PostApi.getPostPage` has nine parameters repeated in three places; worth it with the next filter. |
 | `PeriodicRefreshTest` on virtual time | The 400 ms negative assertion needs `mainClock` control; the test runs on the iOS simulator only. |
 

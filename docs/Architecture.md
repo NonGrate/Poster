@@ -82,7 +82,7 @@ in `MainActivity.handleLink`, iOS in `iOSApp.onOpenURL`. Handled kinds:
 ## Layers on the server
 
 ```
-Application.kt  builds repositories and services, installs auth, registers routes
+Application.kt  builds repositories and services, installs plugins, and registers the route files (posts/, groups/, accounts/, favorites/, social/, feedback/, tags/, diagnostics/, comments/, uploads/, push/)
 auth/           AuthService (register/login/refresh/social/merge), TokenService (JWT),
                 AccountTokens (single-use email tokens), AttemptThrottle, verifiers
 model/          *LocalRepository over PostDatabase queries; interfaces for tests
@@ -110,7 +110,7 @@ never from ids in the body.
    send JSON without it).
 4. Mappers: `shared/.../repository/PostLocalStore.kt` (`toPost`), server
    `model/PostsLocalRepository.kt`.
-5. Server: validate it in `Application.kt`'s `POST /posts` if it needs a rule
+5. Server: validate it in `posts/PostRoutes.kt`'s `POST /posts` if it needs a rule
    (`domain/validation/PostRules.kt` is where limits live, shared with the form).
 6. UI: `ui/components/PostFormDialog.kt` to edit it, `PostCard.kt` to show it.
 7. Strings for any new label, in both `values/` and `values-ru/`.
@@ -135,7 +135,7 @@ never from ids in the body.
 
 1. Request/response `@Serializable` classes in `shared/.../model/`.
 2. `shared/.../network/XApi.kt` interface + `shared/.../ktor/KtorXApi.kt` implementation; bind in `KoinModule.kt`.
-3. Server route in `Application.kt` (or a new `Route.xRoutes()` file, registered there), inside `authenticate("auth-jwt")` unless it is public on purpose. Wrap it in `if (Features.X)` if it belongs to a flag.
+3. Server route in the area's `XxxRoutes.kt` (or a new `Route.xRoutes()` file, registered in `Application.kt`'s `routing { }`), inside `authenticate("auth-jwt")` unless it is public on purpose. Wrap it in `if (Features.X)` if it belongs to a flag.
 4. A route test: `server/src/test/kotlin/.../XRoutesTest.kt` — the existing ones use `testApplication` with a temp database and `ConfirmedAccounts` helpers.
 
 ### Add a feature flag

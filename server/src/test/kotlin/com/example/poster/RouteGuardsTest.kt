@@ -84,19 +84,18 @@ class RouteGuardsTest {
         val writer = confirmed("writer@example.com")
         postPost(writer, "hidden", visibility = "private")
 
-        val me = reader.user.guid
         val token = reader.tokens.accessToken
         assertEquals(
             HttpStatusCode.NotFound,
-            client.post("/favorites/$me/hidden") { bearerAuth(token) }.status,
+            client.post("/favorites/hidden") { bearerAuth(token) }.status,
         )
         assertEquals(
             HttpStatusCode.NotFound,
-            client.delete("/favorites/$me/hidden") { bearerAuth(token) }.status,
+            client.delete("/favorites/hidden") { bearerAuth(token) }.status,
         )
         assertEquals(
             HttpStatusCode.NotFound,
-            client.get("/favorites/check/$me/hidden") { bearerAuth(token) }.status,
+            client.get("/favorites/check/hidden") { bearerAuth(token) }.status,
         )
         assertEquals(
             HttpStatusCode.NotFound,

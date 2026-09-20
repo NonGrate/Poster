@@ -130,13 +130,13 @@ class NotificationRoutesTest {
 
         // Withdrawal needs no session: it is what the app does after signing out.
         assertEquals(HttpStatusCode.NoContent, client.delete("/devices/live-token").status)
-        client.delete("/favorites/${fan.user.guid}/p1") { bearerAuth(fan.tokens.accessToken) }
+        client.delete("/favorites/p1") { bearerAuth(fan.tokens.accessToken) }
         like(fan, "p1")
 
         // Same anchor: a device that must be pushed to, registered after the
         // like that must reach nobody, so its push lands behind any stray one.
         registerDevice(author, "fresh-token", "android")
-        client.delete("/favorites/${fan.user.guid}/p1") { bearerAuth(fan.tokens.accessToken) }
+        client.delete("/favorites/p1") { bearerAuth(fan.tokens.accessToken) }
         like(fan, "p1")
         awaitPushes(1)
 
@@ -164,7 +164,7 @@ class NotificationRoutesTest {
     }
 
     private suspend fun ApplicationTestBuilder.like(user: AuthResponse, post: String) {
-        val response = client.post("/favorites/${user.user.guid}/$post") { bearerAuth(user.tokens.accessToken) }
+        val response = client.post("/favorites/$post") { bearerAuth(user.tokens.accessToken) }
         assertEquals(HttpStatusCode.NoContent, response.status)
     }
 

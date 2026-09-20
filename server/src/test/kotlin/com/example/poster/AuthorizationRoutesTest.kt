@@ -47,11 +47,14 @@ class AuthorizationRoutesTest {
                 setBody(forgedPost)
             }.status,
         )
+        // Asking for somebody's likes by id is not refused any more, it is
+        // simply not a route: the only favourites anybody can name are their own.
         assertEquals(
-            HttpStatusCode.Forbidden,
+            HttpStatusCode.NotFound,
             client.get("/favorites/user/${second.user.guid}") {
                 bearerAuth(first.tokens.accessToken)
             }.status,
+            "somebody else's likes were still addressable",
         )
         assertEquals(
             HttpStatusCode.OK,
