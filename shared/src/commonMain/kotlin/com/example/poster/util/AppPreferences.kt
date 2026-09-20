@@ -15,14 +15,6 @@ import kotlinx.coroutines.launch
 class AppPreferences(private val dataStore: PlatformDataStore) {
     companion object {
 
-        /**
-         * What the filter offers before anybody has filtered by anything.
-         *
-         * Broad on purpose — most posts anybody writes land under one of
-         * these — and they are the same seeds for everyone, so the first
-         * experience of the filter is a working one rather than an empty box.
-         */
-
         val SESSION_KEYS = listOf(
             "user_id",
             "cached_user",
@@ -58,6 +50,14 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private val KEY_PUSH_PROMPTED = "push_prompted"
     private val KEY_POST_DRAFT = "post_draft"
 
+    /** The push token the server was last told about, so signing out can withdraw it. */
+    suspend fun pushToken(): String? = dataStore.getString(KEY_PUSH_TOKEN, null)
+    suspend fun setPushToken(token: String?) = dataStore.putString(KEY_PUSH_TOKEN, token)
+
+    /** Whether the one-time notification permission prompt has been shown on this install. */
+    suspend fun pushPrompted(): Boolean = dataStore.getString(KEY_PUSH_PROMPTED, null) != null
+    suspend fun setPushPrompted() = dataStore.putString(KEY_PUSH_PROMPTED, "1")
+
     /**
      * A stable, anonymous id for this install, minted once and kept.
      *
@@ -67,14 +67,6 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
      * sign-out (see [clear]): the point is that it survives, so one person's
      * events on one device stay grouped across sessions.
      */
-    /** The push token the server was last told about, so signing out can withdraw it. */
-    suspend fun pushToken(): String? = dataStore.getString(KEY_PUSH_TOKEN, null)
-    suspend fun setPushToken(token: String?) = dataStore.putString(KEY_PUSH_TOKEN, token)
-
-    /** Whether the one-time notification permission prompt has been shown on this install. */
-    suspend fun pushPrompted(): Boolean = dataStore.getString(KEY_PUSH_PROMPTED, null) != null
-    suspend fun setPushPrompted() = dataStore.putString(KEY_PUSH_PROMPTED, "1")
-
     @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
     suspend fun deviceId(): String {
         dataStore.getString(KEY_DEVICE_ID, null)?.let { return it }
@@ -124,17 +116,6 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private var defaultVisibilityWritten = false
     private var reminderWritten = false
 
-    /**
-     * Groups the person has already been told about. Being added to one by
-     * a moderator is silent otherwise — there is no push channel to announce it.
-     * Null means "never recorded", which is the first run and must not announce
-     * everything at once.
-     */
-    /**
-     * The signed-in person, kept so the app knows who they are before asking
-     * anyone. Without it a launch shows the login screen until a network round
-     * trip finishes, and shows it again for as long as there is no network.
-     */
     /** The unsent post, if any (feature.drafts). Goes with the session. */
     suspend fun postDraft(): PostDraft? =
         dataStore.getString(KEY_POST_DRAFT, null)

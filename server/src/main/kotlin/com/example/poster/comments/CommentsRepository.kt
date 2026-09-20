@@ -1,7 +1,5 @@
 package com.example.poster.comments
 
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import com.example.poster.PostDatabase
 import com.example.poster.model.Comment
 import java.time.Instant
@@ -15,8 +13,9 @@ data class CommentEntry(
     val hidden: Boolean,
 )
 
+// No default database, for the reason given on PostsLocalRepository.
 class CommentsRepository(
-    database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    database: PostDatabase,
 ) {
     private val queries = database.commentQueries
 

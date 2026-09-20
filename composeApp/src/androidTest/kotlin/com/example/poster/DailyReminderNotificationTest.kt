@@ -7,9 +7,11 @@ import android.content.Intent
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.example.poster.config.Features
 import com.example.poster.notification.AndroidDailyReminders
 import com.example.poster.notification.DailyReminderReceiver
 import org.junit.After
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +38,7 @@ class DailyReminderNotificationTest {
 
     @Before
     fun clearTray() {
+        assumeTrue(Features.DAILY_REMINDER)
         // Granted here rather than assumed. Installing the test APK revokes it,
         // so an assumeTrue on "are notifications enabled" reports two green
         // tests that never ran — which is exactly what it did.

@@ -1,19 +1,16 @@
 package com.example.poster
 
-import io.ktor.client.request.get
+import com.example.poster.config.Features
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.CrashReport
 import com.example.poster.model.CrashRepository
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -29,10 +26,11 @@ class CrashRoutesTest {
 
     @Test
     fun aCrashIsStoredAndCanBeReadBack() = withServer {
+        if (!Features.CRASH_REPORTS) return@withServer
         val response = report(type = "IllegalStateException", stack = "at Kaboom.kt:1")
 
         assertEquals(HttpStatusCode.NoContent, response)
-        val stored = CrashRepository().recent().single { it.type == "IllegalStateException" }
+        val stored = CrashRepository(testDriver()).recent().single { it.type == "IllegalStateException" }
         assertEquals("at Kaboom.kt:1", stored.stack)
         // When it arrived is the server's word, not the app's: a device with a
         // wrong clock, or one that kept a report for a week, still sorts sensibly.
@@ -45,11 +43,13 @@ class CrashRoutesTest {
     /** Nobody is signed in when an app crashes at startup. */
     @Test
     fun reportingACrashNeedsNoAccount() = withServer {
+        if (!Features.CRASH_REPORTS) return@withServer
         assertEquals(HttpStatusCode.NoContent, report(type = "Anything", stack = "somewhere"))
     }
 
     @Test
     fun somethingThatIsNotACrashIsRefused() = withServer {
+        if (!Features.CRASH_REPORTS) return@withServer
         assertEquals(HttpStatusCode.BadRequest, report(type = "", stack = ""))
         assertEquals(HttpStatusCode.BadRequest, report(type = "Type", stack = "   "))
     }
@@ -60,9 +60,10 @@ class CrashRoutesTest {
      */
     @Test
     fun anEnormousStackTraceIsCutDown() = withServer {
+        if (!Features.CRASH_REPORTS) return@withServer
         report(type = "Huge", stack = "x".repeat(100_000))
 
-        val stored = CrashRepository().recent().single { it.type == "Huge" }
+        val stored = CrashRepository(testDriver()).recent().single { it.type == "Huge" }
         assertTrue(
             stored.stack.length <= CrashReport.MAX_STACK,
             "stored ${stored.stack.length} characters, more than the ${CrashReport.MAX_STACK} cap",
@@ -100,23 +101,4 @@ class CrashRoutesTest {
         }.status
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-crashes").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

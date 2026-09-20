@@ -13,15 +13,6 @@ class FakeGroupApi : GroupApi {
         Group("book-club", "Book Club", "BOOK_CLUB_INVITE")
     )
 
-    override suspend fun getAllGroups(): List<Group> = groups
-
-    override suspend fun getGroupById(id: String): Group? = groups.find { it.id == id }
-
-    override suspend fun getGroupByInviteCode(inviteCode: String): Group? = groups.find { it.inviteCode == inviteCode }
-
-
-
-
     override suspend fun joinWithInvite(userId: String, code: String) = JoinResult.INVALID
     override suspend fun getMembers(groupId: String) = emptyList<GroupMember>()
 
@@ -54,6 +45,4 @@ class FakeGroupApi : GroupApi {
     override suspend fun removeUserFromGroup(userId: String, groupId: String) {
         // No-op for fake implementation
     }
-
-
 }

@@ -1,11 +1,11 @@
 package com.example.poster.model
 
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
 import com.example.poster.PostDatabase
+import com.example.poster.config.Features
 
+// No default database, for the reason given on PostsLocalRepository.
 class AccountLocalRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) : AccountRepository {
     private val userQueries = database.userQueries
     private val identityQueries = database.socialIdentityQueries
@@ -101,7 +101,7 @@ class AccountLocalRepository(
 
             // What they marked on other people's posts, which stays theirs
             // to lose rather than a record anybody else needs.
-            favoriteQueries.deleteFavoritesOfUser(guid)
+            favoriteQueries.deleteFavoritesForUser(guid)
 
             // The groups they made outlive them: other people are in
             // them, and their posts are in them. What goes is the claim of
@@ -129,7 +129,7 @@ class AccountLocalRepository(
             // drops the rows the survivor already has, then the leftovers on the
             // merged id are cleared.
             database.userPostFavoriteQueries.reassignFavorites(into = into, from = from)
-            database.userPostFavoriteQueries.deleteFavoritesOfUser(from)
+            database.userPostFavoriteQueries.deleteFavoritesForUser(from)
 
             database.userGroupQueries.reassignMemberships(into = into, from = from)
             database.userGroupQueries.deleteMembershipsOfUser(from)
@@ -144,6 +144,34 @@ class AccountLocalRepository(
             database.postReportQueries.deleteReportsByReporter(from)
 
             database.moderationAuditQueries.reassignAuditActor(into = into, from = from)
+
+            // Everything below hangs off User with ON DELETE CASCADE, so the
+            // deleteUser at the end takes it rather than leaving it behind:
+            // without these the merge silently threw away the comments, saved
+            // posts, follows, activity and registered devices of the account
+            // being folded in. Each is gated the same way its routes are.
+            if (Features.COMMENTS) {
+                database.commentQueries.reassignCommentAuthor(into = into, from = from)
+            }
+            if (Features.FOLLOWS) {
+                // (follower, followed) is the primary key, so OR IGNORE drops
+                // what the survivor already has; the leftovers go, and so does
+                // the self-follow left behind if one of the two followed the
+                // other.
+                database.followQueries.reassignFollower(into = into, from = from)
+                database.followQueries.reassignFollowed(into = into, from = from)
+                database.followQueries.deleteFollowsOfUser(from)
+                database.followQueries.deleteSelfFollows()
+            }
+            if (Features.BOOKMARKS) {
+                database.bookmarkQueries.reassignBookmarks(into = into, from = from)
+                database.bookmarkQueries.deleteBookmarksOfUser(from)
+            }
+            if (Features.PUSH_NOTIFICATIONS) {
+                database.notificationQueries.reassignNotifications(into = into, from = from)
+                database.notificationQueries.reassignNotificationActor(into = into, from = from)
+                database.deviceQueries.reassignDevices(into = into, from = from)
+            }
 
             // The identities are the point: the merged account's Apple identity
             // now belongs to the survivor, so future Apple sign-ins land there.

@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.config.AppInfo
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -11,12 +12,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,7 +32,7 @@ import kotlin.test.assertTrue
 class AccountMailRoutesTest {
 
     @Test
-    fun registeringSendsAVerificationLinkThatWorksOnce() = withServer { mail ->
+    fun registeringSendsAVerificationLinkThatWorksOnce() = withServer { (mail) ->
         val user = register("member@example.com")
 
         val link = mail.linkFor("member@example.com")
@@ -55,7 +54,7 @@ class AccountMailRoutesTest {
      * arrived as untappable grey text.
      */
     @Test
-    fun bothMessagesCarryAnHttpsLink() = withServer { mail ->
+    fun bothMessagesCarryAnHttpsLink() = withServer { (mail) ->
         register("member@example.com")
         val verification = mail.messageFor("member@example.com")?.second
         assertTrue(
@@ -83,7 +82,7 @@ class AccountMailRoutesTest {
      * The account is the point; the email is a nicety.
      */
     @Test
-    fun registrationSucceedsEvenWhenTheEmailCannotBeSent() = withServer(mailWorks = false) {
+    fun registrationSucceedsEvenWhenTheEmailCannotBeSent() = withServer(mail = RecordedMail(works = false)) {
         val response = client.post("/auth/register") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(RegisterRequest("Member", "User", "member@example.com", "password123")))
@@ -93,7 +92,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun aResetLinkSetsANewPasswordAndTheOldOneStopsWorking() = withServer { mail ->
+    fun aResetLinkSetsANewPasswordAndTheOldOneStopsWorking() = withServer { (mail) ->
         register("member@example.com")
         assertEquals(HttpStatusCode.NoContent, forgot("member@example.com"))
 
@@ -111,7 +110,7 @@ class AccountMailRoutesTest {
 
     /** Otherwise this endpoint answers "does this person have an account?" */
     @Test
-    fun askingToResetAnAddressNobodyHasLooksIdentical() = withServer { mail ->
+    fun askingToResetAnAddressNobodyHasLooksIdentical() = withServer { (mail) ->
         register("member@example.com")
 
         val known = forgot("member@example.com")
@@ -124,7 +123,7 @@ class AccountMailRoutesTest {
 
     /** Two minutes between messages, so this cannot be pointed at an inbox. */
     @Test
-    fun theSameAddressCannotBeMailedRepeatedly() = withServer { mail ->
+    fun theSameAddressCannotBeMailedRepeatedly() = withServer { (mail) ->
         register("member@example.com")
         val afterRegistration = mail.countFor("member@example.com")
 
@@ -138,7 +137,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun aResetLinkCannotBeUsedTwice() = withServer { mail ->
+    fun aResetLinkCannotBeUsedTwice() = withServer { (mail) ->
         register("member@example.com")
         forgot("member@example.com")
         val link = mail.linkFor("member@example.com", index = 1)!!
@@ -148,14 +147,14 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun aResetWillNotSetAPasswordTooShortToBeOne() = withServer { mail ->
+    fun aResetWillNotSetAPasswordTooShortToBeOne() = withServer { (mail) ->
         register("member@example.com")
         forgot("member@example.com")
         val link = mail.linkFor("member@example.com", index = 1)!!
 
         val response = reset(link, "short")
 
-        assertEquals(HttpStatusCode.BadRequest, response.let { it })
+        assertEquals(HttpStatusCode.BadRequest, response)
         assertEquals(HttpStatusCode.OK, login("member@example.com", "password123").status,
             "the old password should still work after a refused reset")
     }
@@ -165,7 +164,7 @@ class AccountMailRoutesTest {
      * Leaving that person signed in answers the wrong half of the problem.
      */
     @Test
-    fun aResetSignsOutEveryDeviceThatWasSignedIn() = withServer { mail ->
+    fun aResetSignsOutEveryDeviceThatWasSignedIn() = withServer { (mail) ->
         val user = register("member@example.com")
         forgot("member@example.com")
         val link = mail.linkFor("member@example.com", index = 1)!!
@@ -181,7 +180,7 @@ class AccountMailRoutesTest {
 
     /** Reaching the inbox is the proof; a reset is as good as following the link. */
     @Test
-    fun resettingAPasswordAlsoVerifiesTheAddress() = withServer { mail ->
+    fun resettingAPasswordAlsoVerifiesTheAddress() = withServer { (mail) ->
         val user = register("member@example.com")
         assertFalse(me(user).verifiedAt != null)
         forgot("member@example.com")
@@ -202,10 +201,11 @@ class AccountMailRoutesTest {
      * server declining to write, which is what this pins.
      */
     @Test
-    fun anUnconfirmedAccountCannotShareAPost() = withServer { mail ->
+    fun anUnconfirmedAccountCannotShareAPost() = withServer { (mail) ->
+        if (!Features.EMAIL_VERIFICATION_REQUIRED) return@withServer
         val user = register("member@example.com")
 
-        val response = postPost(user)
+        val response = postPost(user, "p-1", title = "A post", message = "words", date = "2026-08-18T12:00", expect = null)
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
         assertTrue(
@@ -215,11 +215,11 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun confirmingTheAddressLetsThemShareOne() = withServer { mail ->
+    fun confirmingTheAddressLetsThemShareOne() = withServer { (mail) ->
         val user = register("member@example.com")
         verify(mail.linkFor("member@example.com")!!)
 
-        assertEquals(HttpStatusCode.NoContent, postPost(user).status)
+        postPost(user, "p-1", title = "A post", message = "words", date = "2026-08-18T12:00")
     }
 
     /** Reading is not gated: an unconfirmed account can still see the feed. */
@@ -234,31 +234,13 @@ class AccountMailRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse) =
-        client.post("/posts") {
-            bearerAuth(user.tokens.accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                Json.encodeToString(
-                    com.example.poster.model.Post(
-                        guid = "p-1",
-                        title = "A post",
-                        message = "words",
-                        author = user.user.guid,
-                        group = null,
-                        date = kotlinx.datetime.LocalDateTime(2026, 8, 18, 12, 0),
-                    ),
-                ),
-            )
-        }
-
     /**
      * The link in the email is opened in a browser, so it has to land on a
      * page. It used to 404: the token was only spendable through a JSON call
      * the app makes, and nothing answered the address people were sent to.
      */
     @Test
-    fun theLinkInTheEmailLandsOnAPage() = withServer { mail ->
+    fun theLinkInTheEmailLandsOnAPage() = withServer { (mail) ->
         register("member@example.com")
         val token = mail.linkFor("member@example.com")!!
 
@@ -274,7 +256,7 @@ class AccountMailRoutesTest {
      * link was already used.
      */
     @Test
-    fun openingThePageDoesNotConfirmAnything() = withServer { mail ->
+    fun openingThePageDoesNotConfirmAnything() = withServer { (mail) ->
         val user = register("member@example.com")
         val token = mail.linkFor("member@example.com")!!
 
@@ -284,7 +266,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun pressingTheButtonOnThePageConfirmsTheAddress() = withServer { mail ->
+    fun pressingTheButtonOnThePageConfirmsTheAddress() = withServer { (mail) ->
         val user = register("member@example.com")
         val token = mail.linkFor("member@example.com")!!
 
@@ -298,7 +280,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun aResetLinkLandsOnAFormThatSetsThePassword() = withServer { mail ->
+    fun aResetLinkLandsOnAFormThatSetsThePassword() = withServer { (mail) ->
         register("member@example.com")
         forgot("member@example.com")
         val token = mail.linkFor("member@example.com", index = 1)!!
@@ -318,7 +300,7 @@ class AccountMailRoutesTest {
 
     /** Spent, expired and invented all read the same to whoever holds the link. */
     @Test
-    fun aDeadLinkSaysTheSameThingWhateverKilledIt() = withServer { mail ->
+    fun aDeadLinkSaysTheSameThingWhateverKilledIt() = withServer { (mail) ->
         register("member@example.com")
         val token = mail.linkFor("member@example.com")!!
         client.post("/verify") {
@@ -345,7 +327,7 @@ class AccountMailRoutesTest {
      * use the app yet, so it is also the moment it matters most.
      */
     @Test
-    fun someoneWhoReadsRussianIsWrittenToInRussian() = withServer { mail ->
+    fun someoneWhoReadsRussianIsWrittenToInRussian() = withServer { (mail) ->
         register("member@example.com", language = "ru")
 
         val (subject, body) = mail.messageFor("member@example.com")!!
@@ -355,7 +337,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun aRussianSpeakerGetsARussianPasswordReset() = withServer { mail ->
+    fun aRussianSpeakerGetsARussianPasswordReset() = withServer { (mail) ->
         register("member@example.com", language = "ru")
         forgot("member@example.com")
 
@@ -365,7 +347,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun someoneWhoReadsEnglishStillGetsEnglish() = withServer { mail ->
+    fun someoneWhoReadsEnglishStillGetsEnglish() = withServer { (mail) ->
         register("member@example.com", language = "en")
 
         val (subject, _) = mail.messageFor("member@example.com")!!
@@ -377,7 +359,7 @@ class AccountMailRoutesTest {
      * not speak is not a reason to send nothing. Both get English.
      */
     @Test
-    fun anUnknownLanguageFallsBackToEnglish() = withServer { mail ->
+    fun anUnknownLanguageFallsBackToEnglish() = withServer { (mail) ->
         register("old@example.com")
         register("german@example.com", language = "de")
 
@@ -387,7 +369,7 @@ class AccountMailRoutesTest {
 
     /** Whatever the language, the link still has to be in there and still work. */
     @Test
-    fun theRussianEmailCarriesAWorkingLink() = withServer { mail ->
+    fun theRussianEmailCarriesAWorkingLink() = withServer { (mail) ->
         val user = register("member@example.com", language = "ru")
 
         val link = mail.linkFor("member@example.com")
@@ -405,7 +387,7 @@ class AccountMailRoutesTest {
      * to do.
      */
     @Test
-    fun theVerificationPageAnswersInTheBrowsersLanguage() = withServer { mail ->
+    fun theVerificationPageAnswersInTheBrowsersLanguage() = withServer { (mail) ->
         register("member@example.com", language = "ru")
         val token = mail.linkFor("member@example.com")!!
 
@@ -418,7 +400,7 @@ class AccountMailRoutesTest {
     }
 
     @Test
-    fun theResetPageAnswersInTheBrowsersLanguage() = withServer { mail ->
+    fun theResetPageAnswersInTheBrowsersLanguage() = withServer { (mail) ->
         register("member@example.com")
         forgot("member@example.com")
         val token = mail.linkFor("member@example.com", index = 1)!!
@@ -430,7 +412,7 @@ class AccountMailRoutesTest {
 
     /** Pressing the button has to answer in the same language the form did. */
     @Test
-    fun confirmingInRussianIsAnsweredInRussian() = withServer { mail ->
+    fun confirmingInRussianIsAnsweredInRussian() = withServer { (mail) ->
         register("member@example.com", language = "ru")
         val token = mail.linkFor("member@example.com")!!
 
@@ -445,7 +427,7 @@ class AccountMailRoutesTest {
 
     /** A browser asking for neither, or for something else, still gets a page. */
     @Test
-    fun aBrowserWithNoPreferenceGetsEnglish() = withServer { mail ->
+    fun aBrowserWithNoPreferenceGetsEnglish() = withServer { (mail) ->
         register("member@example.com", language = "ru")
         val token = mail.linkFor("member@example.com")!!
 
@@ -473,24 +455,6 @@ class AccountMailRoutesTest {
     }
 
     // — helpers —
-
-    private class RecordedMail : com.example.poster.mail.Mailer {
-        val sent = mutableListOf<Triple<String, String, String>>()
-        var works = true
-        override suspend fun send(to: String, subject: String, body: String): Boolean {
-            if (!works) return false
-            sent += Triple(to, subject, body)
-            return true
-        }
-        fun countFor(email: String) = sent.count { it.first == email }
-        fun messageFor(email: String, index: Int = 0): Pair<String, String>? =
-            sent.filter { it.first == email }.getOrNull(index)?.let { it.second to it.third }
-        fun linkFor(email: String, index: Int = 0): String? {
-            val forThem = sent.filter { it.first == email }
-            val body = forThem.getOrNull(index)?.third ?: return null
-            return Regex("token=([A-Za-z0-9_-]+)").find(body)?.groupValues?.get(1)
-        }
-    }
 
     private suspend fun ApplicationTestBuilder.register(
         email: String,
@@ -554,27 +518,21 @@ class AccountMailRoutesTest {
         return Json.decodeFromString<AuthResponse>(response.bodyAsText()).user
     }
 
-    private fun withServer(
-        mailWorks: Boolean = true,
-        block: suspend ApplicationTestBuilder.(RecordedMail) -> Unit,
-    ) {
-        val databasePath = Files.createTempDirectory("poster-accountmail").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        val mail = RecordedMail().also { it.works = mailWorks }
-        try {
-            testApplication {
-                application { module(mail) }
-                block(mail)
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
+    /**
+     * Asking for the confirmation mail again straight away.
+     *
+     * The answer is 204 either way — whether it was sent, already confirmed or
+     * asked for too soon is nothing to report back — so the only thing that
+     * shows the throttle is there is the mail that did not go out.
+     */
+    @Test
+    fun askingForTheVerificationMailAgainImmediatelySendsNothing() = withServer { (mail) ->
+        val user = register("member@example.com")
+        assertEquals(1, mail.countFor("member@example.com"), "registering did not send one")
+
+        val again = client.post("/auth/verify/resend") { bearerAuth(user.tokens.accessToken) }
+
+        assertEquals(HttpStatusCode.NoContent, again.status)
+        assertEquals(1, mail.countFor("member@example.com"), "a second verification mail went out inside the window")
     }
 }

@@ -1,9 +1,9 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.domain.validation.CommentRules
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Comment
-import com.example.poster.model.RegisterRequest
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -15,12 +15,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -29,6 +27,7 @@ import kotlin.test.assertTrue
 class CommentRoutesTest {
     @Test
     fun aCommentIsStoredAndComesBackOldestFirst_andThePostCountsIt() = withServer {
+        if (!Features.COMMENTS) return@withServer
         val author = confirmed("author@example.com")
         val reader = confirmed("reader@example.com")
         postPost(author, "p1", "public")
@@ -43,6 +42,7 @@ class CommentRoutesTest {
 
     @Test
     fun blankAndOverlongCommentsAreRefused() = withServer {
+        if (!Features.COMMENTS) return@withServer
         val author = confirmed("author@example.com")
         postPost(author, "p1", "public")
         assertEquals(HttpStatusCode.BadRequest, comment(author, "p1", "   ").status)
@@ -52,6 +52,7 @@ class CommentRoutesTest {
 
     @Test
     fun aPrivatePostsThreadIsNotThereForAnybodyElse() = withServer {
+        if (!Features.COMMENTS) return@withServer
         val author = confirmed("author@example.com")
         val stranger = confirmed("stranger@example.com")
         postPost(author, "secret", "private")
@@ -63,6 +64,7 @@ class CommentRoutesTest {
 
     @Test
     fun theCommentsAuthorAndThePostsAuthorMayRemoveIt_nobodyElse() = withServer {
+        if (!Features.COMMENTS) return@withServer
         val author = confirmed("author@example.com")
         val commenter = confirmed("commenter@example.com")
         val stranger = confirmed("stranger@example.com")
@@ -78,6 +80,7 @@ class CommentRoutesTest {
 
     @Test
     fun deletingThePostTakesTheThreadWithIt() = withServer {
+        if (!Features.COMMENTS) return@withServer
         val author = confirmed("author@example.com")
         postPost(author, "p1", "public")
         comment(author, "p1", "Gone with the post")
@@ -100,41 +103,4 @@ class CommentRoutesTest {
     private suspend fun ApplicationTestBuilder.remove(user: AuthResponse, post: String, comment: String): HttpResponse =
         client.delete("/posts/$post/comments/$comment") { bearerAuth(user.tokens.accessToken) }
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest.serializer(), RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String, visibility: String) {
-        val response = client.post("/posts") {
-            bearerAuth(user.tokens.accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"$guid","title":"Title","message":"words","author":"${user.user.guid}",""" +
-                    """"group":null,"likes":0,"date":"2026-08-23T10:00","visibility":"$visibility","tags":[],"language":"en"}""",
-            )
-        }
-        assertEquals(HttpStatusCode.NoContent, response.status, response.bodyAsText())
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val root = Files.createTempDirectory("poster-comments-test")
-        val previous = mapOf("poster.database" to System.getProperty("poster.database"), "io.ktor.development" to System.getProperty("io.ktor.development"))
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
 }

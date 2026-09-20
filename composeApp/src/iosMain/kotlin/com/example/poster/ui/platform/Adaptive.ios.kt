@@ -194,13 +194,6 @@ actual fun AdaptiveCreateHeaderAction(
     }
 }
 
-@Composable
-actual fun AdaptiveDestructiveTextButton(text: String, onClick: () -> Unit, modifier: Modifier) {
-    TextButton(onClick = onClick, modifier = modifier) {
-        Text(text = text, color = MaterialTheme.colorScheme.error)
-    }
-}
-
 /** Destructive confirmations rise from the bottom as an action sheet. */
 @Composable
 actual fun AdaptiveConfirmDialog(

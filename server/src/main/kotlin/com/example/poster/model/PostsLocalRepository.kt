@@ -1,15 +1,15 @@
 package com.example.poster.model
 
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
+import com.example.poster.PostDatabase
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
 
+// The database is handed in and has no default: one opened here is a second
+// connection, a second migration run, and a second writer to queue behind.
 class PostsLocalRepository(
-    private val tagRepository: TagLocalRepository = TagLocalRepository(),
+    database: PostDatabase,
+    private val tagRepository: TagLocalRepository = TagLocalRepository(database),
 ) : PostsRepository {
-    private val databaseManager = DatabaseManager(DatabaseDriverFactory())
-    private val database = databaseManager.getDatabase()
     private val postQueries = database.postQueries
 
     fun completePost(guid: String, message: String?) {
@@ -98,17 +98,13 @@ class PostsLocalRepository(
         return token
     }
 
-    override fun allPosts(): List<Post> {
-        return postQueries.getAllPosts().executeAsList().map { it.toPost() }
-    }
-
-    override fun postById(guid: String): Post? {
-        val posts = postQueries.getAllPosts().executeAsList().filter {
-            it.guid.equals(guid, ignoreCase = true)
-        }
-
-        return posts.firstOrNull()?.toPost()
-    }
+    /**
+     * One post by its guid, or null. Hidden posts included: this answers "who
+     * wrote it" and "is it there" for routes that then decide for themselves,
+     * and it used to read every post in the table to do it.
+     */
+    override fun postById(guid: String): Post? =
+        postQueries.getPostById(guid).executeAsOneOrNull()?.toPost()
 
     override fun addOrUpdatePost(post: Post) {
         val existingPost = postById(post.guid)
@@ -153,16 +149,16 @@ class PostsLocalRepository(
         }
     }
 
+    override fun imagesInUse(): List<String> = postQueries.imagesInUse().executeAsList().filterNotNull()
+
+    override fun postByImage(id: String): Post? = postQueries.postByImage(id).executeAsOneOrNull()?.toPost()
+
     /**
      * One row, one post. It was written out by hand at each call site, and one
      * of those copies had quietly lost `language` — a row read back through it
      * claimed to be English whatever it was written in. Nothing displayed that
      * copy, so nothing ever said so.
      */
-    override fun imagesInUse(): List<String> = postQueries.imagesInUse().executeAsList().filterNotNull()
-
-    override fun postByImage(id: String): Post? = postQueries.postByImage(id).executeAsOneOrNull()?.toPost()
-
     private fun com.example.poster.db.Post.toPost() = Post(
         guid = guid,
         title = title,
@@ -177,7 +173,6 @@ class PostsLocalRepository(
         completionMessage = completion_message,
         visibility = visibility,
         language = language,
-        isFavorite = false,
     )
 
     override fun removePost(guid: String): Boolean {

@@ -3,6 +3,7 @@ package com.example.poster.repository
 import kotlinx.serialization.json.Json
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.example.poster.config.Features
 import com.example.poster.db.DatabaseManager
 import com.example.poster.model.Post
 import com.example.poster.util.DispatcherProvider
@@ -243,8 +244,8 @@ class PostLocalStore(
         // the same as the fresh one: the comment count on the row, the author's
         // name and photo as a stub User row. Both were dropped before, so the
         // feed showed no author line and no comment badge once it came from disk.
-        queries.cacheComments(post.comments.toLong(), post.guid)
-        post.authorName?.let { name ->
+        if (Features.COMMENTS) queries.cacheComments(post.comments.toLong(), post.guid)
+        if (Features.AUTHORS) post.authorName?.let { name ->
             userQueries.cacheAuthor(post.author, name, post.author)
             userQueries.updateAuthor(name, post.authorPhoto, post.author)
         }
@@ -258,24 +259,29 @@ class PostLocalStore(
         }
     }
 
-    private fun com.example.poster.db.Post.toPost(tags: List<String>) = Post(
-        guid = guid,
-        title = title,
-        message = message,
-        author = author,
-        group = groupId,
-        image = image,
-        likes = likes.toInt(),
-        date = LocalDateTime.parse(date),
-        completedAt = completed_at?.let { LocalDateTime.parse(it) },
-        completionMessage = completion_message,
-        visibility = visibility,
-        language = language,
-        tags = tags,
-        comments = comments.toInt(),
-        authorName = cachedAuthor?.let { "${it.name} ${it.surname}".trim().ifBlank { null } },
-        authorPhoto = cachedAuthor?.photo,
-    )
+    private fun com.example.poster.db.Post.toPost(tags: List<String>): Post {
+        // One read, not two: the getter is a query, and the name and the photo
+        // both come off the same row.
+        val cached = cachedAuthor
+        return Post(
+            guid = guid,
+            title = title,
+            message = message,
+            author = author,
+            group = groupId,
+            image = image,
+            likes = likes.toInt(),
+            date = LocalDateTime.parse(date),
+            completedAt = completed_at?.let { LocalDateTime.parse(it) },
+            completionMessage = completion_message,
+            visibility = visibility,
+            language = language,
+            tags = tags,
+            comments = comments.toInt(),
+            authorName = cached?.let { "${it.name} ${it.surname}".trim().ifBlank { null } },
+            authorPhoto = cached?.photo,
+        )
+    }
 
     private val com.example.poster.db.Post.cachedAuthor
         get() = userQueries.getUserById(author).executeAsOneOrNull()

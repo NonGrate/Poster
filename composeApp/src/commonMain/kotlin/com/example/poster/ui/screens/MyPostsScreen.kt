@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,9 +25,10 @@ import com.example.poster.ui.platform.AdaptiveCreateFab
 import com.example.poster.ui.platform.AdaptiveCreateHeaderAction
 import com.example.poster.ui.components.PostFormDialog
 import com.example.poster.ui.components.ScreenTopBar
+import com.example.poster.ui.components.SignedOutPlaceholder
+import com.example.poster.ui.components.rememberCollapseFraction
 import com.example.poster.ui.components.PostCardVariant
 import com.example.poster.viewmodel.FavoritesViewModel
-import com.example.poster.util.AppPreferences
 import org.jetbrains.compose.resources.stringResource
 import poster.composeapp.generated.resources.cancel
 import poster.composeapp.generated.resources.delete
@@ -56,8 +56,6 @@ import poster.composeapp.generated.resources.post_edit
 import poster.composeapp.generated.resources.empty_mine_body
 import poster.composeapp.generated.resources.empty_mine_title
 import poster.composeapp.generated.resources.empty_my_posts
-import com.example.poster.model.Group
-import com.example.poster.network.GroupApi
 import com.example.poster.preview.rememberPreviewGraph
 import poster.composeapp.generated.resources.save
 import poster.composeapp.generated.resources.post_title
@@ -87,9 +85,7 @@ fun MyPostsScreen(
     postsViewModel: PostsViewModel = koinInject(),
     accountViewModel: AccountViewModel = koinInject(),
     tagViewModel: TagViewModel = koinInject(),
-    groupApi: GroupApi = koinInject(),
     favoritesViewModel: FavoritesViewModel = koinInject(),
-    appPreferences: AppPreferences = koinInject(),
     postApi: PostApi = koinInject(),
 ) {
     val share = rememberShareText()
@@ -107,47 +103,43 @@ fun MyPostsScreen(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val resolvedMessage = stringResource(Res.string.post_completed_toast)
-    var userGroups by remember(currentUser?.guid) { mutableStateOf<List<Group>?>(null) }
 
     PeriodicRefresh(key = currentUser?.guid) { postsViewModel.loadPosts() }
 
     LaunchedEffect(currentUser?.guid) {
-        // Offline, none of this can be answered — and an exception thrown here
-        // ends the app, which is a great deal worse than an unanswered
-        // question. Null means "not known", and the filter below lets posts
-        // through rather than hiding them on a guess.
+        // Offline this cannot be answered — and an exception thrown here ends
+        // the app, which is a great deal worse than an unanswered question.
         runCatching { tagViewModel.loadTagSuggestions().join() }
-        userGroups = currentUser?.let { user ->
-            runCatching { groupApi.getUserGroups(user.guid) }.getOrNull()
-        }
     }
 
-    val posts: List<Post> by derivedStateOf { 
-        val user = currentUser
-        if (user != null) {
-            allPosts
-                .filter { it.author == user.guid }
-                .filter { post ->
-                    // A post with no group is public or private, and is
-                    // yours to see either way. Requiring membership hid every
-                    // public post the moment the group became optional —
-                    // and Home hides your own, so they were nowhere at all.
-                    val group = post.group ?: return@filter true
-                    userGroups?.any { it.id == group } ?: true
-                }
-        } else {
-            emptyList()
+    // Remembered, not recomputed every composition: a bare derivedStateOf is a
+    // new state object per pass, so it never caches and the filter ran on every
+    // frame of a scroll.
+    val posts: List<Post> by remember(allPosts, currentUser, groupNames) {
+        derivedStateOf {
+            val user = currentUser
+            if (user != null) {
+                allPosts
+                    .filter { it.author == user.guid }
+                    .filter { post ->
+                        // A post with no group is public or private, and is
+                        // yours to see either way. Requiring membership hid every
+                        // public post the moment the group became optional —
+                        // and Home hides your own, so they were nowhere at all.
+                        val group = post.group ?: return@filter true
+                        // Empty is "not loaded yet" as much as "in no groups",
+                        // and hiding your own post on a guess is the worse of
+                        // the two mistakes.
+                        groupNames.isEmpty() || groupNames.any { it.id == group }
+                    }
+            } else {
+                emptyList()
+            }
         }
     }
 
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val collapseFraction by remember(density) {
-        derivedStateOf {
-            if (!isApplePlatform || listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
-        }
-    }
+    val collapseFraction = rememberCollapseFraction(listState)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -175,20 +167,9 @@ fun MyPostsScreen(
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.md)) {
 
             if (!isLoggedIn) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${stringResource(Res.string.login)} ${stringResource(Res.string.nav_my_posts)}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                SignedOutPlaceholder(
+                    "${stringResource(Res.string.login)} ${stringResource(Res.string.nav_my_posts)}",
+                )
             } else if (posts.isEmpty()) {
                 EmptyState(
                     art = Res.drawable.empty_my_posts,
@@ -214,7 +195,7 @@ fun MyPostsScreen(
                     if (isApplePlatform) {
                         item { LargePageTitle(stringResource(Res.string.nav_my_posts), collapseFraction = collapseFraction) }
                     }
-                    items(posts) { post ->
+                    items(posts, key = { it.guid }) { post ->
                         PostCard(
                             post = post,
                             variant = PostCardVariant.Mine,

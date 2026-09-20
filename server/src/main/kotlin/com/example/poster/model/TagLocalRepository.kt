@@ -1,8 +1,6 @@
 package com.example.poster.model
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
 
 /**
  * [database] is a parameter for the same reason [ModerationRepository]'s is:
@@ -11,7 +9,7 @@ import com.example.poster.db.DatabaseDriverFactory
  * failing test, it is a passing one that proves nothing.
  */
 class TagLocalRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) : TagRepository {
     private val tagQueries = database.tagQueries
     private val postTagQueries = database.postTagQueries
@@ -174,7 +172,7 @@ class TagLocalRepository(
             .map { it.guid }
         doomed.forEach { guid ->
             postTagQueries.removeTagFromAllPosts(guid)
-            tagQueries.deleteTagByGuid(guid)
+            tagQueries.deleteTag(guid)
         }
         doomed
     }
@@ -182,7 +180,7 @@ class TagLocalRepository(
     fun deleteTag(guid: String) {
         database.transaction {
             postTagQueries.removeTagFromAllPosts(guid)
-            tagQueries.deleteTagByGuid(guid)
+            tagQueries.deleteTag(guid)
         }
     }
 }

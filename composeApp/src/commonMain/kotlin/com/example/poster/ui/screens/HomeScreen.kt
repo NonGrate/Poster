@@ -23,7 +23,6 @@ import androidx.compose.material.icons.outlined.Notifications
 import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.config.Features
 import androidx.compose.foundation.layout.*
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,6 +39,7 @@ import com.example.poster.ui.components.EmptyState
 import com.example.poster.ui.components.PostCard
 import com.example.poster.ui.components.LargePageTitle
 import com.example.poster.ui.components.ScreenTopBar
+import com.example.poster.ui.components.rememberCollapseFraction
 import com.example.poster.ui.platform.AdaptiveTextField
 import com.example.poster.network.PostApi
 import com.example.poster.util.rememberShareText
@@ -113,10 +113,6 @@ fun HomeScreen(
     // feature.bookmarks: what the reader saved, for the menu label and the Saved filter.
     val saved by bookmarksViewModel.ids.collectAsState()
     val unsent by postsViewModel.unsent.collectAsState()
-    LaunchedEffect(Unit) {
-        if (Features.FOLLOWS) followsViewModel.refresh()
-        if (Features.BOOKMARKS) bookmarksViewModel.refresh()
-    }
     val groupNames by groupViewModel.groups.collectAsState()
     // Collect the posts from the ViewModel
     val allPosts by postsViewModel.feed.collectAsState()
@@ -127,6 +123,17 @@ fun HomeScreen(
     // merged into the display here.
     val myPosts by postsViewModel.myPosts.collectAsState()
     val currentUser by accountViewModel.userState.collectAsState()
+    // Keyed on who is signed in: these are that person's sets, and on Unit the
+    // next account inherited the last one's until the app was relaunched.
+    LaunchedEffect(currentUser?.guid) {
+        if (currentUser == null) {
+            if (Features.FOLLOWS) followsViewModel.clearIds()
+            if (Features.BOOKMARKS) bookmarksViewModel.clearIds()
+        } else {
+            if (Features.FOLLOWS) followsViewModel.refresh()
+            if (Features.BOOKMARKS) bookmarksViewModel.refresh()
+        }
+    }
     val availableTags by tagViewModel.tags.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
@@ -247,10 +254,14 @@ fun HomeScreen(
         )
     }
 
+    // Nothing to filter by room without the feature; the sheet and the applied
+    // row read the same list so they cannot disagree.
+    val filterGroups = if (Features.GROUPS) groupNames else emptyList()
+
     if (filterOpen) {
         FeedFilterSheet(
             selected = tagFilter,
-            groups = if (Features.GROUPS) groupNames else emptyList(),
+            groups = filterGroups,
             available = availableTags,
             labelFor = { id -> availableTags.firstOrNull { it.name == id }?.label(language) ?: id },
             shownCount = visiblePosts.size,
@@ -268,13 +279,7 @@ fun HomeScreen(
     }
 
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val collapseFraction by remember(density) {
-        derivedStateOf {
-            if (!isApplePlatform || listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
-        }
-    }
+    val collapseFraction = rememberCollapseFraction(listState)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -301,7 +306,7 @@ fun HomeScreen(
                     if (Features.PUSH_NOTIFICATIONS) {
                         val notificationsViewModel: NotificationsViewModel = koinInject()
                         val unread by notificationsViewModel.unread.collectAsState()
-                        LaunchedEffect(Unit) { notificationsViewModel.refreshUnread() }
+                        LaunchedEffect(currentUser?.guid) { notificationsViewModel.refreshUnread() }
                         IconButton(onClick = onNotifications, modifier = Modifier.testTag("notifications_bell")) {
                             BadgedBox(badge = { if (unread > 0) Badge(modifier = Modifier.testTag("notifications_dot")) }) {
                                 Icon(Icons.Outlined.Notifications, contentDescription = stringResource(Res.string.notifications_open))
@@ -339,7 +344,7 @@ fun HomeScreen(
             }
             AppliedFilterRow(
                 selected = tagFilter,
-                groups = groupNames,
+                groups = filterGroups,
                 labelFor = { id -> availableTags.firstOrNull { it.name == id }?.label(language) ?: id },
                 onRemoveGroup = { postsViewModel.toggleGroup(it) },
                 onRemoveTag = { postsViewModel.toggleFilterTag(it) },
@@ -399,7 +404,7 @@ fun HomeScreen(
                     if (isApplePlatform) {
                         item { LargePageTitle(stringResource(Res.string.nav_home), collapseFraction = collapseFraction) }
                     }
-                    items(visiblePosts) { post ->
+                    items(visiblePosts, key = { it.guid }) { post ->
                         val isLiked = favorites.isFavorite(post.guid)
                         // Your own post, now that the feed shows it: no liking
                         // for it and nothing to report — the card shows the count
@@ -426,7 +431,7 @@ fun HomeScreen(
                             } else null,
                             groupName = groupNames.nameOf(post.group),
                             isOwn = isOwn,
-                            onAuthorClick = if (Features.FOLLOWS && !isOwn) { { followAuthor = post } } else null,
+                            onAuthorClick = if (Features.FOLLOWS && Features.AUTHORS && !isOwn) { { followAuthor = post } } else null,
                             isBookmarked = post.guid in saved,
                             isUnsent = post.guid in unsent,
                             onToggleBookmark = if (Features.BOOKMARKS) { { bookmarksViewModel.toggle(post.guid) } } else null,

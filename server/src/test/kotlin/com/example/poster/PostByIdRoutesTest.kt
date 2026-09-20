@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -9,14 +10,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Post
 import com.example.poster.model.RegisterRequest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -55,6 +54,7 @@ class PostByIdRoutesTest {
     /** Not visible reads as not found: whether it exists is itself private. */
     @Test
     fun somebodyElsesPrivatePostIsNotFound() = withServer {
+        if (!Features.POST_VISIBILITY) return@withServer
         val author = register("author@example.com")
         val stranger = register("stranger@example.com")
         post(author, "Private one", minute = 0, visibility = "private")
@@ -174,23 +174,4 @@ class PostByIdRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-byid").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

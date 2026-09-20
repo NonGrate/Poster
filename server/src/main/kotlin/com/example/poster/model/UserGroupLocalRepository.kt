@@ -1,15 +1,14 @@
 package com.example.poster.model
 
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
 import com.example.poster.PostDatabase
 import com.example.poster.util.emailMatchKey
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+// No default database, for the reason given on PostsLocalRepository.
 class UserGroupLocalRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) : UserGroupRepository {
     private val userGroupQueries = database.userGroupQueries
     private val groupQueries = database.groupQueries

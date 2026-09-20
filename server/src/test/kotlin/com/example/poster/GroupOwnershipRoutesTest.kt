@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -10,7 +11,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Group
 import com.example.poster.model.UserGroupLocalRepository
@@ -18,7 +18,6 @@ import com.example.poster.model.GroupLocalRepository
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -36,7 +35,8 @@ class GroupOwnershipRoutesTest {
 
     @Test
     fun anAccountCannotCreateOrOverwriteAGroup() = withServer {
-        GroupLocalRepository().addOrUpdateGroup(
+        if (!Features.GROUPS) return@withServer
+        GroupLocalRepository(testDatabase()).addOrUpdateGroup(
             Group(id = "home", name = "Home", inviteCode = "HOME_SECRET"),
         )
         val stranger = register("Stranger", "stranger@example.com")
@@ -55,7 +55,7 @@ class GroupOwnershipRoutesTest {
             response.status == HttpStatusCode.NotFound || response.status == HttpStatusCode.MethodNotAllowed,
             "creating a group is still reachable: ${response.status}",
         )
-        val groups = groups(stranger)
+        val groups = groups()
         assertEquals("Home", groups.single { it.id == "home" }.name)
         assertEquals("HOME_SECRET", groups.single { it.id == "home" }.inviteCode)
     }
@@ -74,7 +74,8 @@ class GroupOwnershipRoutesTest {
      */
     @Test
     fun anAccountCannotDeleteSomebodyElsesGroup() = withServer {
-        GroupLocalRepository().addOrUpdateGroup(
+        if (!Features.GROUPS) return@withServer
+        GroupLocalRepository(testDatabase()).addOrUpdateGroup(
             Group(id = "home", name = "Home", inviteCode = "HOME_SECRET"),
         )
         val stranger = register("Stranger", "stranger@example.com")
@@ -84,21 +85,21 @@ class GroupOwnershipRoutesTest {
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
-        assertTrue(groups(stranger).any { it.id == "home" }, "the group was deleted")
+        assertTrue(groups().any { it.id == "home" }, "the group was deleted")
     }
 
-    /** Reading them, and joining with a code, are still everybody's. */
+    /** Joining with a code, and reading the rooms you are in, are still everybody's. */
     @Test
     fun readingGroupsStillWorks() = withServer {
-        GroupLocalRepository().addOrUpdateGroup(
+        if (!Features.GROUPS) return@withServer
+        GroupLocalRepository(testDatabase()).addOrUpdateGroup(
             Group(id = "home", name = "Home", inviteCode = "HOME_SECRET"),
         )
         val member = register("Member", "member@example.com")
 
-        assertTrue(groups(member).any { it.id == "home" })
         // Joining takes an invite now: the group's own code is a record of
         // what it used to be and no longer lets anybody in.
-        UserGroupLocalRepository()
+        UserGroupLocalRepository(testDatabase())
             .createInvite("home", "seed", "ONEINVITE", "2026-08-28T10:00:00Z")
         assertEquals(
             HttpStatusCode.NoContent,
@@ -108,6 +109,12 @@ class GroupOwnershipRoutesTest {
                 setBody("""{"userId":"${member.user.guid}","inviteCode":"ONEINVITE"}""")
             }.status,
         )
+        val mine: List<Group> = Json.decodeFromString(
+            client.get("/groups/user/${member.user.guid}") {
+                bearerAuth(member.tokens.accessToken)
+            }.bodyAsText(),
+        )
+        assertTrue(mine.any { it.id == "home" }, "the room they just joined is not in their list")
     }
 
     /**
@@ -116,9 +123,10 @@ class GroupOwnershipRoutesTest {
      */
     @Test
     fun anAccountCannotChangeSomebodyElsesPostTags() = withServer {
+        if (!Features.TAGS) return@withServer
         val author = register("Author", "author@example.com")
         val stranger = register("Stranger", "stranger@example.com")
-        postPost(author, "p-1", listOf("health"))
+        postPost(author, "p-1", message = "message", tags = listOf("health"), date = "2026-08-18T12:00")
 
         val added = client.post("/tags/addToPost") {
             bearerAuth(stranger.tokens.accessToken)
@@ -167,8 +175,9 @@ class GroupOwnershipRoutesTest {
     /** A list of people beside a subject they did not choose to be listed under. */
     @Test
     fun whoIsLikedForAPostIsNotReadable() = withServer {
+        if (!Features.LIKES) return@withServer
         val author = register("Author", "author@example.com")
-        postPost(author, "p-1", emptyList())
+        postPost(author, "p-1", message = "message", date = "2026-08-18T12:00")
 
         val response = client.get("/favorites/users/p-1") { bearerAuth(author.tokens.accessToken) }
 
@@ -183,30 +192,6 @@ class GroupOwnershipRoutesTest {
         )
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(
-        author: AuthResponse,
-        guid: String,
-        tags: List<String>,
-    ) {
-        val post = com.example.poster.model.Post(
-            guid = guid,
-            title = guid,
-            message = "message",
-            author = author.user.guid,
-            group = null,
-            date = kotlinx.datetime.LocalDateTime(2026, 8, 18, 12, 0),
-            tags = tags,
-        )
-        assertEquals(
-            HttpStatusCode.NoContent,
-            client.post("/posts") {
-                bearerAuth(author.tokens.accessToken)
-                contentType(ContentType.Application.Json)
-                setBody(Json.encodeToString(post))
-            }.status,
-        )
-    }
-
     private suspend fun ApplicationTestBuilder.myPosts(
         who: AuthResponse,
     ): List<com.example.poster.model.Post> {
@@ -215,11 +200,13 @@ class GroupOwnershipRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private suspend fun ApplicationTestBuilder.groups(who: AuthResponse): List<Group> {
-        val response = client.get("/groups") { bearerAuth(who.tokens.accessToken) }
-        assertEquals(HttpStatusCode.OK, response.status)
-        return Json.decodeFromString(response.bodyAsText())
-    }
+    /**
+     * Every group there is, read from the store. Listing them was a route
+     * until it turned out to answer any signed-in caller with every group's
+     * invite code; these tests are about what a stranger cannot change, so
+     * they check the rows themselves.
+     */
+    private fun groups(): List<Group> = GroupLocalRepository(testDatabase()).allGroups()
 
     private suspend fun ApplicationTestBuilder.register(name: String, email: String): AuthResponse {
         val response = client.post("/auth/register") {
@@ -232,23 +219,4 @@ class GroupOwnershipRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-groups").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

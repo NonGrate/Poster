@@ -116,10 +116,6 @@ expect fun AdaptiveCreateHeaderAction(
     modifier: Modifier = Modifier,
 )
 
-/** #6 — destructive actions: brick text on both, but the shapes differ. */
-@Composable
-expect fun AdaptiveDestructiveTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier)
-
 /**
  * #3 — a Material dialog on Android. On iOS a destructive confirmation becomes an
  * action sheet rising from the bottom, and everything else stays an alert.

@@ -13,12 +13,6 @@ JOIN PostTag pt ON t.guid = pt.tag_guid
 WHERE pt.post_guid = ?
 ORDER BY t.name;
 
-getPostsForTag:
-SELECT p.*
-FROM Post p
-JOIN PostTag pt ON p.guid = pt.post_guid
-WHERE pt.tag_guid = ?;
-
 addTagToPost:
 INSERT OR IGNORE INTO PostTag(post_guid, tag_guid)
 VALUES (?, ?);

@@ -1,5 +1,6 @@
 package com.example.poster.ui.components
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -8,20 +9,62 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poster.theme.Spacing
 import com.example.poster.theme.isApplePlatform
+
+/** How far the large title scrolls before the inline one is fully in. */
+private val CollapseDistance = 48.dp
+
+private fun collapseOf(offsetPx: Int, pastFirstItem: Boolean, density: Density): Float {
+    if (!isApplePlatform || pastFirstItem) return 1f
+    return (offsetPx / with(density) { CollapseDistance.toPx() }).coerceIn(0f, 1f)
+}
+
+/**
+ * The large-title collapse as a lambda rather than a value.
+ *
+ * Read as a value it is a composition read, so every pixel of scroll
+ * recomposed the whole screen to fade one title. Handed to [ScreenTopBar] and
+ * [LargePageTitle] as a function they call inside `graphicsLayer`, the same
+ * scroll costs a redraw and nothing else.
+ */
+@Composable
+fun rememberCollapseFraction(listState: LazyListState): () -> Float {
+    val density = LocalDensity.current
+    return remember(listState, density) {
+        {
+            collapseOf(
+                offsetPx = listState.firstVisibleItemScrollOffset,
+                pastFirstItem = listState.firstVisibleItemIndex > 0,
+                density = density,
+            )
+        }
+    }
+}
+
+/** The same, for a screen that scrolls a Column rather than a lazy list. */
+@Composable
+fun rememberCollapseFraction(scrollState: ScrollState): () -> Float {
+    val density = LocalDensity.current
+    return remember(scrollState, density) {
+        { collapseOf(offsetPx = scrollState.value, pastFirstItem = false, density = density) }
+    }
+}
 
 /**
  * One 64dp bar at the top of every screen, title in titleLarge.
@@ -41,7 +84,7 @@ fun ScreenTopBar(
      * screen and the bar carries only the actions), fading to 1 once the large
      * title has scrolled away — the iOS large-title collapse.
      */
-    titleAlpha: Float = 1f,
+    titleAlpha: () -> Float = { 1f },
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     // A pushed iOS screen centres its title, chevron leading and actions
@@ -87,7 +130,7 @@ fun ScreenTopBar(
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).alpha(titleAlpha),
+            modifier = Modifier.weight(1f).graphicsLayer { alpha = titleAlpha() },
         )
         actions()
     }
@@ -106,7 +149,7 @@ fun LargePageTitle(
     title: String,
     modifier: Modifier = Modifier,
     /** 0 at rest, 1 when fully collapsed — fades the title out as it scrolls. */
-    collapseFraction: Float = 0f,
+    collapseFraction: () -> Float = { 0f },
 ) {
     Text(
         text = title,
@@ -121,7 +164,7 @@ fun LargePageTitle(
         // bar rather than clipping under it and letting a small title pop in.
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer { alpha = 1f - collapseFraction }
+            .graphicsLayer { alpha = 1f - collapseFraction() }
             .padding(top = Spacing.xs, bottom = Spacing.sm),
     )
 }

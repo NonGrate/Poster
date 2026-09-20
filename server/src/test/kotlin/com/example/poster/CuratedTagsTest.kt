@@ -1,5 +1,11 @@
 package com.example.poster
 
+import kotlinx.serialization.json.Json
+import io.ktor.http.HttpStatusCode
+import io.ktor.client.statement.bodyAsText
+import io.ktor.client.request.get
+import io.ktor.client.request.bearerAuth
+import com.example.poster.config.Features
 import com.example.poster.model.CURATED_TAGS
 import com.example.poster.model.Tag
 import com.example.poster.model.TagLocalRepository
@@ -24,7 +30,7 @@ class CuratedTagsTest {
 
     @Test
     fun seedingTwiceChangesNothingTheSecondTime() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.seedCuratedTags()
         val afterFirst = tags.allTags().size
 
@@ -36,7 +42,7 @@ class CuratedTagsTest {
 
     @Test
     fun aLabelEditedInThePanelSurvivesTheNextDeploy() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.seedCuratedTags()
         tags.updateLabels("health", "Health", "Здоровье, исправленное")
 
@@ -71,7 +77,7 @@ class CuratedTagsTest {
 
     @Test
     fun aTagIsFoundByEitherLanguage() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.seedCuratedTags()
 
         val health = tags.allTags().single { it.name == "health" }
@@ -93,10 +99,10 @@ class CuratedTagsTest {
      */
     @Test
     fun deletingTheOnlyPostThatUsedATagLeavesTheTagAlone() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.seedCuratedTags()
         givenTheAuthorExists()
-        val posts = PostsLocalRepository(tags)
+        val posts = PostsLocalRepository(testDatabase(), tags)
         posts.addOrUpdatePost(postWith(tags = listOf("health")))
 
         assertTrue(posts.removePost("p-1"), "the post was not removed")
@@ -116,11 +122,11 @@ class CuratedTagsTest {
      */
     @Test
     fun aPostCarryingAnUnknownTagDoesNotCreateIt() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.seedCuratedTags()
         val before = tags.allTags().size
         givenTheAuthorExists()
-        val posts = PostsLocalRepository(tags)
+        val posts = PostsLocalRepository(testDatabase(), tags)
 
         posts.addOrUpdatePost(postWith(tags = listOf("health", "whatever-i-typed")))
 
@@ -134,7 +140,7 @@ class CuratedTagsTest {
 
     /** The author these posts claim, made real: the server has no authorless posts. */
     private fun givenTheAuthorExists() {
-        val accounts = com.example.poster.model.AccountLocalRepository()
+        val accounts = com.example.poster.model.AccountLocalRepository(testDatabase())
         if (accounts.userById("user-1") == null) {
             accounts.addOrUpdateUser(
                 com.example.poster.model.User(
@@ -172,7 +178,7 @@ class CuratedTagsTest {
      */
     @Test
     fun aTagSomebodyAlreadyTypedIsAdoptedRatherThanSkipped() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         // What the old free-text field produced: a random guid, no labels.
         tags.addOrUpdateTag(Tag(guid = "9f1c-typed-by-hand", name = "wellbeing"))
 
@@ -192,7 +198,7 @@ class CuratedTagsTest {
     /** Adopting must not undo a correction, the same as seeding must not. */
     @Test
     fun adoptingLeavesALabelThatWasEditedByHandAlone() = withDatabase {
-        val tags = TagLocalRepository()
+        val tags = TagLocalRepository(testDatabase())
         tags.addOrUpdateTag(Tag(guid = "9f1c-typed-by-hand", name = "wellbeing"))
         tags.updateLabels("9f1c-typed-by-hand", "Getting better", "Поправка")
 
@@ -214,5 +220,27 @@ class CuratedTagsTest {
             else System.setProperty("poster.database", previous)
             directory.toFile().deleteRecursively()
         }
+    }
+
+    /**
+     * The two read routes behind the picker: searching as somebody types, and
+     * the tags already on a post. Neither was covered, and both are `/tags`,
+     * so both go when the flag does.
+     */
+    @Test
+    fun tagsAreSearchableByNameAndReadableForAPost() = withServer {
+        if (!Features.TAGS) return@withServer
+        val author = confirmed("author@example.com")
+        postPost(author, "p-1", tags = listOf("health"))
+        val token = author.tokens.accessToken
+
+        val found: List<Tag> = Json.decodeFromString(client.get("/tags/byName/heal") { bearerAuth(token) }.bodyAsText())
+        assertTrue(found.any { it.name == "health" }, found.map { it.name }.toString())
+        val nothing: List<Tag> = Json.decodeFromString(client.get("/tags/byName/zzzz") { bearerAuth(token) }.bodyAsText())
+        assertEquals(emptyList(), nothing.map { it.name })
+
+        val onThePost: List<Tag> = Json.decodeFromString(client.get("/tags/forPost/p-1") { bearerAuth(token) }.bodyAsText())
+        assertEquals(listOf("health"), onThePost.map { it.name })
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/tags/byName/heal").status, "the picker's search was open to anybody")
     }
 }

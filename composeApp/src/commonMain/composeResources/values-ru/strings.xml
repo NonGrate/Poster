@@ -103,7 +103,6 @@
     <string name="groups_you_are_in">Группы, в которых вы состоите</string>
     <string name="groups_none_owned">Вы ещё не создали группу.</string>
     <string name="groups_none_joined">Вы ещё не вступили ни в одну группу.</string>
-    <string name="group_members">Участники</string>
     <string name="group_owner_named">Ведёт %1$s</string>
     <string name="group_close">Закрыть группу</string>
     <string name="group_close_title">Закрыть эту группу?</string>
@@ -339,10 +338,12 @@
     <string name="notification_comment">Новый комментарий к вашему посту «%1$s»</string>
     <string name="notification_group_added">Вас добавили в группу %1$s</string>
     <string name="notification_group_joined">Кто-то присоединился к группе %1$s</string>
+    <string name="notification_other">Что-то произошло с вашими постами</string>
     <string name="settings_notifications_title">Активность</string>
     <string name="settings_notifications">Активность</string>
     <string name="settings_notifications_body">Лайки, комментарии и новости групп, в том числе на этом устройстве.</string>
     <string name="notifications_open">Открыть активность</string>
+    <string name="notification_open_post">Открыть пост</string>
     <!-- Вход по ссылке (feature.magicLink) -->
     <string name="magic_link_title">Войти по ссылке из письма</string>
     <string name="magic_link_body">Мы отправим ссылку, которая выполнит вход на этом устройстве.</string>

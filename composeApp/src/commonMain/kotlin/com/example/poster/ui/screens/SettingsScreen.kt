@@ -9,12 +9,10 @@ import com.example.poster.config.Features
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
@@ -25,16 +23,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import com.example.poster.model.Group
-import com.example.poster.network.GroupApi
 import com.example.poster.theme.Spacing
 import com.example.poster.theme.isApplePlatform
 import com.example.poster.ui.components.LargePageTitle
 import com.example.poster.ui.components.SettingsDivider
 import com.example.poster.ui.components.ScreenTopBar
+import com.example.poster.ui.components.rememberCollapseFraction
 import com.example.poster.ui.components.SettingsRow
 import com.example.poster.ui.components.MergeAccountDialog
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -56,6 +51,8 @@ import androidx.compose.ui.text.style.TextAlign
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
 import com.example.poster.viewmodel.AccountViewModel
+import com.example.poster.viewmodel.GroupViewModel
+import com.example.poster.viewmodel.NotificationsViewModel
 import com.example.poster.viewmodel.PostsViewModel
 import com.example.poster.viewmodel.SupportViewModel
 import com.example.poster.viewmodel.ThemeViewModel
@@ -102,13 +99,6 @@ import poster.composeapp.generated.resources.sign_out_body
 import poster.composeapp.generated.resources.sign_out_title
 import poster.composeapp.generated.resources.settings_your_groups
 import com.example.poster.preview.rememberPreviewGraph
-import poster.composeapp.generated.resources.settings_joined_group
-import poster.composeapp.generated.resources.settings_join_group
-import poster.composeapp.generated.resources.settings_join
-import poster.composeapp.generated.resources.settings_invalid_invite
-import poster.composeapp.generated.resources.settings_enter_invite_code
-import poster.composeapp.generated.resources.settings_enter_code_or_login
-import poster.composeapp.generated.resources.settings_already_in_group
 import kotlinx.coroutines.launch
 import com.example.poster.ui.components.SettingsSectionHeader
 import com.example.poster.ui.components.SupportPaywall
@@ -132,7 +122,11 @@ fun SettingsScreen(
     postsViewModel: PostsViewModel = koinInject(),
     appPreferences: AppPreferences = koinInject(),
     supportViewModel: SupportViewModel = koinInject(),
+    groupViewModel: GroupViewModel = koinInject(),
 ) {
+    // Only bound when the feature is on (see ViewModelModule), so only asked
+    // for then — the sign-out path has to empty it.
+    val notificationsViewModel = if (Features.PUSH_NOTIFICATIONS) koinInject<NotificationsViewModel>() else null
     val defaultVisibility by appPreferences.defaultVisibility.collectAsState()
     var showVisibilityPicker by remember { mutableStateOf(false) }
     val reminderEnabled by appPreferences.reminderEnabled.collectAsState()
@@ -142,12 +136,10 @@ fun SettingsScreen(
     val uses24Hour = rememberUses24HourClock()
     var showTimePicker by remember { mutableStateOf(false) }
     val selectedUser by userViewModel.userState.collectAsState()
-    val groupApi = koinInject<GroupApi>()
-    var inviteCode by remember { mutableStateOf("") }
-    var joinStatus by remember { mutableStateOf<String?>(null) }
+    // The app's one list (GroupViewModel follows the session), not a second
+    // fetch of the same thing that could disagree with the cards and the filter.
+    val userGroups by groupViewModel.groups.collectAsState()
     val coroutineScope = rememberCoroutineScope()
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
 
     var showSignOutConfirmation by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -203,7 +195,7 @@ fun SettingsScreen(
 
     // What is on offer can change without an app release, so it is asked for
     // when this screen opens rather than once at launch.
-    LaunchedEffect(Unit) { supportViewModel.refresh() }
+    LaunchedEffect(Unit) { if (Features.SUPPORT) supportViewModel.refresh() }
 
     if (showPaywall) {
         SupportPaywall(
@@ -225,25 +217,8 @@ fun SettingsScreen(
         SupportCustomerCenter(onDismiss = { showCustomerCenter = false; supportViewModel.refresh() })
     }
 
-    // Get user groups
-    var userGroups by remember { mutableStateOf<List<Group>>(emptyList()) }
-
-    LaunchedEffect(selectedUser?.guid) {
-        if (!Features.GROUPS) return@LaunchedEffect
-        // Offline this cannot be answered, and throwing here would end the app.
-        userGroups = selectedUser
-            ?.let { runCatching { groupApi.getUserGroups(it.guid) }.getOrNull() }
-            .orEmpty()
-    }
-
     val scrollState = rememberScrollState()
-    val density = LocalDensity.current
-    val collapseFraction by remember(density) {
-        derivedStateOf {
-            if (!isApplePlatform) 1f
-            else (scrollState.value / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
-        }
-    }
+    val collapseFraction = rememberCollapseFraction(scrollState)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -334,13 +309,7 @@ fun SettingsScreen(
             supporting = selectedUser?.email,
             onClick = onEditProfile,
             modifier = Modifier.testTag("edit_profile_row"),
-            trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            chevron = true,
         )
 
         // Only on an account signed in with a hidden Apple email: the way to
@@ -368,13 +337,7 @@ fun SettingsScreen(
             supporting = visibilityLabel(defaultVisibility),
             onClick = { showVisibilityPicker = true },
             modifier = Modifier.testTag("default_visibility_row"),
-            trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            chevron = true,
         )
         }
         // Opt-in: off unless they turn it on, so a name never appears on a
@@ -423,13 +386,7 @@ fun SettingsScreen(
                 supporting = formatTimeOfDay(reminderMinutes, uses24Hour),
                 onClick = { showTimePicker = true },
                 modifier = Modifier.testTag("reminder_time_row"),
-                trailing = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                chevron = true,
             )
         }
         }
@@ -457,13 +414,7 @@ fun SettingsScreen(
                 ?: stringResource(Res.string.settings_no_groups),
             onClick = onManageGroups,
             modifier = Modifier.testTag("manage_groups_button"),
-            trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            chevron = true,
         )
 
         }
@@ -478,13 +429,7 @@ fun SettingsScreen(
                 supporting = stringResource(Res.string.settings_notifications_body),
                 onClick = onNotifications,
                 modifier = Modifier.testTag("notifications_button"),
-                trailing = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
+                chevron = true,
             )
         }
         if (Features.FEEDBACK) AdaptiveSettingsSection(
@@ -497,13 +442,7 @@ fun SettingsScreen(
                 supporting = stringResource(Res.string.settings_feedback_body),
                 onClick = onFeedback,
                 modifier = Modifier.testTag("feedback_button"),
-                trailing = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
+                chevron = true,
             )
         }
 
@@ -525,13 +464,7 @@ fun SettingsScreen(
                     supporting = stringResource(Res.string.settings_support_body),
                     onClick = { showPaywall = true },
                     modifier = Modifier.testTag("support_button"),
-                    trailing = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
+                    chevron = true,
                 )
                 // Only when there is a subscription to manage. A coffee has
                 // nothing to cancel, and a row that opens a screen about
@@ -624,6 +557,9 @@ fun SettingsScreen(
                 // scheduled alarm does not unschedule it — whoever signs in
                 // next would keep being reminded at a time they never chose.
                 reminders.disable()
+                // Same reason: the list is this account's, and the next person
+                // to sign in on this device must not find it waiting.
+                notificationsViewModel?.clearForSignOut()
                 // Signing out updates the session; the screen follows it.
                 userViewModel.logOut()
             },
@@ -666,9 +602,9 @@ fun SettingsScreen(
             title = { Text(stringResource(Res.string.settings_default_visibility)) },
             text = {
                 Column {
-                    listOf(
+                    listOfNotNull(
                         PostVisibility.PUBLIC,
-                        PostVisibility.GROUP,
+                        PostVisibility.GROUP.takeIf { Features.GROUPS },
                         PostVisibility.PRIVATE,
                     ).forEach { option ->
                         Row(

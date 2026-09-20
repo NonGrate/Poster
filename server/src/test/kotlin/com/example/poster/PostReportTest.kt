@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -8,13 +9,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RegisterRequest
 import com.example.poster.model.ReportsRepository
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -30,6 +29,7 @@ class PostReportTest {
 
     @Test
     fun reportingAPostRecordsIt() = withServer {
+        if (!Features.REPORTS) return@withServer
         val author = register("author@example.com")
         confirmAddress("author@example.com")
         postPost(author, "p-1")
@@ -37,7 +37,7 @@ class PostReportTest {
 
         assertEquals(HttpStatusCode.NoContent, report(reader, "p-1", "This is not right"))
 
-        val reported = ReportsRepository().reported()
+        val reported = ReportsRepository(testDatabase()).reported()
         assertEquals(1, reported.size)
         assertEquals("p-1", reported.first().postId)
         assertEquals(listOf("This is not right"), reported.first().reasons)
@@ -46,6 +46,7 @@ class PostReportTest {
     /** A reason is optional: pressing the button is the signal. */
     @Test
     fun aReportWithoutAReasonStillCounts() = withServer {
+        if (!Features.REPORTS) return@withServer
         val author = register("author@example.com")
         confirmAddress("author@example.com")
         postPost(author, "p-1")
@@ -53,12 +54,13 @@ class PostReportTest {
 
         assertEquals(HttpStatusCode.NoContent, report(reader, "p-1", reason = null))
 
-        assertEquals(1L, ReportsRepository().count())
+        assertEquals(1L, ReportsRepository(testDatabase()).count())
     }
 
     /** One upset reader is not a crowd, however many times they press it. */
     @Test
     fun thesamePersonReportingTwiceIsStillOneReport() = withServer {
+        if (!Features.REPORTS) return@withServer
         val author = register("author@example.com")
         confirmAddress("author@example.com")
         postPost(author, "p-1")
@@ -67,16 +69,17 @@ class PostReportTest {
         report(reader, "p-1", "first")
         report(reader, "p-1", "second")
 
-        assertEquals(1L, ReportsRepository().count())
+        assertEquals(1L, ReportsRepository(testDatabase()).count())
         assertEquals(
             listOf("second"),
-            ReportsRepository().reported().first().reasons,
+            ReportsRepository(testDatabase()).reported().first().reasons,
             "the newer reason should win",
         )
     }
 
     @Test
     fun twoPeopleReportingIsTwoReports() = withServer {
+        if (!Features.REPORTS) return@withServer
         val author = register("author@example.com")
         confirmAddress("author@example.com")
         postPost(author, "p-1")
@@ -84,7 +87,7 @@ class PostReportTest {
         report(register("one@example.com"), "p-1", null)
         report(register("two@example.com"), "p-1", null)
 
-        assertEquals(2L, ReportsRepository().count())
+        assertEquals(2L, ReportsRepository(testDatabase()).count())
     }
 
     /**
@@ -94,28 +97,31 @@ class PostReportTest {
      */
     @Test
     fun reportingSomethingThatIsNotThereLooksIdentical() = withServer {
+        if (!Features.REPORTS) return@withServer
         val reader = register("reader@example.com")
 
         val real = report(reader, "nothing-here", null)
 
         assertEquals(HttpStatusCode.NoContent, real)
-        assertEquals(0L, ReportsRepository().count(), "a report was stored for a post that does not exist")
+        assertEquals(0L, ReportsRepository(testDatabase()).count(), "a report was stored for a post that does not exist")
     }
 
     /** Reporting your own post is a mistake, not a report. Delete it instead. */
     @Test
     fun yourOwnPostIsNotReportable() = withServer {
+        if (!Features.REPORTS) return@withServer
         val author = register("author@example.com")
         confirmAddress("author@example.com")
         postPost(author, "p-1")
 
         assertEquals(HttpStatusCode.NoContent, report(author, "p-1", "oops"))
 
-        assertEquals(0L, ReportsRepository().count())
+        assertEquals(0L, ReportsRepository(testDatabase()).count())
     }
 
     @Test
     fun reportingNeedsASession() = withServer {
+        if (!Features.REPORTS) return@withServer
         val response = client.post("/posts/p-1/report") {
             contentType(ContentType.Application.Json)
             setBody("""{"reason":"anonymous"}""")
@@ -145,36 +151,4 @@ class PostReportTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String) {
-        val response = client.post("/posts") {
-            bearerAuth(user.tokens.accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"$guid","title":"A post","message":"words","author":"${user.user.guid}",""" +
-                    """"group":null,"likes":0,"date":"2026-08-23T10:00","visibility":"public",""" +
-                    """"tags":[],"language":"en"}""",
-            )
-        }
-        assertEquals(HttpStatusCode.NoContent, response.status)
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-reports").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

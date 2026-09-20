@@ -1,6 +1,7 @@
 package com.example.poster.auth
 
 import com.example.poster.config.AppInfo
+import com.example.poster.config.Features
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.html.respondHtml
@@ -120,7 +121,7 @@ fun Route.accountPages(
      * hands the token over (feature.magicLink). Nothing is spent by loading it,
      * so a mail client that prefetches links does not burn the sign-in.
      */
-    get("/magic") {
+    if (Features.MAGIC_LINK) get("/magic") {
         val token = call.request.queryParameters["token"].orEmpty()
         val copy = pageCopy(call.prefersRussian())
         call.respondHtml {

@@ -38,6 +38,7 @@ import com.example.poster.repository.SessionRepository
 import com.example.poster.util.AppPreferences
 import com.example.poster.util.DispatcherProvider
 import com.example.poster.auth.AuthTokenStorage
+import com.example.poster.config.Features
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -144,11 +145,19 @@ fun sharedModule(appConfig: AppConfig) = module {
         KtorGroupApi(get())
     }
 
-    single<FeedbackApi> { KtorFeedbackApi(get()) }
-    single<CommentApi> { KtorCommentApi(get()) }
+    // Only bound where something can ask for them. The rest stay unconditional
+    // because a screen resolves them before it checks the flag — see
+    // HomeScreen (follows/bookmarks) and MainScreen (PushRegistrar).
+    if (Features.COMMENTS) {
+        single<CommentApi> { KtorCommentApi(get()) }
+        single { CommentRepository(api = get(), dispatchers = get()) }
+    }
+    if (Features.FEEDBACK) {
+        single<FeedbackApi> { KtorFeedbackApi(get()) }
+        single { FeedbackRepository(feedbackApi = get(), dispatchers = get()) }
+    }
     single<FollowApi> { KtorFollowApi(get()) }
     single<BookmarkApi> { KtorBookmarkApi(get()) }
-    single { CommentRepository(api = get(), dispatchers = get()) }
     single<NotificationApi> { KtorNotificationApi(get()) }
     single { NotificationRepository(api = get(), preferences = get(), dispatchers = get()) }
 
@@ -158,12 +167,9 @@ fun sharedModule(appConfig: AppConfig) = module {
     // Repositories (singletons)
     single { PostLocalStore(databaseManager = get(), dispatchers = get()) }
 
-    single { FeedbackRepository(feedbackApi = get(), dispatchers = get()) }
-
     single {
         PostRepository(
             postApi = get(),
-            userApi = get(),
             cache = get(),
             dispatchers = get(),
             localStore = get(),

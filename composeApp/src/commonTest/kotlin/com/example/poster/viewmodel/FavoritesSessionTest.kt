@@ -4,6 +4,7 @@ import com.example.poster.cache.PostCache
 import com.example.poster.model.Post
 import com.example.poster.network.PostApi
 import com.example.poster.preview.FakePlatformDataStore
+import com.example.poster.preview.FakePostApi
 import com.example.poster.preview.FakeUserApi
 import com.example.poster.repository.PostRepository
 import com.example.poster.repository.SessionRepository
@@ -39,19 +40,10 @@ class FavoritesSessionTest {
         date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
     )
 
-    private class StubPostApi(private val favorites: List<Post>) : PostApi {
+    /** Counts the one call this test is about; the rest is the preview backend. */
+    private class StubPostApi(private val favorites: List<Post>) : PostApi by FakePostApi() {
         var favoriteLoads = 0
             private set
-
-        override suspend fun getAllPosts(): List<Post> = emptyList()
-        override suspend fun removePost(post: Post) = Unit
-        override suspend fun updatePost(post: Post) = Unit
-        override suspend fun addPost(post: Post) = Unit
-        override suspend fun completePost(postId: String, message: String?) = Unit
-        override suspend fun reopenPost(postId: String) = Unit
-        override suspend fun addFavorite(userId: String, postId: String) = Unit
-        override suspend fun removeFavorite(userId: String, postId: String) = Unit
-        override suspend fun isFavorite(userId: String, postId: String) = false
 
         override suspend fun getFavoritePosts(): List<Post> {
             favoriteLoads++
@@ -67,7 +59,6 @@ class FavoritesSessionTest {
         val postApi = StubPostApi(listOf(favorite))
         val repository = PostRepository(
             postApi = postApi,
-            userApi = FakeUserApi(),
             cache = PostCache(),
             dispatchers = dispatchers,
         )

@@ -39,8 +39,4 @@ class FakePostApi : PostApi {
     override suspend fun removeFavorite(userId: String, postId: String) {
         favorites[userId]?.remove(postId)
     }
-
-    override suspend fun isFavorite(userId: String, postId: String): Boolean {
-        return favorites[userId]?.contains(postId) ?: false
-    }
 }

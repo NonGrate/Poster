@@ -25,6 +25,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import com.example.poster.config.Features
 import com.example.poster.network.PostApi
 
 open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
@@ -39,8 +40,10 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
         saved: Boolean,
     ): List<Post> = httpClient.get("posts") {
         parameter("limit", limit)
-        if (following) parameter("following", true)
-        if (saved) parameter("saved", true)
+        // Only ask for a narrowing the build actually has: the server route is
+        // gone when the flag is off, and the parameter would be a lie.
+        if (Features.FOLLOWS && following) parameter("following", true)
+        if (Features.BOOKMARKS && saved) parameter("saved", true)
         if (query.isNotBlank()) parameter("q", query.trim())
         // Both halves or neither: the server treats half a cursor as none, and
         // sending one half would quietly restart the feed from the top.
@@ -57,14 +60,10 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
         if (groups.isNotEmpty()) parameter("groups", groups.joinToString(","))
     }.body()
 
-    override suspend fun getAllPosts(): List<Post> {
-        val posts = httpClient.get("posts").body<List<Post>>()
-        val favoriteIds = getFavoritePosts().map { it.guid }.toSet()
-        return posts.map { post ->
-            post.isFavorite = favoriteIds.contains(post.guid)
-            post
-        }
-    }
+    // Just the feed. It used to fetch `favorites/me` as well and stamp each post
+    // with it — a second round trip on every refresh for a flag nothing read:
+    // the screens ask FavoritesViewModel, which holds the ids itself.
+    override suspend fun getAllPosts(): List<Post> = httpClient.get("posts").body()
 
     override suspend fun getMyPosts(): List<Post> = httpClient.get("posts/mine").body()
 
@@ -85,7 +84,7 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
             setBody(post)
         }
         response.failIfUnverified()
-        response.failIfNotSuccess()
+        response.failIfNotSuccess("Post request")
     }
 
     override suspend fun uploadImage(bytes: ByteArray, extension: String): String {
@@ -103,7 +102,7 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
             },
         )
         response.failIfUnverified()
-        response.failIfNotSuccess()
+        response.failIfNotSuccess("Post request")
         return response.body<UploadResponse>().id
     }
 
@@ -118,16 +117,7 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
             setBody(post)
         }
         response.failIfUnverified()
-        response.failIfNotSuccess()
-    }
-
-    /**
-     * Any non-2xx that is not the one refusal handled above. The client sets no
-     * `expectSuccess`, so without this a 400/500 returned normally and a write
-     * that never happened looked like a success — the post silently gone.
-     */
-    private fun HttpResponse.failIfNotSuccess() {
-        if (!status.isSuccess()) error("Post request failed: ${status.value}")
+        response.failIfNotSuccess("Post request")
     }
 
     /**
@@ -180,12 +170,6 @@ open class KtorPostApi(private val httpClient: HttpClient) : PostApi {
         httpClient.delete("favorites/$userId/$postId")
     }
 
-    override suspend fun isFavorite(userId: String, postId: String): Boolean {
-        return httpClient.get("favorites/check/$userId/$postId").body()
-    }
-
-    override suspend fun likers(postId: String): LikerList {
-        val response = httpClient.get("favorites/post/$postId/people")
-        return if (response.status.isSuccess()) response.body() else LikerList()
-    }
+    override suspend fun likers(postId: String): LikerList =
+        httpClient.get("favorites/post/$postId/people").bodyOr(LikerList())
 }

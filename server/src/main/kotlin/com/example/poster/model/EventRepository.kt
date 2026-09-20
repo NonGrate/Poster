@@ -1,7 +1,6 @@
 package com.example.poster.model
 
 import app.cash.sqldelight.db.QueryResult
-import com.example.poster.db.DatabaseDriverFactory
 import kotlinx.datetime.Clock
 
 /**
@@ -13,8 +12,9 @@ import kotlinx.datetime.Clock
  * body. Capped and pruned — anybody can post, so the table is bounded rather
  * than trusted, newest kept.
  */
+// The driver is handed in and has no default: the server shares one connection.
 class EventRepository(
-    private val driver: app.cash.sqldelight.db.SqlDriver = DatabaseDriverFactory().createDriver(),
+    private val driver: app.cash.sqldelight.db.SqlDriver,
     private val keep: Int = KEEP,
 ) {
     init {
@@ -43,7 +43,10 @@ class EventRepository(
         driver.execute(
             identifier = null,
             sql = """
-                INSERT OR REPLACE INTO AppEvent(
+                -- The guid comes from the app, so a repeat is a resend rather than a new
+                -- report: OR IGNORE keeps the first one instead of letting a
+                -- caller overwrite anybody's row by guessing an id.
+                INSERT OR IGNORE INTO AppEvent(
                     guid, device_id, user_id, name, severity, detail, platform,
                     app_version, occurred_at, received_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

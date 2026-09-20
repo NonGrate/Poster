@@ -19,5 +19,8 @@ SELECT * FROM Device WHERE user_id = ?;
 deleteDevice:
 DELETE FROM Device WHERE token = ?;
 
-deleteDevicesForUser:
-DELETE FROM Device WHERE user_id = ?;
+
+-- Merging two accounts: the phones keep pushing, to the survivor. Keyed on
+-- token, so nothing collides.
+reassignDevices:
+UPDATE Device SET user_id = :into WHERE user_id = :from;

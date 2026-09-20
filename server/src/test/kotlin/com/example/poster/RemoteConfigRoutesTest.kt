@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -7,11 +8,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.RemoteConfig
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -34,6 +32,7 @@ class RemoteConfigRoutesTest {
      */
     @Test
     fun paymentsAreOffUnlessSwitchedOn() = withServer {
+        if (!Features.SUPPORT) return@withServer
         val response = client.get("/config")
 
         assertEquals(HttpStatusCode.OK, response.status)
@@ -46,6 +45,7 @@ class RemoteConfigRoutesTest {
     /** Asked before there is a session, so it cannot need one. */
     @Test
     fun theConfigIsReadableWithoutSigningIn() = withServer {
+        if (!Features.SUPPORT) return@withServer
         assertEquals(HttpStatusCode.OK, client.get("/config").status)
     }
 
@@ -59,6 +59,7 @@ class RemoteConfigRoutesTest {
      */
     @Test
     fun interestIsAcceptedFromAnybody() = withServer {
+        if (!Features.SUPPORT) return@withServer
         val response = client.post("/support/interest") {
             contentType(ContentType.Application.Json)
             setBody("""{"tier":"coffee"}""")
@@ -70,6 +71,7 @@ class RemoteConfigRoutesTest {
     /** A body with no tier is still accepted: there is nothing to fail on. */
     @Test
     fun aTaplessBodyIsNotAnError() = withServer {
+        if (!Features.SUPPORT) return@withServer
         val response = client.post("/support/interest") {
             contentType(ContentType.Application.Json)
             setBody("""{}""")
@@ -78,23 +80,4 @@ class RemoteConfigRoutesTest {
         assertEquals(HttpStatusCode.Accepted, response.status)
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-config").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

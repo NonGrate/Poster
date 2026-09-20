@@ -4,6 +4,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.example.poster.config.Features
 import com.example.poster.model.Post
 import com.example.poster.util.TestUtils
 import kotlinx.coroutines.runBlocking
@@ -11,6 +12,8 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import com.example.poster.repository.PostRepository
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -25,6 +28,9 @@ import kotlin.test.Test
 class TagFilterInstrumentedTest : KoinComponent {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithTags() = assumeTrue(Features.TAGS)
 
     private val repository: PostRepository by inject()
 

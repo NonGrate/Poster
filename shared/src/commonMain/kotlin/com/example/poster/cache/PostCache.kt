@@ -23,14 +23,14 @@ class PostCache {
     /**
      * Gets all posts from the cache.
      */
-    suspend fun getAllPosts(): List<Post> {
+    fun getAllPosts(): List<Post> {
         return allPosts
     }
     
     /**
      * Sets all posts in the cache.
      */
-    suspend fun setAllPosts(posts: List<Post>) {
+    fun setAllPosts(posts: List<Post>) {
         allPosts = posts
         // Update like counts
         postLikeCounts = posts.associate { it.guid to it.likes }
@@ -39,14 +39,14 @@ class PostCache {
     /**
      * Gets favorite posts from the cache.
      */
-    suspend fun getFavoritePosts(): List<Post> {
+    fun getFavoritePosts(): List<Post> {
         return favoritePosts
     }
     
     /**
      * Sets favorite posts in the cache.
      */
-    suspend fun setFavoritePosts(posts: List<Post>) {
+    fun setFavoritePosts(posts: List<Post>) {
         favoritePosts = posts
         favoritePostIds = posts.map { it.guid }.toSet()
     }
@@ -54,35 +54,35 @@ class PostCache {
     /**
      * Gets favorite post IDs from the cache.
      */
-    suspend fun getFavoritePostIds(): Set<String> {
+    fun getFavoritePostIds(): Set<String> {
         return favoritePostIds
     }
     
     /**
      * Sets favorite post IDs in the cache.
      */
-    suspend fun setFavoritePostIds(ids: Set<String>) {
+    fun setFavoritePostIds(ids: Set<String>) {
         favoritePostIds = ids
     }
     
     /**
      * Gets post like counts from the cache.
      */
-    suspend fun getPostLikeCounts(): Map<String, Int> {
+    fun getPostLikeCounts(): Map<String, Int> {
         return postLikeCounts
     }
     
     /**
      * Sets post like counts in the cache.
      */
-    suspend fun setPostLikeCounts(counts: Map<String, Int>) {
+    fun setPostLikeCounts(counts: Map<String, Int>) {
         postLikeCounts = counts
     }
     
     /**
      * Updates a post in the cache.
      */
-    suspend fun updatePost(post: Post) {
+    fun updatePost(post: Post) {
         // Update in allPosts
         allPosts = allPosts.map { 
             if (it.guid == post.guid) post else it 
@@ -102,7 +102,7 @@ class PostCache {
     /**
      * Adds a post to favorites in the cache.
      */
-    suspend fun addFavorite(postId: String) {
+    fun addFavorite(postId: String) {
         favoritePostIds = favoritePostIds + postId
         
         // Update like count
@@ -121,7 +121,7 @@ class PostCache {
     /**
      * Removes a post from favorites in the cache.
      */
-    suspend fun removeFavorite(postId: String) {
+    fun removeFavorite(postId: String) {
         favoritePostIds = favoritePostIds - postId
         
         // Update like count
@@ -139,23 +139,9 @@ class PostCache {
     }
     
     /**
-     * Checks if a post is a favorite in the cache.
-     */
-    suspend fun isFavorite(postId: String): Boolean {
-        return favoritePostIds.contains(postId)
-    }
-    
-    /**
-     * Gets the like count for a post from the cache.
-     */
-    suspend fun getLikeCount(postId: String): Int {
-        return postLikeCounts[postId] ?: 0
-    }
-    
-    /**
      * Clears the cache.
      */
-    suspend fun clear() {
+    fun clear() {
         allPosts = emptyList()
         favoritePosts = emptyList()
         favoritePostIds = emptySet()

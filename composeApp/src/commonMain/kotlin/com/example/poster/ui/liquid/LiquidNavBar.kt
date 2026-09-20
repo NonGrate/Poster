@@ -4,7 +4,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -104,15 +105,24 @@ fun LiquidNavBar(
                             modifier = Modifier
                                 .width(itemWidth)
                                 .fillMaxHeight()
-                                .clickable(
+                                // One selectable node per tab, not a clickable
+                                // column of two unrelated labels: a screen
+                                // reader announces "Home, tab, selected" rather
+                                // than reading the icon's description and then
+                                // the same word again.
+                                .selectable(
+                                    selected = selected,
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                ) { onSelect(destination.route) }
+                                    role = Role.Tab,
+                                    onClick = { onSelect(destination.route) },
+                                )
                                 .testTag(destination.testTag),
                         ) {
                             Icon(
                                 imageVector = if (selected) destination.selectedIcon else destination.icon,
-                                contentDescription = destination.label,
+                                // The label below says it; the selectable above merges both.
+                                contentDescription = null,
                                 tint = tint,
                                 modifier = Modifier.size(24.dp),
                             )

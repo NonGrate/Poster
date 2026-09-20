@@ -1,14 +1,23 @@
 package com.example.poster.di
 
+import com.example.poster.config.Features
+import com.example.poster.crash.CrashUploader
+import com.example.poster.network.BookmarkApi
+import com.example.poster.network.ConfigApi
+import com.example.poster.network.FollowApi
 import com.example.poster.network.GroupApi
 import com.example.poster.network.PostApi
 import com.example.poster.network.TagApi
 import com.example.poster.network.UserApi
 import com.example.poster.db.DatabaseDriverFactory
+import com.example.poster.repository.CommentRepository
+import com.example.poster.repository.FeedbackRepository
+import com.example.poster.repository.NotificationRepository
 import com.example.poster.repository.PostLocalStore
 import com.example.poster.repository.PostRepository
 import com.example.poster.repository.SessionRepository
 import com.example.poster.repository.TagRepository
+import com.example.poster.telemetry.EventReporter
 import com.example.poster.util.AppPreferences
 import com.example.poster.util.DispatcherProvider
 import io.ktor.client.HttpClient
@@ -82,6 +91,16 @@ class KoinGraphTest {
         assertNotNull(koin.get<TagRepository>())
         assertNotNull(koin.get<SessionRepository>())
         assertNotNull(koin.get<PostLocalStore>())
+        assertNotNull(koin.get<ConfigApi>())
+        assertNotNull(koin.get<FollowApi>())
+        assertNotNull(koin.get<BookmarkApi>())
+        assertNotNull(koin.get<NotificationRepository>())
+        assertNotNull(koin.get<EventReporter>())
+        // Resolves only because jvmMain binds a no-op CrashStore.
+        assertNotNull(koin.get<CrashUploader>())
+        // Flag-gated bindings: asked for only when the build has them.
+        if (Features.COMMENTS) assertNotNull(koin.get<CommentRepository>())
+        if (Features.FEEDBACK) assertNotNull(koin.get<FeedbackRepository>())
 
         databaseFile.toFile().parentFile.deleteRecursively()
     }

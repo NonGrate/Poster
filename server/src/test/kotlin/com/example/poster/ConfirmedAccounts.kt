@@ -11,7 +11,7 @@ import com.example.poster.model.AccountLocalRepository
  * not care about. The ones that *are* about confirmation do it the real way.
  */
 internal fun confirmAddress(email: String, at: String = "2026-08-18T12:00:00Z") {
-    val accounts = AccountLocalRepository()
+    val accounts = AccountLocalRepository(testDatabase())
     val user = accounts.userByEmail(email) ?: error("no account for $email")
     accounts.addOrUpdateUser(user.copy(verifiedAt = at))
 }

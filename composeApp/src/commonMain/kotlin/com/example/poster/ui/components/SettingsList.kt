@@ -2,6 +2,8 @@ package com.example.poster.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,6 +48,8 @@ fun SettingsRow(
     trailing: @Composable (() -> Unit)? = null,
     /** For rows that cannot be undone. Everything else leaves this alone. */
     tint: Color? = null,
+    /** A row that pushes a screen wears the chevron; every caller drew its own. */
+    chevron: Boolean = false,
 ) {
     Row(
         modifier = modifier
@@ -78,6 +82,13 @@ fun SettingsRow(
             }
         }
         trailing?.invoke()
+        if (chevron) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

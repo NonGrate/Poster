@@ -4,7 +4,9 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.example.poster.config.Features
 import com.example.poster.util.TestUtils
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import kotlin.test.Test
 
@@ -34,6 +36,9 @@ class VerificationInstrumentedTest {
 
     @Test
     fun anUnconfirmedAccountIsToldWhatToDoRatherThanThatItFailed() {
+        // The other test here is about the way back in, which has nothing to
+        // do with confirming an address.
+        assumeTrue(Features.EMAIL_VERIFICATION_REQUIRED)
         wrapped { rule ->
             TestUtils.awaitTag(rule, "login_screen")
             rule.onNodeWithTag("register_button").performClick()

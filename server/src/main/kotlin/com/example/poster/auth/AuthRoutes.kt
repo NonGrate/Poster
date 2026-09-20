@@ -2,6 +2,7 @@ package com.example.poster.auth
 
 import com.example.poster.config.Features
 import com.example.poster.config.AppInfo
+import com.example.poster.config.BrandPalette
 import com.auth0.jwt.JWT
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -80,12 +81,29 @@ fun Route.authRoutes(
      * same password, so a separate allowance there would simply be the way
      * around this one.
      */
-    throttle: AttemptThrottle = AttemptThrottle()
+    throttle: AttemptThrottle = AttemptThrottle(),
+    /**
+     * Registering separately, and not [throttle]: a shared allowance would let
+     * somebody lock a person out of signing in by registering at their address
+     * until the login's allowance was spent.
+     */
+    registerThrottle: AttemptThrottle = AttemptThrottle(),
 ) {
     route("/auth") {
         post("/register") {
+            val request = call.receive<RegisterRequest>()
+            // Every registration sends a verification email to an address the
+            // caller chose, so an unlimited one is a way to post mail to
+            // somebody else over this domain. Counted per address, like the
+            // login's guesses.
+            registerThrottle.retryAfter(request.email)?.let { wait ->
+                call.response.headers.append(HttpHeaders.RetryAfter, wait.seconds.toString())
+                call.respond(HttpStatusCode.TooManyRequests, ApiError("Too many attempts. Try again later."))
+                return@post
+            }
+            registerThrottle.recordFailure(request.email)
             respondAuth {
-                val response = authService.register(call.receive<RegisterRequest>())
+                val response = authService.register(request)
                 // After the account exists, and never in a way that can undo it:
                 // somebody who registered successfully is registered, whatever
                 // the mail provider is doing.
@@ -268,10 +286,13 @@ fun Route.authRoutes(
             // to a custom scheme after a cross-site POST is handled unevenly by
             // in-app browsers, while location.replace from a loaded page is not,
             // and the link is there for the rare case script is blocked.
+            // The brand's ink, so re-theming this app does not leave one
+            // page behind in the old colour.
+            val ink = "#%06X".format(BrandPalette.Light.onBackground and 0xFFFFFF)
             call.respondText(ContentType.Text.Html) {
                 """<!doctype html><html><head>
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Poster</title></head>
-<body style="font-family:-apple-system,system-ui,sans-serif;text-align:center;padding:3rem;color:#3A2E27">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${AppInfo.NAME}</title></head>
+<body style="font-family:-apple-system,system-ui,sans-serif;text-align:center;padding:3rem;color:$ink">
 <p>Signing you in…</p>
 <p><a href="$deepLink">Return to ${AppInfo.NAME}</a></p>
 <script>window.location.replace("$deepLink");</script>

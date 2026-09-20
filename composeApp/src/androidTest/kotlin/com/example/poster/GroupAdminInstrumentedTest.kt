@@ -2,7 +2,10 @@ package com.example.poster
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import com.example.poster.config.Features
 import com.example.poster.util.TestUtils
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import kotlin.test.Test
 
@@ -14,6 +17,9 @@ import kotlin.test.Test
 class GroupAdminInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithGroups() = assumeTrue(Features.GROUPS)
 
     private var groupId: String = ""
 

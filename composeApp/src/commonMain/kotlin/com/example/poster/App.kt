@@ -6,7 +6,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.example.poster.ui.MainScreen
 import com.example.poster.viewmodel.AccountViewModel
-import com.example.poster.viewmodel.FavoritesViewModel
 import com.example.poster.viewmodel.PostsViewModel
 import com.example.poster.viewmodel.ThemeViewModel
 
@@ -14,7 +13,6 @@ import com.example.poster.viewmodel.ThemeViewModel
 class AppDependencies : KoinComponent {
     val postsViewModel: PostsViewModel by inject()
     val accountViewModel: AccountViewModel by inject()
-    val favoritesViewModel: FavoritesViewModel by inject()
     val themeViewModel: ThemeViewModel by inject()
 }
 
@@ -28,7 +26,6 @@ fun App(fixedTab: String? = null) {
     MainScreen(
         postsViewModel = dependencies.postsViewModel,
         userViewModel = dependencies.accountViewModel,
-        favoritesViewModel = dependencies.favoritesViewModel,
         themeViewModel = dependencies.themeViewModel,
         fixedTab = fixedTab,
     )

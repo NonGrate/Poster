@@ -10,11 +10,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.poster.config.Features
 import com.example.poster.model.Post
 import com.example.poster.util.TestUtils
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,6 +27,11 @@ import org.junit.runner.RunWith
 class FollowsInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    // The author's name on the card is what opens the follow dialog, so this
+    // needs both flags.
+    @Before
+    fun onlyWithFollows() = assumeTrue(Features.FOLLOWS && Features.AUTHORS)
 
     private val post = Post(
         guid = "followed-post",
@@ -45,6 +53,7 @@ class FollowsInstrumentedTest {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(post),
         ) { rule ->
             TestUtils.navigateToHome(rule)
             TestUtils.awaitAnyTag(rule, "post_card")
@@ -84,6 +93,5 @@ class FollowsInstrumentedTest {
             rule.waitUntil(timeoutMillis = 5_000) { rule.onAllNodesWithText(post.title).fetchSemanticsNodes().isEmpty() }
             rule.onNodeWithTag("feed_filter_active_following").performClick()
         }
-        kotlinx.coroutines.runBlocking { TestUtils.deletePostAsSecondUser(post) }
     }
 }

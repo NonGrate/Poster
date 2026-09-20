@@ -20,6 +20,9 @@ CREATE TABLE User (
     show_name INTEGER NOT NULL DEFAULT 0
 );
 
+-- The banned-author subquery every post query carries.
+CREATE INDEX userStatus ON User(status);
+
 -- Get all users
 getAllUsers:
 SELECT * FROM User;
@@ -75,17 +78,8 @@ UPDATE User SET role = ? WHERE guid = ?;
 setStatus:
 UPDATE User SET status = ?, banned_at = ?, banned_reason = ? WHERE guid = ?;
 
-getUsersByStatus:
-SELECT * FROM User WHERE status = ?;
-
-getBannedUserIds:
-SELECT guid FROM User WHERE status = 'banned';
-
 -- Following the link, and only that. Everything else about an account is
 -- changed elsewhere.
 markVerified:
 UPDATE User SET verified_at = ? WHERE guid = ?;
 
--- Changing a password after proving you can read the address it belongs to.
-setPassword:
-UPDATE User SET password_hash = ? WHERE guid = ?;

@@ -1,8 +1,6 @@
 package com.example.poster.model
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import kotlinx.datetime.Clock
 import java.util.UUID
 
@@ -17,8 +15,9 @@ data class AuditEntry(
     val createdAt: String,
 )
 
+// No default database, for the reason given on PostsLocalRepository.
 class ModerationRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) {
     private val users = database.userQueries
     private val posts = database.postQueries

@@ -11,13 +11,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.auth.GoogleVerifier
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
@@ -66,7 +64,7 @@ class DeleteAccountSocialTest {
         .sign(Algorithm.RSA256(null, signWith))
 
     @Test
-    fun aGoogleTokenDeletesTheAccountItBelongsTo() = withServer {
+    fun aGoogleTokenDeletesTheAccountItBelongsTo() = withGoogle {
         val user = register("member@example.com")
 
         val response = deleteWith(credential = token())
@@ -84,7 +82,7 @@ class DeleteAccountSocialTest {
      * happened to be valid has skipped the only question it asks.
      */
     @Test
-    fun anUntickedBoxDeletesNothing() = withServer {
+    fun anUntickedBoxDeletesNothing() = withGoogle {
         val user = register("member@example.com")
 
         val response = deleteWith(credential = token(), confirm = false)
@@ -105,7 +103,7 @@ class DeleteAccountSocialTest {
      * for a wrong address and a wrong password alike.
      */
     @Test
-    fun aTokenForAStrangerIsRefusedLikeAWrongPassword() = withServer {
+    fun aTokenForAStrangerIsRefusedLikeAWrongPassword() = withGoogle {
         register("member@example.com")
 
         val stranger = deleteWith(credential = token(email = "nobody@example.com", subject = "other"))
@@ -125,7 +123,7 @@ class DeleteAccountSocialTest {
 
     /** Every rule the verifier enforces for signing in still holds here. */
     @Test
-    fun aTokenThatFailsVerificationDeletesNothing() = withServer {
+    fun aTokenThatFailsVerificationDeletesNothing() = withGoogle {
         val user = register("member@example.com")
 
         val forged = deleteWith(credential = token(signWith = otherKeys.private as RSAPrivateKey))
@@ -144,7 +142,7 @@ class DeleteAccountSocialTest {
 
     /** The button is drawn, and the note about resetting a password is there. */
     @Test
-    fun thePageOffersTheWayInForAnAccountWithNoPassword() = withServer {
+    fun thePageOffersTheWayInForAnAccountWithNoPassword() = withGoogle {
         val page = client.get("/delete-account").bodyAsText()
 
         assertTrue(page.contains("accounts.google.com/gsi/client"), "no Google button on the page")
@@ -155,7 +153,7 @@ class DeleteAccountSocialTest {
 
     /** Russian gets the same page. */
     @Test
-    fun theRussianPageSaysTheSameThings() = withServer {
+    fun theRussianPageSaysTheSameThings() = withGoogle {
         val page = client.get("/delete-account") { header("Accept-Language", "ru") }.bodyAsText()
 
         assertTrue(page.contains("Google"), "no Google button on the Russian page")
@@ -164,7 +162,7 @@ class DeleteAccountSocialTest {
 
     // — helpers —
 
-    private fun accountsRepository() = com.example.poster.model.AccountLocalRepository()
+    private fun accountsRepository() = com.example.poster.model.AccountLocalRepository(testDatabase())
 
     private suspend fun ApplicationTestBuilder.deleteWith(
         credential: String,
@@ -194,33 +192,11 @@ class DeleteAccountSocialTest {
         const val CLIENT_ID = "poster.apps.googleusercontent.com"
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-delete-social").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        val previousClientId = System.getProperty("poster.google.clientId")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application {
-                    module(
-                        verifiers = listOf(
-                            GoogleVerifier(audience = CLIENT_ID, keyFor = { publicKey }),
-                        ),
-                        googleClientIdOverride = CLIENT_ID,
-                    )
-                }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            if (previousClientId == null) System.clearProperty("poster.google.clientId")
-            else System.setProperty("poster.google.clientId", previousClientId)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
+    /** The shared server, checking tokens against this suite's key and drawing the button for its client id. */
+    private fun withGoogle(block: suspend ApplicationTestBuilder.(TestServer) -> Unit) =
+        withServer(
+            verifiers = listOf(GoogleVerifier(audience = CLIENT_ID, keyFor = { publicKey })),
+            googleClientId = CLIENT_ID,
+            block = block,
+        )
 }

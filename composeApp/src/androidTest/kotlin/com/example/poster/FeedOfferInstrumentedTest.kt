@@ -32,7 +32,6 @@ import com.example.poster.ktor.KtorPostApi
 import com.example.poster.ktor.createHttpClient
 import com.example.poster.auth.InMemoryAuthTokenStorage
 import com.example.poster.cache.PostCache
-import com.example.poster.preview.FakeUserApi
 import com.example.poster.viewmodel.FavoritesViewModel
 import com.example.poster.model.PostVisibility
 
@@ -62,7 +61,6 @@ class FeedOfferInstrumentedTest : KoinComponent {
         likes = 0,
         date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
         tags = emptyList(),
-        isFavorite = false,
     )
 
     private val arriving = existing.copy(
@@ -80,6 +78,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing, arriving),
             action = { rule ->
                 TestUtils.awaitTag(rule, "post_card")
                 rule.onAllNodesWithTag("post_card").assertCountEquals(1)
@@ -116,6 +115,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing),
             action = { rule ->
                 TestUtils.awaitTag(rule, "post_card")
 
@@ -145,6 +145,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing),
             action = { rule ->
                 TestUtils.awaitTag(rule, "post_card")
                 rule.onAllNodesWithTag("favorite_button").onFirst().performClick()
@@ -175,6 +176,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing, arriving),
             action = { rule ->
                 TestUtils.awaitTag(rule, "favorite_button")
                 rule.onAllNodesWithTag("favorite_button").onFirst().performClick()
@@ -215,6 +217,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing, arriving),
             action = { rule ->
                 TestUtils.awaitTag(rule, "post_card")
                 runBlocking { TestUtils.seedPostAsSecondUser(arriving) }
@@ -252,6 +255,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing, arriving),
             action = { rule ->
                 TestUtils.awaitAnyTag(rule, "post_card")
 
@@ -294,6 +298,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing),
             action = { rule ->
                 TestUtils.awaitAnyTag(rule, "post_card")
 
@@ -330,6 +335,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing),
             action = { rule ->
                 TestUtils.awaitAnyTag(rule, "post_card")
 
@@ -337,7 +343,6 @@ class FeedOfferInstrumentedTest : KoinComponent {
                     postApi = KtorPostApi(
                         createHttpClient("127.0.0.1", 1, authTokenStorage = InMemoryAuthTokenStorage())
                     ),
-                    userApi = FakeUserApi(),
                     cache = PostCache(),
                     dispatchers = dispatchers,
                     localStore = localStore,
@@ -388,6 +393,7 @@ class FeedOfferInstrumentedTest : KoinComponent {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(existing, groupPost),
             action = { rule ->
                 TestUtils.awaitAnyTag(rule, "favorite_button")
                 rule.onAllNodesWithTag("favorite_button").onFirst().performClick()

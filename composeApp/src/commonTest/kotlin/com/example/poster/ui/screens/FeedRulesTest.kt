@@ -239,6 +239,29 @@ class FeedRulesTest {
         assertEquals(true, PostFilter().isEmpty)
         assertEquals(false, PostFilter(groups = setOf("c")).isEmpty)
         assertEquals(false, PostFilter(tags = setOf("health")).isEmpty)
+        // The three that arrived after the first two, and that an isEmpty
+        // written for the first two would quietly miss.
+        assertEquals(false, PostFilter(query = "rent").isEmpty)
+        assertEquals(false, PostFilter(following = true).isEmpty)
+        assertEquals(false, PostFilter(saved = true).isEmpty)
+        // A space typed and taken back is not a question.
+        assertEquals(true, PostFilter(query = "   ").isEmpty)
+    }
+
+    /** What the "Clear" affordance counts: every choice once. */
+    @Test
+    fun activeCountCountsEachChoiceOnce() {
+        val everything = PostFilter(
+            group = "health_wellbeing",
+            tags = setOf("health", "sleep"),
+            query = "rent",
+            following = true,
+            saved = true,
+        )
+
+        assertEquals(6, everything.activeCount)
+        assertEquals(0, PostFilter().activeCount)
+        assertEquals(0, PostFilter(query = "   ").activeCount)
     }
 
     /** A resolved post that has had its moment is gone whatever its tag. */

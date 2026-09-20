@@ -19,6 +19,7 @@ import com.example.poster.ui.platform.AdaptiveBackButton
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.example.poster.model.Post
+import com.example.poster.ui.components.FollowDialog
 import com.example.poster.ui.components.PostCard
 import com.example.poster.ui.components.relativeTime
 import com.example.poster.viewmodel.TagViewModel
@@ -27,6 +28,8 @@ import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.nameOf
 import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.viewmodel.AccountViewModel
+import com.example.poster.viewmodel.BookmarksViewModel
+import com.example.poster.viewmodel.FollowsViewModel
 import com.example.poster.viewmodel.FavoritesViewModel
 import com.example.poster.viewmodel.PostsViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -66,6 +69,8 @@ fun DetailsScreen(
     groupViewModel: GroupViewModel = koinInject(),
     tagViewModel: TagViewModel = koinInject(),
     postApi: PostApi = koinInject(),
+    followsViewModel: FollowsViewModel = koinInject(),
+    bookmarksViewModel: BookmarksViewModel = koinInject(),
 ) {
     // The card shows a tag's label; this screen was showing its id, so the same
     // tag read "Job search" in the feed and "job_search" one tap later.
@@ -95,6 +100,12 @@ fun DetailsScreen(
     var deleting by remember { mutableStateOf(false) }
     var completing by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
+    // The same three affordances the feed card carries, so a post does not lose
+    // half its menu the moment it is opened.
+    val following by followsViewModel.ids.collectAsState()
+    val saved by bookmarksViewModel.ids.collectAsState()
+    val unsent by postsViewModel.unsent.collectAsState()
+    var followingAuthor by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val share = rememberShareText()
     // Same confirmation as the My Posts path, so marking resolved feels the
@@ -207,6 +218,19 @@ fun DetailsScreen(
                 // Report from the detail's overflow, the same place the feed
                 // offers it — not your own, which has edit and delete instead.
                 onReport = if (isOwnPost || !Features.REPORTS) null else { { reporting = true } },
+                isOwn = isOwnPost,
+                isUnsent = post.guid in unsent,
+                isBookmarked = post.guid in saved,
+                onToggleBookmark = if (Features.BOOKMARKS) {
+                    { bookmarksViewModel.toggle(post.guid) }
+                } else {
+                    null
+                },
+                onAuthorClick = if (Features.FOLLOWS && Features.AUTHORS && !isOwnPost) {
+                    { followingAuthor = true }
+                } else {
+                    null
+                },
             )
                 Spacer(modifier = Modifier.height(Spacing.sm))
                 Text(
@@ -245,6 +269,15 @@ fun DetailsScreen(
     // Outside the Column, where the smart cast from its early return no longer
     // holds. One binding for all three rather than three safe calls.
     val current = post ?: return
+
+    if (followingAuthor) {
+        FollowDialog(
+            authorName = current.authorName.orEmpty(),
+            following = current.author in following,
+            onToggle = { followsViewModel.toggle(current.author) },
+            onDismiss = { followingAuthor = false },
+        )
+    }
 
     if (reporting) {
         ReportPostDialog(

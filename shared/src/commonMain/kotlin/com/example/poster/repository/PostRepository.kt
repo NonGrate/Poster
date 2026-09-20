@@ -5,9 +5,7 @@ import com.example.poster.config.Features
 import com.example.poster.cache.PostCache
 import com.example.poster.domain.validation.ImageRules
 import com.example.poster.model.Post
-import com.example.poster.model.User
 import com.example.poster.network.PostApi
-import com.example.poster.network.UserApi
 import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -27,7 +25,6 @@ const val PAGE_SIZE = 50
 
 class PostRepository(
     private val postApi: PostApi,
-    private val userApi: UserApi,
     private val cache: PostCache,
     private val dispatchers: DispatcherProvider,
     private val localStore: PostLocalStore? = null,
@@ -45,10 +42,6 @@ class PostRepository(
     /** Ids of posts written offline and not yet sent (feature.offlineOutbox). Null without a database. */
     val unsent: Flow<Set<String>>? get() = localStore?.unsent()
 
-    /**
-     * Ask the server and write what it says to disk. Returns whether the request
-     * worked, not the data: the data arrives through [posts].
-     */
     /** Everything this person wrote, from disk. Null without a database. */
     fun myPosts(userId: String): Flow<List<Post>>? = localStore?.mine(userId)
 
@@ -74,6 +67,10 @@ class PostRepository(
         cache.clear()
     }
 
+    /**
+     * Ask the server and write what it says to disk. Returns whether the request
+     * worked, not the data: the data arrives through [posts].
+     */
     suspend fun refreshPosts(viewer: String = ""): Result<List<Post>> = withContext(dispatchers.io) {
         runCatching {
             // Whatever was written offline goes first, so the page that follows
@@ -179,11 +176,6 @@ class PostRepository(
         }
     }
 
-    suspend fun getPostsByGroup(groupId: String): Result<List<Post>> =
-        getAllPosts().mapCatching { posts ->
-            posts.filter { it.group == groupId }
-        }
-
     suspend fun getFavoritePosts(): Result<FavoritesSnapshot> = withContext(dispatchers.io) {
         runCatching {
             val cached = cache.getFavoritePosts()
@@ -240,8 +232,9 @@ class PostRepository(
             // as "not sent yet" and goes out on the next refresh. An image is
             // bytes in memory, not on disk, so a post with one still fails here.
             if (!queueable(cause, newImage)) throw cause
-            localStore!!.enqueue(post, PostLocalStore.Outbox.ADD)
-            localStore.upsertMine(post)
+            val store = localStore ?: throw cause
+            store.enqueue(post, PostLocalStore.Outbox.ADD)
+            store.upsertMine(post)
             previous + post
         }.onFailure {
             cache.setAllPosts(previous)
@@ -276,9 +269,10 @@ class PostRepository(
             adoptRefetched(postApi.getAllPosts())
         }.recoverCatching { cause ->
             if (!queueable(cause, newImage)) throw cause
-            localStore!!.enqueue(post, PostLocalStore.Outbox.UPDATE)
+            val store = localStore ?: throw cause
+            store.enqueue(post, PostLocalStore.Outbox.UPDATE)
             // Still in the feed if it was there; only yours otherwise.
-            if (previous.any { it.guid == post.guid }) localStore.upsert(post) else localStore.upsertMine(post)
+            if (previous.any { it.guid == post.guid }) store.upsert(post) else store.upsertMine(post)
             cache.getAllPosts()
         }.onFailure {
             cache.setAllPosts(previous)
@@ -369,10 +363,6 @@ class PostRepository(
         }.onFailure {
             cache.setAllPosts(previous)
         }
-    }
-
-    suspend fun getUser(userId: String): Result<User?> = withContext(dispatchers.io) {
-        runCatching { userApi.logIn(userId) }
     }
 
 

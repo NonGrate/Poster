@@ -8,7 +8,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.auth.SocialAccount
 import com.example.poster.auth.SocialVerifier
 import com.example.poster.model.AccountLocalRepository
@@ -18,12 +17,10 @@ import com.example.poster.model.User
 import com.example.poster.model.SocialSignInRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Which account a provider sign-in lands on, when the email is not dependable.
@@ -49,7 +46,7 @@ class SocialIdentityLinkingTest {
      * where somebody has changed their relay.
      */
     @Test
-    fun theSamePersonWithANewAddressIsStillTheSamePerson() = withServer { stub ->
+    fun theSamePersonWithANewAddressIsStillTheSamePerson() = withStub { stub ->
         val first = social("google").second
         assertNotNull(first)
 
@@ -66,7 +63,7 @@ class SocialIdentityLinkingTest {
 
     /** Two genuinely different people are still two accounts. */
     @Test
-    fun adifferentSubjectIsADifferentPerson() = withServer { stub ->
+    fun adifferentSubjectIsADifferentPerson() = withStub { stub ->
         val first = social("google").second
         assertNotNull(first)
 
@@ -84,7 +81,7 @@ class SocialIdentityLinkingTest {
      * subject, so it survives the address changing afterwards.
      */
     @Test
-    fun aFirstProviderSignInAttachesToTheAccountAlreadyThere() = withServer { stub ->
+    fun aFirstProviderSignInAttachesToTheAccountAlreadyThere() = withStub { stub ->
         val registered = register("somebody@example.com")
 
         val throughProvider = social("google").second
@@ -105,7 +102,7 @@ class SocialIdentityLinkingTest {
      * number beside a post. Empty is better: the app can ask.
      */
     @Test
-    fun aHiddenAddressDoesNotBecomeSomebodysName() = withServer { stub ->
+    fun aHiddenAddressDoesNotBecomeSomebodysName() = withStub { stub ->
         stub.provider = "apple"
         stub.subject = "apple-subject-1"
         stub.email = "a1b2c3d4@privaterelay.appleid.com"
@@ -121,7 +118,7 @@ class SocialIdentityLinkingTest {
 
     /** An ordinary address still names them, which is the reason that rule exists. */
     @Test
-    fun anOrdinaryAddressStillNamesSomebody() = withServer { stub ->
+    fun anOrdinaryAddressStillNamesSomebody() = withStub { stub ->
         stub.name = null
         val session = social("google").second
 
@@ -137,7 +134,7 @@ class SocialIdentityLinkingTest {
      * them at that moment whether they already have one — not to guess here.
      */
     @Test
-    fun aFirstHiddenSignInStillCannotBeRecognised() = withServer { stub ->
+    fun aFirstHiddenSignInStillCannotBeRecognised() = withStub { stub ->
         val registered = register("somebody@example.com")
 
         stub.provider = "apple"
@@ -161,7 +158,7 @@ class SocialIdentityLinkingTest {
      * provider signs them into the account they kept, not a new one.
      */
     @Test
-    fun linkingAnUnrecognisedSignInAttachesItToTheAccountYouKept() = withServer { stub ->
+    fun linkingAnUnrecognisedSignInAttachesItToTheAccountYouKept() = withStub { stub ->
         val kept = register("somebody@example.com")
         stub.provider = "apple"
         stub.subject = "apple-subject-1"
@@ -176,7 +173,7 @@ class SocialIdentityLinkingTest {
 
     /** Linking twice is the same as linking once: somebody will press it again. */
     @Test
-    fun linkingTheSameIdentityAgainIsHarmless() = withServer { stub ->
+    fun linkingTheSameIdentityAgainIsHarmless() = withStub { stub ->
         val kept = register("somebody@example.com")
         stub.provider = "apple"
         stub.subject = "apple-subject-1"
@@ -195,7 +192,7 @@ class SocialIdentityLinkingTest {
      * it quietly here would move somebody's posts under another name.
      */
     @Test
-    fun anIdentityThatBelongsToSomebodyElseIsRefused() = withServer { stub ->
+    fun anIdentityThatBelongsToSomebodyElseIsRefused() = withStub { stub ->
         stub.provider = "apple"
         stub.subject = "apple-subject-1"
         stub.email = "a1b2c3d4@privaterelay.appleid.com"
@@ -223,7 +220,7 @@ class SocialIdentityLinkingTest {
 
     /** A provider token that does not verify links nothing. */
     @Test
-    fun linkingWithARefusedTokenIsRefused() = withServer { stub ->
+    fun linkingWithARefusedTokenIsRefused() = withStub { stub ->
         val kept = register("somebody@example.com")
         stub.rejectEverything = true
 
@@ -239,9 +236,9 @@ class SocialIdentityLinkingTest {
      * back in that outlives the token.
      */
     @Test
-    fun abannedAccountCannotLinkAnything() = withServer { stub ->
+    fun abannedAccountCannotLinkAnything() = withStub { stub ->
         val banned = register("somebody@example.com")
-        AccountLocalRepository().let { repository ->
+        AccountLocalRepository(testDatabase()).let { repository ->
             val user = repository.userById(banned.user.guid)
             assertNotNull(user)
             repository.addOrUpdateUser(user.copy(status = User.STATUS_BANNED))
@@ -309,31 +306,17 @@ class SocialIdentityLinkingTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.(ConfigurableVerifier) -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-identity").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        // One instance, reachable as either provider: the route picks by name,
-        // and a test that changes the name mid-run needs the same object back.
+    /**
+     * The shared server with one stub reachable as either provider: the route picks
+     * by name, and a test that changes the name mid-run needs the same object back.
+     */
+    private fun withStub(block: suspend ApplicationTestBuilder.(ConfigurableVerifier) -> Unit) {
         val stub = ConfigurableVerifier()
         val apple = object : SocialVerifier {
             override val provider = "apple"
             override val enabled = true
             override fun verify(idToken: String) = stub.verify(idToken)
         }
-        try {
-            testApplication {
-                application { module(verifiers = listOf(stub, apple)) }
-                block(stub)
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
+        withServer(verifiers = listOf(stub, apple)) { block(stub) }
     }
 }

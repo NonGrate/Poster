@@ -1,7 +1,7 @@
 package com.example.poster.push
 
 import com.example.poster.config.AppInfo
-import com.example.poster.model.AccountLocalRepository
+import com.example.poster.model.AccountRepository
 import com.example.poster.model.Group
 import com.example.poster.model.NotificationType
 import com.example.poster.model.Post
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
  */
 class Notifier(
     private val notifications: NotificationsRepository,
-    private val accounts: AccountLocalRepository,
+    private val accounts: AccountRepository,
     private val senders: Map<String, PushSender>,
     private val scope: CoroutineScope,
     private val log: (String) -> Unit = ::println,

@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +15,8 @@ import com.example.poster.ui.components.EmptyState
 import com.example.poster.ui.components.PostCard
 import com.example.poster.ui.components.LargePageTitle
 import com.example.poster.ui.components.ScreenTopBar
+import com.example.poster.ui.components.SignedOutPlaceholder
+import com.example.poster.ui.components.rememberCollapseFraction
 import com.example.poster.theme.isApplePlatform
 import com.example.poster.ui.components.PostCardVariant
 import com.example.poster.ui.components.UndoSnackbar
@@ -40,7 +40,6 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.Clock
 import com.example.poster.model.Post
-import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -72,16 +71,10 @@ fun FavoritesScreen(
     // scrolls; the compact title in the bar fades in once it is gone. iOS only —
     // Android keeps its single compact title.
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
     // A fraction, not a flag: the large title fades out and the inline title in
     // over the first bit of scroll, so nothing clips or pops. 1 on Android,
     // which shows only the compact title.
-    val collapseFraction by remember(density) {
-        derivedStateOf {
-            if (!isApplePlatform || listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
-        }
-    }
+    val collapseFraction = rememberCollapseFraction(listState)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -98,20 +91,9 @@ fun FavoritesScreen(
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.md)) {
 
             if (!isLoggedIn) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${stringResource(Res.string.login)} ${stringResource(Res.string.nav_favorites)}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                SignedOutPlaceholder(
+                    "${stringResource(Res.string.login)} ${stringResource(Res.string.nav_favorites)}",
+                )
             } else if (favoritePosts.isEmpty()) {
                 EmptyState(
                     art = Res.drawable.empty_favorites,
@@ -135,7 +117,7 @@ fun FavoritesScreen(
                     if (isApplePlatform) {
                         item { LargePageTitle(stringResource(Res.string.nav_favorites), collapseFraction = collapseFraction) }
                     }
-                    items(favoritePosts) { post ->
+                    items(favoritePosts, key = { it.guid }) { post ->
                         PostCard(
                             onClick = { onPostClick(post) },
                             post = post,

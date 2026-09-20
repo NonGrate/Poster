@@ -13,7 +13,6 @@ const val DEFAULT_FEED_LIMIT = 100
 const val MAX_FEED_LIMIT = 200
 
 interface PostsRepository {
-    fun allPosts(): List<Post>
     /**
      * One page of what this viewer may see, newest first.
      *

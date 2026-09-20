@@ -19,6 +19,26 @@ import io.ktor.serialization.kotlinx.json.json
 import com.example.poster.auth.AuthTokenStorage
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RefreshTokenRequest
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.isSuccess
+
+/**
+ * The body, or [fallback] when the server answered with anything but a 2xx.
+ *
+ * For the reads where "no answer" is an answer — an empty list is the right
+ * thing to show, and throwing would only turn a bad connection into a crash.
+ */
+internal suspend inline fun <reified T> HttpResponse.bodyOr(fallback: T): T =
+    if (status.isSuccess()) body() else fallback
+
+/**
+ * For the writes, where it is not. The client sets no `expectSuccess`, so
+ * without this a 400 or 500 returns normally and a write that never happened
+ * looks like one that did.
+ */
+internal fun HttpResponse.failIfNotSuccess(what: String) {
+    if (!status.isSuccess()) error("$what failed: ${status.value}")
+}
 
 fun createHttpClient(
     serverHost: String,

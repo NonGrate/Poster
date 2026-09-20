@@ -31,6 +31,13 @@ CREATE TABLE Post (
     FOREIGN KEY (author) REFERENCES User(guid) ON DELETE CASCADE
 );
 
+-- The feed's ORDER BY and the cursor under it, which every list query shares.
+CREATE INDEX postFeed ON Post(date DESC, guid DESC);
+-- The public share page, which has only the token to look a post up by.
+CREATE INDEX postShareToken ON Post(shareToken);
+-- My Posts, account deletion and the merge all select by author.
+CREATE INDEX postAuthor ON Post(author);
+
 -- Device only: what the server sent along with the post.
 cacheComments:
 UPDATE Post SET comments = ? WHERE guid = ?;
@@ -288,14 +295,6 @@ SET title = ?,
     image = ?
 WHERE guid = ?;
 
--- This device's copy of how many people are liking something.
---
--- The server is the authority and a refresh overwrites this with what it says.
--- Between refreshes nothing else moves the number, so a tap on this device has
--- to move it here: the favorites flow reads its counts straight off these rows,
--- and a row left behind hands a stale count back to the feed.
---
--- Never below zero: the row can be older than the tap that is being undone.
 -- Every image some post still points at, for the upload store's orphan sweep.
 imagesInUse:
 SELECT image FROM Post WHERE image IS NOT NULL;
@@ -305,6 +304,14 @@ SELECT image FROM Post WHERE image IS NOT NULL;
 postByImage:
 SELECT * FROM Post WHERE image = ? LIMIT 1;
 
+-- This device's copy of how many people are liking something.
+--
+-- The server is the authority and a refresh overwrites this with what it says.
+-- Between refreshes nothing else moves the number, so a tap on this device has
+-- to move it here: the favorites flow reads its counts straight off these rows,
+-- and a row left behind hands a stale count back to the feed.
+--
+-- Never below zero: the row can be older than the tap that is being undone.
 adjustPostLikes:
 UPDATE Post SET likes = MAX(0, likes + :delta) WHERE guid = ?;
 
@@ -380,11 +387,12 @@ UPDATE Post
 SET visibility = 'private', groupId = NULL
 WHERE groupId = ? AND visibility = 'group';
 
--- What the count above would have been, for the caller to report.
-countGroupPosts:
-SELECT COUNT(*) FROM Post
-WHERE groupId = ? AND visibility = 'group';
-
 -- Account merge: move one user's posts to another.
 reassignPostAuthor:
 UPDATE Post SET author = :into WHERE author = :from;
+
+-- One post by its guid, hidden ones included: this answers "who wrote it" and
+-- "does it exist" for the routes that then decide, so it must not pre-filter
+-- the way the feed does.
+getPostById:
+SELECT * FROM Post WHERE guid = ? LIMIT 1;

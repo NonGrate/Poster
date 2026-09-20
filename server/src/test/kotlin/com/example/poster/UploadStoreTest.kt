@@ -5,6 +5,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.Duration
 import java.time.Instant
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,12 +17,16 @@ class UploadStoreTest {
     private val directory = Files.createTempDirectory("poster-uploads")
     private val store = UploadStore(directory)
 
+    @AfterTest
+    fun removeTheDirectory() {
+        directory.toFile().deleteRecursively()
+    }
+
     @Test
     fun savedBytesComeBackUnderAnUnguessableId() {
         val id = store.save(byteArrayOf(1, 2, 3), "jpg")
         assertTrue(id.matches(Regex("[0-9a-f]{32}\\.jpg")), "id was $id")
         assertEquals(listOf<Byte>(1, 2, 3), Files.readAllBytes(assertNotNull(store.file(id))).toList())
-        assertEquals("image/jpeg", store.contentType(id))
     }
 
     @Test

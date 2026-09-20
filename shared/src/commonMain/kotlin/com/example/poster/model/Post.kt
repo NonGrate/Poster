@@ -20,7 +20,7 @@ data class Post(
     val tags: List<String> = emptyList(),
     val completedAt: LocalDateTime? = null,
     val completionMessage: String? = null,
-val visibility: String = PostVisibility.PUBLIC,
+    val visibility: String = PostVisibility.PUBLIC,
     /** What it is written in. Everything written before this existed is English. */
     val language: String = Language.DEFAULT,
     /**
@@ -33,9 +33,6 @@ val visibility: String = PostVisibility.PUBLIC,
     /** Who wrote it, filled in by the server when feature.authors is on; null otherwise. */
     val authorName: String? = null,
     val authorPhoto: String? = null,
-    // This is a transient property that will be set by the ViewModel
-    @kotlinx.serialization.Transient
-    var isFavorite: Boolean = false
 ) {
     @OptIn(ExperimentalUuidApi::class)
     constructor(title: String, message: String, author: String, group: String?, tags: List<String>) : this(

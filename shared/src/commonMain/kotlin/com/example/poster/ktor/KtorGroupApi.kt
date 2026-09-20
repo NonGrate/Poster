@@ -18,34 +18,6 @@ import com.example.poster.network.JoinResult
 
 class KtorGroupApi(private val httpClient: HttpClient) : GroupApi {
     // Group CRUD (aligned with server routes in Application.kt)
-    override suspend fun getAllGroups(): List<Group> {
-        return httpClient.get("groups") {
-            contentType(ContentType.Application.Json)
-        }.body()
-    }
-
-    override suspend fun getGroupById(id: String): Group? {
-        return try {
-            httpClient.get("groups/byId/$id") {
-                contentType(ContentType.Application.Json)
-            }.body()
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    override suspend fun getGroupByInviteCode(inviteCode: String): Group? {
-        return try {
-            httpClient.get("groups/byInvite/$inviteCode") {
-                contentType(ContentType.Application.Json)
-            }.body()
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-
-
     override suspend fun joinWithInvite(userId: String, code: String): JoinResult = try {
         val status = httpClient.post("groups/join") {
             contentType(ContentType.Application.Json)
@@ -160,8 +132,6 @@ class KtorGroupApi(private val httpClient: HttpClient) : GroupApi {
             contentType(ContentType.Application.Json)
         }.body()
     }
-
-
 }
 
 /** The whole of what creating a group takes. Everything else the server decides. */

@@ -9,7 +9,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Language
 import com.example.poster.model.RegisterRequest
@@ -17,7 +16,6 @@ import com.example.poster.model.User
 import kotlinx.serialization.encodeToString
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -260,23 +258,4 @@ class AccountUpdateRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-accounts").resolve("test.db")
-        val oldDevelopment = System.getProperty("io.ktor.development")
-        val oldDatabase = System.getProperty("poster.database")
-        System.setProperty("io.ktor.development", "true")
-        System.setProperty("poster.database", databasePath.toString())
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (oldDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", oldDevelopment)
-            if (oldDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", oldDatabase)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

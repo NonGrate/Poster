@@ -52,11 +52,14 @@ dependencies {
     // Sending mail through a provider's HTTP API rather than SMTP: no daemon on
     // the box, and no outbound port 25 for a cloud host to block.
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.ktor.client.cio)
+    implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
 }
 
 tasks.withType<Test>().configureEach {
+    // One JVM at a time: every suite isolates itself through the process-wide
+    // `poster.database` system property (see ServerTestSupport.withServer).
+    maxParallelForks = 1
     // Server tests run the way the server runs: with the schema's cascades
     // actually firing. Set here rather than by the code under test, so it does
     // not depend on which test happened to start a module first.

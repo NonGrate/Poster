@@ -38,17 +38,6 @@ internal fun Route.debugFixtureRoutes(
         }
 
         /**
-         * Marks an address confirmed, for seeding.
-         *
-         * Writing a post needs a confirmed address, and a seed script has no
-         * inbox to read. Without this the demo content simply never appears:
-         * every post is refused and the screenshots come out of an empty app,
-         * which is what had been happening.
-         *
-         * Behind the same flag as the rest of this file, which is off in
-         * production — see where debugFixtureRoutes is called.
-         */
-        /**
          * Creates a group, for seeding.
          *
          * Making one is the admin panel's job — it was taken off the public API
@@ -70,6 +59,17 @@ internal fun Route.debugFixtureRoutes(
             call.respond(HttpStatusCode.NoContent)
         }
 
+        /**
+         * Marks an address confirmed, for seeding.
+         *
+         * Writing a post needs a confirmed address, and a seed script has no
+         * inbox to read. Without this the demo content simply never appears:
+         * every post is refused and the screenshots come out of an empty app,
+         * which is what had been happening.
+         *
+         * Behind the same flag as the rest of this file, which is off in
+         * production — see where debugFixtureRoutes is called.
+         */
         post("/confirm") {
             val email = runCatching { call.receive<ConfirmRequest>().email }.getOrNull()
             if (email.isNullOrBlank()) {
@@ -113,34 +113,34 @@ internal fun applyLikedFixture(
     database: PostDatabase,
     passwordHasher: PasswordHasher,
 ) {
-    data class Friend(val name: String, val surname: String, val show: Boolean, val daysAgo: Long)
-    val friends = listOf(
-        Friend("Adam", "Ford", true, 5),
-        Friend("Grace", "Okoye", true, 2),
-        Friend("Daniel", "Petrov", true, 0),
-        Friend("Ruth", "Bello", false, 1),
-        Friend("Mark", "Adeyemi", false, 3),
-        Friend("Sarah", "Kim", false, 4),
-        Friend("John", "Osei", false, 6),
-        Friend("Lydia", "Costa", false, 8),
+    data class Liker(val name: String, val surname: String, val show: Boolean, val daysAgo: Long)
+    val likers = listOf(
+        Liker("Adam", "Ford", true, 5),
+        Liker("Grace", "Okoye", true, 2),
+        Liker("Daniel", "Petrov", true, 0),
+        Liker("Ruth", "Bello", false, 1),
+        Liker("Mark", "Adeyemi", false, 3),
+        Liker("Sarah", "Kim", false, 4),
+        Liker("John", "Osei", false, 6),
+        Liker("Lydia", "Costa", false, 8),
     )
     val now = java.time.Instant.now()
-    friends.forEachIndexed { index, friend ->
+    likers.forEachIndexed { index, liker ->
         val guid = "liking.friend.$index@example.com"
         accountRepository.addOrUpdateUser(
             User(
                 guid = guid,
-                name = friend.name,
-                surname = friend.surname,
+                name = liker.name,
+                surname = liker.surname,
                 email = guid,
                 passwordHash = passwordHasher.hash("password123"),
                 photo = null,
                 verifiedAt = now.toString(),
-                showName = friend.show,
+                showName = liker.show,
             )
         )
         database.userPostFavoriteQueries.addFavoritePost(
-            guid, postId, now.minusSeconds(friend.daysAgo * 86_400).toString(),
+            guid, postId, now.minusSeconds(liker.daysAgo * 86_400).toString(),
         )
     }
 }
@@ -195,15 +195,15 @@ internal fun applyIntegrationFixtures(
     )
 
     val groupA = Group("group-a", "Group A", "GROUP_A_INVITE")
-    val youthGroup = Group("book-club", "Book Club", "BOOK_CLUB_INVITE", visibility = GroupVisibility.PUBLIC)
+    val bookClub = Group("book-club", "Book Club", "BOOK_CLUB_INVITE", visibility = GroupVisibility.PUBLIC)
     groupRepository.addOrUpdateGroup(groupA)
-    groupRepository.addOrUpdateGroup(youthGroup)
+    groupRepository.addOrUpdateGroup(bookClub)
     userGroupRepository.addUserToGroup("test@example.com", groupA.id)
     // Joining spends a row in GroupInvite; the code on the group itself is only
     // what `groups/byInvite` resolves. Without these rows the suites' "join by
     // code" flows get "not valid any more" from a fresh database.
     val seededAt = java.time.Instant.now().toString()
-    for (group in listOf(groupA, youthGroup)) {
+    for (group in listOf(groupA, bookClub)) {
         database.groupInviteQueries.deleteInvitesForGroup(group.id)
         userGroupRepository.createInvite(group.id, "user2@example.com", group.inviteCode, seededAt)
     }

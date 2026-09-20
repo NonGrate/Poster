@@ -4,6 +4,7 @@ import com.example.poster.cache.PostCache
 import com.example.poster.model.Post
 import com.example.poster.network.PostApi
 import com.example.poster.preview.FakePlatformDataStore
+import com.example.poster.preview.FakePostApi
 import com.example.poster.preview.FakeUserApi
 import com.example.poster.repository.PostRepository
 import com.example.poster.repository.SessionRepository
@@ -83,7 +84,6 @@ class FavoritesStateTest {
         val favorites = FavoritesViewModel(
             repository = PostRepository(
                 postApi = RefusingPostApi(),
-                userApi = FakeUserApi(),
                 cache = PostCache(),
                 dispatchers = dispatchers,
             ),
@@ -101,15 +101,7 @@ class FavoritesStateTest {
         assertEquals(before.counts, after.counts)
     }
 
-    private class RefusingPostApi : PostApi {
-        override suspend fun getAllPosts(): List<Post> = emptyList()
-        override suspend fun getFavoritePosts(): List<Post> = emptyList()
-        override suspend fun removePost(post: Post) = Unit
-        override suspend fun updatePost(post: Post) = Unit
-        override suspend fun addPost(post: Post) = Unit
-        override suspend fun completePost(postId: String, message: String?) = Unit
-        override suspend fun reopenPost(postId: String) = Unit
-        override suspend fun isFavorite(userId: String, postId: String) = false
+    private class RefusingPostApi : PostApi by FakePostApi() {
         override suspend fun addFavorite(userId: String, postId: String) =
             throw IllegalStateException("server said no")
 

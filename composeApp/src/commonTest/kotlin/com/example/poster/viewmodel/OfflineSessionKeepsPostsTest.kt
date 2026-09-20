@@ -4,6 +4,7 @@ import com.example.poster.cache.PostCache
 import com.example.poster.model.Post
 import com.example.poster.network.PostApi
 import com.example.poster.preview.FakePlatformDataStore
+import com.example.poster.preview.FakePostApi
 import com.example.poster.preview.FakeUserApi
 import com.example.poster.repository.PostRepository
 import com.example.poster.repository.SessionRepository
@@ -72,7 +73,6 @@ class OfflineSessionKeepsPostsTest {
     private fun viewModel(cache: PostCache, session: SessionRepository) = PostsViewModel(
         repository = PostRepository(
             postApi = OfflinePostApi(),
-            userApi = FakeUserApi(),
             cache = cache,
             dispatchers = dispatchers,
         ),
@@ -87,20 +87,16 @@ class OfflineSessionKeepsPostsTest {
         scope = CoroutineScope(Dispatchers.Unconfined),
     )
 
-    /** Nothing can be fetched, the way nothing can be fetched on a train. */
-    private class OfflinePostApi : PostApi {
+    /**
+     * Nothing can be read, the way nothing can be read on a train. The writes
+     * are left to the preview backend: this test never makes one, and a fake
+     * that spells out every method buries the three lines that matter.
+     */
+    private class OfflinePostApi : PostApi by FakePostApi() {
         private fun offline(): Nothing = throw IOException("no connection")
         override suspend fun getAllPosts(): List<Post> = offline()
         override suspend fun getMyPosts(): List<Post> = offline()
         override suspend fun getFavoritePosts(): List<Post> = offline()
-        override suspend fun removePost(post: Post) = offline()
-        override suspend fun updatePost(post: Post) = offline()
-        override suspend fun addPost(post: Post) = offline()
-        override suspend fun completePost(postId: String, message: String?) = offline()
-        override suspend fun reopenPost(postId: String) = offline()
-        override suspend fun isFavorite(userId: String, postId: String): Boolean = offline()
-        override suspend fun addFavorite(userId: String, postId: String) = offline()
-        override suspend fun removeFavorite(userId: String, postId: String) = offline()
     }
 
     private companion object {

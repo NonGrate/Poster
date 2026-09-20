@@ -18,7 +18,7 @@ POSTER_GOOGLE_CLIENT_ID=
 POSTER_GOOGLE_REVERSED_CLIENT_ID=
 // The RevenueCat iOS SDK key (appl_...). Blank hides the support screen; a real
 // key turns the tip jar on. Kept out of the repo like the Android key
-// (docs/RevenueCat.md) — the real value goes in Local.xcconfig, which is
+// (docs/InAppPurchases.md) — the real value goes in Local.xcconfig, which is
 // git-ignored and included at the bottom of this file, overriding this default.
 POSTER_REVENUECAT_KEY=
 

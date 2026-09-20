@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -10,14 +11,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Group
 import com.example.poster.model.GroupMember
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,6 +30,7 @@ class GroupAdminRoutesTest {
 
     @Test
     fun ownerCanPromoteAMemberAndTheListReflectsIt() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = register("Owner", "owner@example.com")
         val member = register("Member", "member@example.com")
         val group = startsGroup(owner, "Grace")
@@ -51,6 +51,7 @@ class GroupAdminRoutesTest {
 
     @Test
     fun anAdminManagesInvitesButCannotCloseOrChangeRoles() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = register("Owner", "owner@example.com")
         val admin = register("Admin", "admin@example.com")
         val plain = register("Plain", "plain@example.com")
@@ -81,6 +82,7 @@ class GroupAdminRoutesTest {
 
     @Test
     fun theOwnersRoleCannotBeChanged() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = register("Owner", "owner@example.com")
         val group = startsGroup(owner, "Grace")
         assertEquals(HttpStatusCode.BadRequest, setsRole(owner, owner, group, "admin"))
@@ -88,6 +90,7 @@ class GroupAdminRoutesTest {
 
     @Test
     fun anAdminCannotRemoveTheOwnerOrAnotherAdmin() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = register("Owner", "owner@example.com")
         val a = register("A", "a@example.com")
         val b = register("B", "b@example.com")
@@ -168,23 +171,4 @@ class GroupAdminRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-admins").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

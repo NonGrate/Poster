@@ -6,9 +6,6 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -67,6 +64,15 @@ class ChildSafetyPageTest {
             assertTrue(html.contains("no way to attach or send an image"), "the no-imagery limit is missing")
         }
         assertTrue(html.contains("no private messaging"), "the no-messaging limit is missing")
+        // The rest of the page moves with the flags too, so the claims follow them.
+        if (Features.COMMENTS) {
+            assertTrue(html.contains("Comments under a post are text only"), "the comment limit is missing")
+        }
+        if (Features.AUTHORS) {
+            assertTrue(html.contains("shows the name its writer gave the account"), "the naming claim is missing")
+        } else {
+            assertTrue(html.contains("Nobody's name is shown beside a post"), "the page claims names it does not show")
+        }
     }
 
     @Test
@@ -96,23 +102,4 @@ class ChildSafetyPageTest {
         assertTrue(html.contains("report.cybertip.org"), "the Russian page dropped the hotlines")
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-safety").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

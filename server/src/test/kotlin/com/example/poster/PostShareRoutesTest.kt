@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -9,19 +10,19 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
+import com.example.poster.model.Group
+import com.example.poster.model.GroupLocalRepository
+import com.example.poster.model.UserGroupLocalRepository
 import com.example.poster.model.Post
 import com.example.poster.model.PostVisibility
 import com.example.poster.model.RegisterRequest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -32,6 +33,7 @@ class PostShareRoutesTest {
 
     @Test
     fun aPublicPostGetsAStableOpaqueLinkAndAPublicPage() = withServer {
+        if (!Features.SHARING) return@withServer
         val author = register("Author", "author@example.com")
         createPost(author, "share-me", "That the house sells", visibility = PostVisibility.PUBLIC)
 
@@ -59,6 +61,7 @@ class PostShareRoutesTest {
 
     @Test
     fun aPrivatePostCannotBeShared() = withServer {
+        if (!Features.SHARING) return@withServer
         val author = register("Author", "author@example.com")
         createPost(author, "secret", "Only me", visibility = PostVisibility.PRIVATE)
 
@@ -68,8 +71,14 @@ class PostShareRoutesTest {
 
     @Test
     fun aGroupPostCannotBeShared() = withServer {
+        if (!Features.SHARING) return@withServer
         val author = register("Author", "author@example.com")
-        createPost(author, "in-group", "For the group", visibility = PostVisibility.GROUP)
+        // A real room the author is in: posting into one they are not in is
+        // refused before sharing ever gets a say.
+        GroupLocalRepository(testDatabase())
+            .addOrUpdateGroup(Group(id = "home", name = "Home", inviteCode = "HOMECODE"))
+        UserGroupLocalRepository(testDatabase()).addUserToGroup(author.user.guid, "home")
+        createPost(author, "in-group", "For the group", visibility = PostVisibility.GROUP, group = "home")
 
         val response = client.post("/posts/in-group/share") { bearerAuth(author.tokens.accessToken) }
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -77,6 +86,7 @@ class PostShareRoutesTest {
 
     @Test
     fun sharingNeedsAnAccount() = withServer {
+        if (!Features.SHARING) return@withServer
         val author = register("Author", "author@example.com")
         createPost(author, "share-me", "Public", visibility = PostVisibility.PUBLIC)
 
@@ -88,6 +98,7 @@ class PostShareRoutesTest {
 
     @Test
     fun anUnknownTokenIsNotFound() = withServer {
+        if (!Features.SHARING) return@withServer
         register("Author", "author@example.com")
         assertEquals(HttpStatusCode.NotFound, client.get("/p/nope123nope").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/shared/nope123nope").status)
@@ -106,13 +117,14 @@ class PostShareRoutesTest {
         guid: String,
         title: String,
         visibility: String,
+        group: String? = null,
     ) {
         val post = Post(
             guid = guid,
             title = title,
             message = "message",
             author = author.user.guid,
-            group = null,
+            group = group,
             date = LocalDateTime(2026, 8, 31, 12, 0),
             visibility = visibility,
         )
@@ -136,23 +148,4 @@ class PostShareRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-share").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

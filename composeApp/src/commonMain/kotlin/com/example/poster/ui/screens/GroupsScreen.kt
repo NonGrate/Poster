@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
@@ -44,6 +43,7 @@ import com.example.poster.theme.Spacing
 import com.example.poster.theme.isApplePlatform
 import com.example.poster.util.rememberShareText
 import com.example.poster.ui.platform.AdaptiveBackButton
+import com.example.poster.ui.platform.AdaptiveBackHandler
 import com.example.poster.ui.platform.AdaptiveConfirmDialog
 import com.example.poster.ui.platform.AdaptiveTextField
 import com.example.poster.ui.components.PrimaryButton
@@ -78,6 +78,7 @@ import poster.composeapp.generated.resources.group_close_body
 import poster.composeapp.generated.resources.group_close_title
 import poster.composeapp.generated.resources.group_owner_named
 import poster.composeapp.generated.resources.group_leave
+import poster.composeapp.generated.resources.more_options
 import poster.composeapp.generated.resources.group_leave_body
 import poster.composeapp.generated.resources.group_leave_title
 import poster.composeapp.generated.resources.settings_already_in_group
@@ -135,7 +136,6 @@ fun GroupsScreen(
     val groups by groupViewModel.groups.collectAsState()
     var inviteCode by remember { mutableStateOf("") }
     var joinStatus by remember { mutableStateOf<String?>(null) }
-    var joinFailed by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf<Group?>(null) }
     // Which group the owner has opened, and what it holds. One at a time:
     // two panels open at once is a list of lists.
@@ -171,13 +171,26 @@ fun GroupsScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Every change to a group is "do the thing, then read the panel back", and
+    // it was written out five times — each one free to forget half of it.
+    suspend fun reload(id: String) {
+        members = runCatching { groupApi.getMembers(id) }.getOrDefault(members)
+        invites = runCatching { groupApi.getInvites(id) }.getOrDefault(invites)
+    }
+    fun mutate(id: String, change: suspend () -> Unit) {
+        scope.launch {
+            runCatching { change() }
+            reload(id)
+        }
+    }
+
     LaunchedEffect(managing) {
         val id = managing
         if (id == null) {
             members = emptyList(); invites = emptyList(); emailStatus = null
         } else {
-            members = runCatching { groupApi.getMembers(id) }.getOrDefault(emptyList())
-            invites = runCatching { groupApi.getInvites(id) }.getOrDefault(emptyList())
+            members = emptyList(); invites = emptyList()
+            reload(id)
         }
     }
 
@@ -199,6 +212,10 @@ fun GroupsScreen(
     val manageable = groups.filter { it.iLookAfter() }
     val joinedIn = groups.filterNot { it.iLookAfter() }
     val managingGroup = manageable.firstOrNull { it.id == managing }
+
+    // A group opened over the list is a screen; back should close it rather
+    // than fall through to whatever is behind this one.
+    AdaptiveBackHandler(enabled = managing != null) { managing = null }
 
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
@@ -251,13 +268,7 @@ fun GroupsScreen(
                         // navigate; joined rows only offer Leave in their overflow.
                         onClick = { managing = group.id },
                         modifier = Modifier.testTag("manage_group_${group.id}"),
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
+                        chevron = true,
                     )
                     SettingsDivider()
                 }
@@ -290,7 +301,7 @@ fun GroupsScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.MoreVert,
-                                        contentDescription = stringResource(Res.string.group_leave),
+                                        contentDescription = stringResource(Res.string.more_options),
                                     )
                                 }
                                 DropdownMenu(
@@ -397,28 +408,19 @@ fun GroupsScreen(
                 members = members,
                 invites = invites,
                 onNewInvite = {
-                    scope.launch {
-                        runCatching { groupApi.createInvite(managingGroup.id) }
-                        invites = runCatching { groupApi.getInvites(managingGroup.id) }.getOrDefault(invites)
-                    }
+                    mutate(managingGroup.id) { groupApi.createInvite(managingGroup.id) }
                 },
                 onShareInvite = { code ->
                     share(inviteMessageFor.replace("%1\$s", code).replace("%2\$s", InviteLink.buildUrl(code)))
                 },
                 onRevokeInvite = { code ->
-                    scope.launch {
-                        runCatching { groupApi.revokeInvite(managingGroup.id, code) }
-                        invites = runCatching { groupApi.getInvites(managingGroup.id) }.getOrDefault(invites)
-                    }
+                    mutate(managingGroup.id) { groupApi.revokeInvite(managingGroup.id, code) }
                 },
                 onRemoveMember = { removing = it },
                 onCloseGroup = { closing = managingGroup },
                 isOwner = managingGroup.owner != null && managingGroup.owner == meGuid,
                 onSetRole = { member, role ->
-                    scope.launch {
-                        runCatching { groupApi.setMemberRole(managingGroup.id, member.id, role) }
-                        members = runCatching { groupApi.getMembers(managingGroup.id) }.getOrDefault(members)
-                    }
+                    mutate(managingGroup.id) { groupApi.setMemberRole(managingGroup.id, member.id, role) }
                 },
                 onLeave = { leaving = managingGroup },
                 emailStatus = emailStatus,
@@ -430,10 +432,9 @@ fun GroupsScreen(
                         emailStatus = invitationBad
                     } else {
                         emailStatus = null
-                        scope.launch {
+                        mutate(managingGroup.id) {
                             val taken = runCatching { groupApi.inviteByEmail(managingGroup.id, address) }.getOrDefault(false)
                             emailStatus = if (taken) invitationSent.replace("%1\$s", address) else invitationFailed
-                            invites = runCatching { groupApi.getInvites(managingGroup.id) }.getOrDefault(invites)
                         }
                     }
                 },
@@ -473,29 +474,29 @@ fun GroupsScreen(
                         scope.launch {
                             val userId = user?.guid
                             if (userId == null || inviteCode.isBlank()) {
-                                joinStatus = needCode; joinFailed = true
+                                joinStatus = needCode
                                 return@launch
                             }
                             val before = groups.map { it.id }.toSet()
                             val outcome = runCatching { groupApi.joinWithInvite(userId, inviteCode) }
                             if (outcome.isFailure) {
-                                joinStatus = offline; joinFailed = true
+                                joinStatus = offline
                                 return@launch
                             }
                             when (outcome.getOrThrow()) {
                                 JoinResult.JOINED -> Unit
-                                JoinResult.WRONG_ADDRESS -> { joinStatus = wrongAddress; joinFailed = true; return@launch }
-                                JoinResult.INVALID -> { joinStatus = invalid; joinFailed = true; return@launch }
+                                JoinResult.WRONG_ADDRESS -> { joinStatus = wrongAddress; return@launch }
+                                JoinResult.INVALID -> { joinStatus = invalid; return@launch }
                             }
                             groupViewModel.refresh().join()
                             val after = groupViewModel.groups.value
                             val entered = after.firstOrNull { it.id !in before }
                             if (entered == null) {
-                                joinStatus = alreadyIn; joinFailed = true
+                                joinStatus = alreadyIn
                             } else {
                                 // The group appearing in the list behind the
                                 // sheet is the confirmation, so the sheet leaves.
-                                joinFailed = false; joinStatus = null; inviteCode = ""
+                                joinStatus = null; inviteCode = ""
                                 showAddSheet = false
                             }
                             postsViewModel.refresh()
@@ -581,11 +582,11 @@ fun GroupsScreen(
                             val group = runCatching { groupApi.createGroup(newName.trim(), visibility) }.getOrNull()
                             creating = false
                             if (group == null) {
-                                joinStatus = createFailed; joinFailed = true
+                                joinStatus = createFailed
                                 return@launch
                             }
                             groupViewModel.refresh().join()
-                            joinFailed = false; joinStatus = null; newName = ""
+                            joinStatus = null; newName = ""
                             showAddSheet = false
                             postsViewModel.refresh()
                         }
@@ -598,7 +599,7 @@ fun GroupsScreen(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (joinFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
@@ -617,13 +618,7 @@ fun GroupsScreen(
             onConfirm = {
                 val groupId = managing
                 removing = null
-                if (groupId != null) {
-                    scope.launch {
-                        runCatching { groupApi.removeMember(groupId, member.id) }
-                        members = runCatching { groupApi.getMembers(groupId) }
-                            .getOrDefault(members)
-                    }
-                }
+                if (groupId != null) mutate(groupId) { groupApi.removeMember(groupId, member.id) }
             },
             onDismiss = { removing = null },
         )

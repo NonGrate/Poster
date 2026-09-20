@@ -8,19 +8,15 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.ModerationRepository
 import com.example.poster.model.Post
 import com.example.poster.model.RegisterRequest
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -34,7 +30,9 @@ import kotlin.test.assertTrue
 class ModerationEffectRoutesTest {
 
     @Test
-    fun aSoftDeletedPostDisappearsAndComesBackWhenRestored() = withServer { client, moderation ->
+    fun aSoftDeletedPostDisappearsAndComesBackWhenRestored() = withServer {
+        // The same database the server is using, so an action here is the one the routes see.
+        val moderation = ModerationRepository(testDatabase())
         val author = client.register("Author", "mod-author@example.com")
         val reader = client.register("Reader", "mod-reader@example.com")
         client.post(author, "visible-then-not")
@@ -59,7 +57,9 @@ class ModerationEffectRoutesTest {
     }
 
     @Test
-    fun aBannedAuthorsPostsLeaveTheFeed() = withServer { client, moderation ->
+    fun aBannedAuthorsPostsLeaveTheFeed() = withServer {
+        // The same database the server is using, so an action here is the one the routes see.
+        val moderation = ModerationRepository(testDatabase())
         val author = client.register("Author", "banned-author@example.com")
         val reader = client.register("Reader", "ban-reader@example.com")
         client.post(author, "by-someone-banned")
@@ -119,30 +119,4 @@ class ModerationEffectRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(
-        block: suspend (io.ktor.client.HttpClient, ModerationRepository) -> Unit,
-    ) {
-        val databasePath = Files.createTempDirectory("poster-moderation").resolve("test.db")
-        val oldDevelopment = System.getProperty("io.ktor.development")
-        val oldDatabase = System.getProperty("poster.database")
-        System.setProperty("io.ktor.development", "true")
-        System.setProperty("poster.database", databasePath.toString())
-        try {
-            testApplication {
-                application { module() }
-                // The same database the server is using, so a moderator action
-                // here is the one the routes see.
-                val moderation = ModerationRepository(
-                    DatabaseManager(DatabaseDriverFactory()).getDatabase()
-                )
-                block(client, moderation)
-            }
-        } finally {
-            if (oldDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", oldDevelopment)
-            if (oldDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", oldDatabase)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

@@ -39,8 +39,12 @@ class PullToRefreshInstrumentedTest {
         date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
     )
 
+    private val first = post("pull-short-1", "The only post")
+    private val second = post("pull-short-2", "Arrived from below")
+
     private fun wrapped(
         before: suspend () -> Unit = {},
+        seeded: List<Post> = emptyList(),
         action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit,
     ) {
         TestUtils.runWrapped(
@@ -50,6 +54,7 @@ class PullToRefreshInstrumentedTest {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = seeded,
             action = action,
         )
     }
@@ -85,14 +90,15 @@ class PullToRefreshInstrumentedTest {
     @Test
     fun aShortFeedCanBePulledFromBelowTheLastPost() {
         wrapped(
-            before = { TestUtils.seedPostAsSecondUser(post("pull-short-1", "The only post")) },
+            before = { TestUtils.seedPostAsSecondUser(first) },
+            seeded = listOf(first, second),
         ) { rule ->
             TestUtils.awaitTag(rule, "posts_list")
             rule.waitUntil(timeoutMillis = 10_000) {
                 rule.onAllNodesWithTag("post_card").fetchSemanticsNodes().size == 1
             }
 
-            runBlocking { TestUtils.seedPostAsSecondUser(post("pull-short-2", "Arrived from below")) }
+            runBlocking { TestUtils.seedPostAsSecondUser(second) }
             // The list now fills the screen, so its centre is under the single
             // card rather than off the end of it.
             pullFromTheMiddle(rule, "feed_screen")

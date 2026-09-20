@@ -4,12 +4,15 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.example.poster.config.Features
 import com.example.poster.util.TestUtils
 import com.example.poster.model.Post
 import com.example.poster.repository.PostRepository
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -18,6 +21,9 @@ import kotlin.test.Test
 class FavouritesInstrumentedTest : KoinComponent {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithLikes() = assumeTrue(Features.LIKES)
 
     // Inject repository through Koin instead of manual instantiation
     private val postRepository: PostRepository by inject()
@@ -31,7 +37,6 @@ class FavouritesInstrumentedTest : KoinComponent {
         1,
         Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
         emptyList(),
-        isFavorite = true
     )
 
     private suspend fun preparePost(
@@ -67,6 +72,7 @@ class FavouritesInstrumentedTest : KoinComponent {
                 TestUtils.navigateToFavorites(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(testPost),
             action = { composeTestRule ->
             // TC-301: View Favourites - ✅ IMPLEMENTED
             composeTestRule.onNodeWithTag("favourites_screen").assertExists()
@@ -91,6 +97,7 @@ class FavouritesInstrumentedTest : KoinComponent {
                 TestUtils.navigateToFavorites(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(testPost),
             action = { composeTestRule ->
             // TC-302: Remove With Undo - ✅ IMPLEMENTED
             // Remove from favourites
@@ -128,6 +135,7 @@ class FavouritesInstrumentedTest : KoinComponent {
                 TestUtils.navigateToFavorites(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(testPost),
             action = { composeTestRule ->
             // TC-303: Remove Without Undo - ✅ IMPLEMENTED
             // Remove from favourites
@@ -160,6 +168,7 @@ class FavouritesInstrumentedTest : KoinComponent {
                 TestUtils.navigateToFavorites(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(testPost),
             action = { composeTestRule ->
             // TC-303A: Undo Works Independently in Feed and Favourites - ✅ IMPLEMENTED
             // Add a post to favourites

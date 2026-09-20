@@ -1,14 +1,13 @@
 package com.example.poster.model
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import java.time.Instant
 import java.util.UUID
 
 /** One person's report of one post, and the pile for whoever reads them. */
+// No default database, for the reason given on PostsLocalRepository.
 class ReportsRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) {
     private val queries = database.postReportQueries
 

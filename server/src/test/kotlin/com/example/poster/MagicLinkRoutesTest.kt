@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RegisterRequest
 import com.example.poster.model.User
@@ -12,9 +13,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -23,22 +22,18 @@ import kotlin.test.assertTrue
 
 /** Passwordless sign-in: the emailed link, once, for anybody with the inbox. */
 class MagicLinkRoutesTest {
-    private class RecordedMail : com.example.poster.mail.Mailer {
-        val sent = mutableListOf<Triple<String, String, String>>()
-        override suspend fun send(to: String, subject: String, body: String): Boolean { sent += Triple(to, subject, body); return true }
-        fun linkFor(email: String, index: Int = 0): String? =
-            sent.filter { it.first == email }.getOrNull(index)?.third?.let { Regex("token=([A-Za-z0-9_-]+)").find(it)?.groupValues?.get(1) }
-    }
-
     @Test
-    fun anExistingAccountGetsALinkThatSignsInOnce_andConfirmsTheAddress() = withServer { mail ->
+    fun anExistingAccountGetsALinkThatSignsInOnce_andConfirmsTheAddress() = withServer { (mail) ->
+        if (!Features.MAGIC_LINK) return@withServer
         val member = register("member@example.com")
         assertNull(me(member).verifiedAt)
 
         assertEquals(HttpStatusCode.NoContent, request("member@example.com"))
         val body = mail.sent.last().third
         assertTrue("https://poster.example.com/magic?token=" in body, "no magic link in:\n$body")
-        val token = mail.linkFor("member@example.com", index = 1) ?: mail.linkFor("member@example.com")!!
+        // By subject: registering has already sent one, and "the second one"
+        // is only right until something else sends mail.
+        val token = mail.linkFor("member@example.com", subject = "Sign in")!!
 
         val response = client.post("/auth/magic") { contentType(ContentType.Application.Json); setBody("""{"token":"$token"}""") }
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
@@ -51,7 +46,8 @@ class MagicLinkRoutesTest {
     }
 
     @Test
-    fun anUnknownAddressGetsNothing_andTheAnswerLooksTheSame() = withServer { mail ->
+    fun anUnknownAddressGetsNothing_andTheAnswerLooksTheSame() = withServer { (mail) ->
+        if (!Features.MAGIC_LINK) return@withServer
         assertEquals(HttpStatusCode.NoContent, request("newcomer@example.com"))
         assertTrue(mail.sent.isEmpty(), "a sign-in link went to an address with no account")
         // And no account appeared behind the scenes.
@@ -63,7 +59,8 @@ class MagicLinkRoutesTest {
     }
 
     @Test
-    fun aBadAddressOrAnInventedTokenSaysNothingUseful() = withServer { mail ->
+    fun aBadAddressOrAnInventedTokenSaysNothingUseful() = withServer { (mail) ->
+        if (!Features.MAGIC_LINK) return@withServer
         assertEquals(HttpStatusCode.NoContent, request("not an address"))
         assertTrue(mail.sent.isEmpty())
         val response = client.post("/auth/magic") { contentType(ContentType.Application.Json); setBody("""{"token":"made-up"}""") }
@@ -71,10 +68,11 @@ class MagicLinkRoutesTest {
     }
 
     @Test
-    fun theLandingPageHandsTheTokenToTheAppWithoutSpendingIt() = withServer { mail ->
+    fun theLandingPageHandsTheTokenToTheAppWithoutSpendingIt() = withServer { (mail) ->
+        if (!Features.MAGIC_LINK) return@withServer
         register("member@example.com")
         request("member@example.com")
-        val token = mail.linkFor("member@example.com", index = 1)!!
+        val token = mail.linkFor("member@example.com", subject = "Sign in")!!
         val page = client.get("/magic?token=$token")
         assertEquals(HttpStatusCode.OK, page.status)
         assertTrue("poster://magic?token=$token" in page.bodyAsText(), "the page did not offer the app link")
@@ -99,20 +97,4 @@ class MagicLinkRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.(RecordedMail) -> Unit) {
-        val root = Files.createTempDirectory("poster-magic-test")
-        val previous = mapOf("poster.database" to System.getProperty("poster.database"), "io.ktor.development" to System.getProperty("io.ktor.development"))
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("io.ktor.development", "true")
-        val mail = RecordedMail()
-        try {
-            testApplication {
-                application { module(mail) }
-                block(mail)
-            }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
 }

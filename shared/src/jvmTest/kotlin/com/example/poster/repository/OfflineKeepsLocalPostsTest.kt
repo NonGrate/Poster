@@ -4,18 +4,14 @@ import com.example.poster.cache.PostCache
 import com.example.poster.db.DatabaseDriverFactory
 import com.example.poster.db.DatabaseManager
 import com.example.poster.model.Post
-import com.example.poster.model.User
-import com.example.poster.network.PostApi
-import com.example.poster.network.UserApi
+import com.example.poster.testing.NoopPostApi
+import com.example.poster.testing.withTempDatabase
 import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
 import kotlinx.io.IOException
-import java.nio.file.Files
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -32,7 +28,6 @@ import kotlin.test.assertTrue
 class OfflineKeepsLocalPostsTest {
 
     private lateinit var store: PostLocalStore
-    private var previousPath: String? = null
 
     private val theirs = Post(
         guid = "theirs-1",
@@ -45,24 +40,14 @@ class OfflineKeepsLocalPostsTest {
     )
     private val mine = theirs.copy(guid = "mine-1", title = "My post", author = USER)
 
-    @BeforeTest
-    fun setUp() {
-        previousPath = System.getProperty("poster.database")
-        val file = Files.createTempFile("poster-offline", ".db").toFile()
-        file.delete()
-        file.deleteOnExit()
-        System.setProperty("poster.database", file.path)
+    /** A database of its own per test, put back afterwards. */
+    private fun withStore(block: suspend () -> Unit) = withTempDatabase {
         store = PostLocalStore(DatabaseManager(DatabaseDriverFactory()), dispatchers)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        previousPath?.let { System.setProperty("poster.database", it) }
-            ?: System.clearProperty("poster.database")
+        runBlocking { block() }
     }
 
     @Test
-    fun aFailedFeedRefreshLeavesTheFeedAlone() = runBlocking {
+    fun aFailedFeedRefreshLeavesTheFeedAlone() = withStore {
         store.replaceAll(listOf(theirs), viewer = USER)
 
         val result = offlineRepository().refreshPosts(USER)
@@ -72,7 +57,7 @@ class OfflineKeepsLocalPostsTest {
     }
 
     @Test
-    fun aFailedMyPostsRefreshLeavesMyPostsAlone() = runBlocking {
+    fun aFailedMyPostsRefreshLeavesMyPostsAlone() = withStore {
         store.replaceMine(USER, listOf(mine))
 
         val result = offlineRepository().refreshMyPosts(USER)
@@ -82,7 +67,7 @@ class OfflineKeepsLocalPostsTest {
     }
 
     @Test
-    fun aFailedFavoritesRefreshLeavesTheLikerListAlone() = runBlocking {
+    fun aFailedFavoritesRefreshLeavesTheLikerListAlone() = withStore {
         store.replaceAll(listOf(theirs), viewer = USER)
         store.addFavorite(USER, theirs.guid)
 
@@ -98,12 +83,11 @@ class OfflineKeepsLocalPostsTest {
      * back wrong, not that the world went quiet.
      */
     @Test
-    fun anEmptyFeedPageLeavesTheStoredFeedAlone() = runBlocking {
+    fun anEmptyFeedPageLeavesTheStoredFeedAlone() = withStore {
         store.replaceAll(listOf(theirs), viewer = USER)
 
         val result = PostRepository(
             postApi = OfflinePostApi(feedPage = emptyList()),
-            userApi = NoUserApi(),
             cache = PostCache(),
             dispatchers = dispatchers,
             localStore = store,
@@ -116,7 +100,7 @@ class OfflineKeepsLocalPostsTest {
 
     /** Reaching for an older page offline must not disturb the pages already here. */
     @Test
-    fun aFailedOlderPageLeavesWhatIsAlreadyHere() = runBlocking {
+    fun aFailedOlderPageLeavesWhatIsAlreadyHere() = withStore {
         store.replaceAll(listOf(theirs), viewer = USER)
 
         val result = offlineRepository().loadOlderPosts(theirs.date.toString(), theirs.guid)
@@ -127,7 +111,6 @@ class OfflineKeepsLocalPostsTest {
 
     private fun offlineRepository() = PostRepository(
         postApi = OfflinePostApi(),
-        userApi = NoUserApi(),
         cache = PostCache(),
         dispatchers = dispatchers,
         localStore = store,
@@ -138,7 +121,7 @@ class OfflineKeepsLocalPostsTest {
      * which returns [feedPage] when one is given, so an empty-but-successful
      * response can be exercised too.
      */
-    private class OfflinePostApi(private val feedPage: List<Post>? = null) : PostApi {
+    private class OfflinePostApi(private val feedPage: List<Post>? = null) : NoopPostApi() {
         private fun offline(): Nothing = throw IOException("no connection")
         override suspend fun getAllPosts(): List<Post> = offline()
         override suspend fun getMyPosts(): List<Post> = offline()
@@ -148,45 +131,17 @@ class OfflineKeepsLocalPostsTest {
             beforeGuid: String?,
             tags: List<String>,
             groups: List<String>,
-        query: String,
-        following: Boolean,
-        saved: Boolean,
+            query: String,
+            following: Boolean,
+            saved: Boolean,
         ): List<Post> = feedPage ?: offline()
 
         override suspend fun getFavoritePosts(): List<Post> = offline()
         override suspend fun removePost(post: Post) = offline()
         override suspend fun updatePost(post: Post) = offline()
         override suspend fun addPost(post: Post) = offline()
-        override suspend fun completePost(postId: String, message: String?) = offline()
-        override suspend fun reopenPost(postId: String) = offline()
-        override suspend fun isFavorite(userId: String, postId: String): Boolean = offline()
-        override suspend fun addFavorite(userId: String, postId: String) = offline()
-        override suspend fun removeFavorite(userId: String, postId: String) = offline()
     }
 
-    private class NoUserApi : UserApi {
-        override suspend fun getUserById(id: String): User? = null
-        override suspend fun updateUser(user: User) = Unit
-        override suspend fun logIn(user: String): User? = null
-        override suspend fun authenticateUser(email: String, password: String): User? = null
-        override suspend fun createUser(
-            name: String,
-            surname: String,
-            email: String,
-            password: String,
-            groupCode: String?,
-            languages: List<String>,
-            defaultLanguage: String?,
-            showName: Boolean,
-        ): User = error("not used")
-
-        override suspend fun verifyEmail(token: String): Boolean = false
-        override suspend fun resendVerification() = Unit
-        override suspend fun requestPasswordReset(email: String) = Unit
-        override suspend fun resetPassword(token: String, newPassword: String): Boolean = false
-        override suspend fun logout() = Unit
-        override suspend fun currentUser(): User? = null
-    }
 
     private companion object {
         const val USER = "AAA-AAA"

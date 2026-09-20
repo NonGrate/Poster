@@ -3,14 +3,12 @@ package com.example.poster.repository
 import com.example.poster.db.DatabaseDriverFactory
 import com.example.poster.db.DatabaseManager
 import com.example.poster.model.Post
+import com.example.poster.testing.withTempDatabase
 import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
-import java.nio.file.Files
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -25,7 +23,6 @@ import kotlin.test.assertEquals
 class PostLocalStoreFavoritesTest {
 
     private lateinit var store: PostLocalStore
-    private var previousPath: String? = null
 
     private val post = Post(
         guid = "post-1",
@@ -37,27 +34,17 @@ class PostLocalStoreFavoritesTest {
         date = LocalDateTime.parse("2026-08-19T10:00"),
     )
 
-    @BeforeTest
-    fun setUp() {
-        previousPath = System.getProperty("poster.database")
-        val file = Files.createTempFile("poster-favorites", ".db").toFile()
-        file.delete()
-        file.deleteOnExit()
-        System.setProperty("poster.database", file.path)
+    /** A database of its own per test, put back afterwards. */
+    private fun withStore(block: suspend () -> Unit) = withTempDatabase {
         store = PostLocalStore(
             databaseManager = DatabaseManager(DatabaseDriverFactory()),
             dispatchers = DispatcherProvider(main = Dispatchers.Unconfined, io = Dispatchers.Unconfined),
         )
-    }
-
-    @AfterTest
-    fun tearDown() {
-        previousPath?.let { System.setProperty("poster.database", it) }
-            ?: System.clearProperty("poster.database")
+        runBlocking { block() }
     }
 
     @Test
-    fun likingForSomethingCountsThisDeviceToo() = runBlocking {
+    fun likingForSomethingCountsThisDeviceToo() = withStore {
         store.replaceAll(listOf(post))
 
         store.addFavorite(USER, post.guid)
@@ -67,7 +54,7 @@ class PostLocalStoreFavoritesTest {
     }
 
     @Test
-    fun givingUpOnSomethingTakesThisDeviceBackOff() = runBlocking {
+    fun givingUpOnSomethingTakesThisDeviceBackOff() = withStore {
         store.replaceAll(listOf(post))
         store.addFavorite(USER, post.guid)
 
@@ -78,7 +65,7 @@ class PostLocalStoreFavoritesTest {
 
     /** A second tap on something already liked must not count twice. */
     @Test
-    fun likingTwiceCountsOnce() = runBlocking {
+    fun likingTwiceCountsOnce() = withStore {
         store.replaceAll(listOf(post))
 
         store.addFavorite(USER, post.guid)
@@ -89,7 +76,7 @@ class PostLocalStoreFavoritesTest {
 
     /** Nor may giving up twice take two off. */
     @Test
-    fun givingUpTwiceTakesOffOnce() = runBlocking {
+    fun givingUpTwiceTakesOffOnce() = withStore {
         store.replaceAll(listOf(post))
         store.addFavorite(USER, post.guid)
 
@@ -101,7 +88,7 @@ class PostLocalStoreFavoritesTest {
 
     /** Two people on one device is not a thing, but two ids in one table is. */
     @Test
-    fun anotherPersonLikedCountsSeparately() = runBlocking {
+    fun anotherPersonLikedCountsSeparately() = withStore {
         store.replaceAll(listOf(post))
 
         store.addFavorite(USER, post.guid)
@@ -112,7 +99,7 @@ class PostLocalStoreFavoritesTest {
 
     /** What the server says is the truth, and it overwrites whatever was counted here. */
     @Test
-    fun aRefreshOverwritesTheLocalCount() = runBlocking {
+    fun aRefreshOverwritesTheLocalCount() = withStore {
         store.replaceAll(listOf(post))
         store.addFavorite(USER, post.guid)
 
@@ -127,7 +114,7 @@ class PostLocalStoreFavoritesTest {
      * these rows, and one missing from there reads as the app having lost it.
      */
     @Test
-    fun aRefreshKeepsYourOwnPostsEvenWhenTheFeedDropsThem() = runBlocking {
+    fun aRefreshKeepsYourOwnPostsEvenWhenTheFeedDropsThem() = withStore {
         val mine = post.copy(guid = "mine-1", author = USER)
         store.replaceAll(listOf(post, mine), viewer = USER)
 
@@ -141,7 +128,7 @@ class PostLocalStoreFavoritesTest {
 
     /** Somebody else's old post is still swept: that is what the page is for. */
     @Test
-    fun aRefreshStillDropsOtherPeoplesOldPosts() = runBlocking {
+    fun aRefreshStillDropsOtherPeoplesOldPosts() = withStore {
         val theirs = post.copy(guid = "theirs-1")
         store.replaceAll(listOf(post, theirs), viewer = USER)
 
@@ -152,7 +139,7 @@ class PostLocalStoreFavoritesTest {
 
     /** Nobody signed in exempts nobody, or signing out would never clear anything. */
     @Test
-    fun withNobodySignedInEverythingIsStillSwept() = runBlocking {
+    fun withNobodySignedInEverythingIsStillSwept() = withStore {
         val mine = post.copy(guid = "mine-1", author = USER)
         store.replaceAll(listOf(post, mine))
 
@@ -162,7 +149,7 @@ class PostLocalStoreFavoritesTest {
     }
 
     @Test
-    fun yourOwnPostsAreReplacedByWhatTheServerSays() = runBlocking {
+    fun yourOwnPostsAreReplacedByWhatTheServerSays() = withStore {
         val kept = post.copy(guid = "mine-1", author = USER)
         val goneElsewhere = post.copy(guid = "mine-2", author = USER)
         store.replaceMine(USER, listOf(kept, goneElsewhere))
@@ -174,7 +161,7 @@ class PostLocalStoreFavoritesTest {
 
     /** Replacing yours must not touch anybody else's. */
     @Test
-    fun replacingYourOwnLeavesTheRestOfTheFeedAlone() = runBlocking {
+    fun replacingYourOwnLeavesTheRestOfTheFeedAlone() = withStore {
         val theirs = post.copy(guid = "theirs-1")
         store.replaceAll(listOf(theirs), viewer = USER)
 

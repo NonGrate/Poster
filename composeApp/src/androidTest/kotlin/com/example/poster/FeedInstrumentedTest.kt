@@ -25,7 +25,6 @@ class FeedInstrumentedTest {
         5,
         Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
         listOf("test", "feed"),
-        isFavorite = false
     )
 
     fun wrapped(action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit) {
@@ -36,6 +35,7 @@ class FeedInstrumentedTest {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(testPost),
             action = action
         )
     }
@@ -146,128 +146,4 @@ class FeedInstrumentedTest {
         )
     }
 
-    // Note: Filter tests are commented out as filtering UI is not yet implemented
-    // These will need to be uncommented when filter functionality is added to HomeScreen
-
-    /*
-    @Test
-    fun filterByOneTag() {
-        wrapped { composeTestRule ->
-            // TC-102: Filter by One Tag - ✅ IMPLEMENTED
-            composeTestRule.onNodeWithTag("filter_button").performClick()
-            composeTestRule.onNodeWithTag("tag_filter_section").assertExists()
-
-            // Select a specific tag
-            composeTestRule.onNodeWithTag("tag_filter_wellbeing").performClick()
-            composeTestRule.onNodeWithTag("apply_filters_button").performClick()
-
-            // Verify filtered results
-            composeTestRule.onNodeWithTag("active_filter_wellbeing").assertExists()
-        }
-    }
-
-    @Test
-    fun filterByMultipleTags() {
-        wrapped { composeTestRule ->
-            // TC-103: Filter by Multiple Tags - ✅ IMPLEMENTED
-            composeTestRule.onNodeWithTag("filter_button").performClick()
-
-            // Select multiple tags
-            composeTestRule.onNodeWithTag("tag_filter_wellbeing").performClick()
-            composeTestRule.onNodeWithTag("tag_filter_family").performClick()
-            composeTestRule.onNodeWithTag("apply_filters_button").performClick()
-
-            // Verify both filters are active
-            composeTestRule.onNodeWithTag("active_filter_wellbeing").assertExists()
-            composeTestRule.onNodeWithTag("active_filter_family").assertExists()
-        }
-    }
-
-    @Test
-    fun filterByOneGroup() {
-        wrapped { composeTestRule ->
-            // TC-104: Filter by One Group - ✅ IMPLEMENTED
-            composeTestRule.onNodeWithTag("filter_button").performClick()
-            composeTestRule.onNodeWithTag("group_filter_section").assertExists()
-
-            // Select a specific group
-            composeTestRule.onNodeWithTag("group_filter_group_a").performClick()
-            composeTestRule.onNodeWithTag("apply_filters_button").performClick()
-
-            // Verify group filter is active
-            composeTestRule.onNodeWithTag("active_filter_group_a").assertExists()
-        }
-    }
-
-    @Test
-    fun filterByMultipleGroups() {
-        wrapped { composeTestRule ->
-            // TC-105: Filter by Multiple Groups - ✅ IMPLEMENTED
-            composeTestRule.onNodeWithTag("filter_button").performClick()
-
-            // Select multiple groups
-            composeTestRule.onNodeWithTag("group_filter_group_a").performClick()
-            composeTestRule.onNodeWithTag("group_filter_group_b").performClick()
-            composeTestRule.onNodeWithTag("apply_filters_button").performClick()
-
-            // Verify both group filters are active
-            composeTestRule.onNodeWithTag("active_filter_group_a").assertExists()
-            composeTestRule.onNodeWithTag("active_filter_group_b").assertExists()
-        }
-    }
-
-    @Test
-    fun filterByAllMyGroups() {
-        wrapped { composeTestRule ->
-            // TC-106: Filter by "All My Groups" - ✅ IMPLEMENTED
-            composeTestRule.onNodeWithTag("filter_button").performClick()
-            composeTestRule.onNodeWithTag("all_my_groups_filter").performClick()
-            composeTestRule.onNodeWithTag("apply_filters_button").performClick()
-
-            // Verify all groups filter is active
-            composeTestRule.onNodeWithTag("active_filter_all_groups").assertExists()
-        }
-    }
-
-    @Test
-    fun postFavoriteCountIncrementsAcrossAccounts() {
-        wrapped { composeTestRule ->
-            // TC-108A: Post Favourite Count Increments Across Accounts - ✅ IMPLEMENTED
-            // Wait for post to appear
-            composeTestRule.waitUntil(timeoutMillis = 5000) {
-                composeTestRule.onAllNodesWithTag("post_card").fetchSemanticsNodes().isNotEmpty()
-            }
-
-            // Get initial favorite count
-            val initialCountText = composeTestRule
-                .onAllNodesWithTag("favorite_count", useUnmergedTree = true)
-                .onFirst()
-                .fetchSemanticsNode()
-                .config
-                .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)
-                ?.firstOrNull()
-                ?.text ?: "Post likes: 0"
-
-            val initialCount = initialCountText.substringAfter(": ").toIntOrNull() ?: 0
-
-            // Favorite the post
-            composeTestRule.onAllNodesWithTag("favorite_button").onFirst().performScrollTo().performClick()
-
-            // Wait and verify count increased
-            composeTestRule.waitUntil(timeoutMillis = 3000) {
-                val newCountText = composeTestRule
-                    .onAllNodesWithTag("favorite_count", useUnmergedTree = true)
-                    .onFirst()
-                    .fetchSemanticsNode()
-                    .config
-                    .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)
-                    ?.firstOrNull()
-                    ?.text ?: "Post likes: 0"
-
-                val newCount = newCountText.substringAfter(": ").toIntOrNull() ?: 0
-                newCount > initialCount
-            }
-        }
-    }
-    */
 }

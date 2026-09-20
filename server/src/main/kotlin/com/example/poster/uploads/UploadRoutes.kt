@@ -3,7 +3,7 @@ package com.example.poster.uploads
 import com.example.poster.authenticatedUserId
 import com.example.poster.config.Features
 import com.example.poster.domain.validation.ImageRules
-import com.example.poster.model.AccountLocalRepository
+import com.example.poster.model.AccountRepository
 import com.example.poster.model.ApiError
 import com.example.poster.model.PostsRepository
 import com.example.poster.model.UploadResponse
@@ -21,7 +21,6 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
-import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.getLastModifiedTime
 
@@ -41,7 +40,7 @@ import kotlin.io.path.getLastModifiedTime
 fun Route.uploadRoutes(
     store: UploadStore,
     posts: PostsRepository,
-    accounts: AccountLocalRepository,
+    accounts: AccountRepository,
 ) {
     route("/uploads") {
         post {

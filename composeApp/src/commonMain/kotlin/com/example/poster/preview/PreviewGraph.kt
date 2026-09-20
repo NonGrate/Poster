@@ -35,7 +35,6 @@ class PreviewGraph {
 
     val repository = PostRepository(
         postApi = postApi,
-        userApi = userApi,
         cache = PostCache(),
         dispatchers = dispatchers,
     )

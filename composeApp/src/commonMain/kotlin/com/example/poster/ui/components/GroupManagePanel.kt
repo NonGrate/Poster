@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.poster.model.GroupInvite
 import com.example.poster.model.GroupMember
 import com.example.poster.theme.Spacing
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import poster.composeapp.generated.resources.Res
 import poster.composeapp.generated.resources.group_invite_code_label
@@ -75,7 +76,7 @@ fun GroupManagePanel(
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         modifier = modifier.fillMaxWidth().padding(Spacing.md).testTag("group_manage_panel"),
     ) {
-            TagSectionLabel(stringResource(Res.string.group_members))
+            TagSectionLabel(pluralStringResource(Res.plurals.group_members, members.size, members.size))
 
             members.forEach { member ->
                 Row(

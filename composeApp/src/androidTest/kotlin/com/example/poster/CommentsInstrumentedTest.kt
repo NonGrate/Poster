@@ -15,11 +15,14 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.poster.config.Features
 import com.example.poster.model.Post
 import com.example.poster.util.TestUtils
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,6 +32,9 @@ import org.junit.runner.RunWith
 class CommentsInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithComments() = assumeTrue(Features.COMMENTS)
 
     private val post = Post(
         guid = "commented-post",
@@ -50,6 +56,7 @@ class CommentsInstrumentedTest {
                 TestUtils.performLogin(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = listOf(post),
         ) { rule ->
             TestUtils.navigateToHome(rule)
             TestUtils.awaitAnyTag(rule, "post_card")

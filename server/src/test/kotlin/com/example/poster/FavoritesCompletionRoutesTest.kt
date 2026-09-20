@@ -10,7 +10,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Post
 import com.example.poster.model.LikerList
@@ -20,7 +19,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -36,7 +34,8 @@ import kotlin.test.assertTrue
 class FavoritesCompletionRoutesTest {
 
     @Test
-    fun someoneLikedSeesThatItWasAnswered() = withServer { client ->
+    fun someoneLikedSeesThatItWasAnswered() = withServer {
+        if (!Features.LIKES || !Features.POST_COMPLETION) return@withServer
         val author = client.register("Author", "author@example.com")
         val postful = client.register("Postful", "postful@example.com")
 
@@ -82,7 +81,8 @@ class FavoritesCompletionRoutesTest {
     }
 
     @Test
-    fun deletingAPostRemovesItFromEveryonesLikerList() = withServer { client ->
+    fun deletingAPostRemovesItFromEveryonesLikerList() = withServer {
+        if (!Features.LIKES) return@withServer
         val author = client.register("Author", "author2@example.com")
         val postful = client.register("Postful", "postful2@example.com")
 
@@ -118,7 +118,8 @@ class FavoritesCompletionRoutesTest {
     }
 
     @Test
-    fun theRosterNamesOnlyThoseWhoOptedIn() = withServer { client ->
+    fun theRosterNamesOnlyThoseWhoOptedIn() = withServer {
+        if (!Features.LIKES) return@withServer
         val author = client.register("Author", "roster-author@example.com")
         val named = client.register("Named", "roster-named@example.com")
         val quiet = client.register("Quiet", "roster-quiet@example.com")
@@ -190,23 +191,32 @@ class FavoritesCompletionRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend (io.ktor.client.HttpClient) -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-fav").resolve("test.db")
-        val oldDevelopment = System.getProperty("io.ktor.development")
-        val oldDatabase = System.getProperty("poster.database")
-        System.setProperty("io.ktor.development", "true")
-        System.setProperty("poster.database", databasePath.toString())
-        try {
-            testApplication {
-                application { module() }
-                block(client)
-            }
-        } finally {
-            if (oldDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", oldDevelopment)
-            if (oldDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", oldDatabase)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
+    /** What the heart is drawn from, and it answers about you only. */
+    @Test
+    fun whetherYouLikedAPostIsReadable_andOnlyAboutYourself() = withServer {
+        if (!Features.LIKES) return@withServer
+        val author = confirmed("author@example.com")
+        val fan = confirmed("fan@example.com")
+        postPost(author, "p-1")
+        val token = fan.tokens.accessToken
+
+        assertEquals("false", check(fan.user.guid, token))
+        assertEquals(
+            HttpStatusCode.NoContent,
+            client.post("/favorites/${fan.user.guid}/p-1") { bearerAuth(token) }.status,
+        )
+        assertEquals("true", check(fan.user.guid, token))
+
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            client.get("/favorites/check/${author.user.guid}/p-1") { bearerAuth(token) }.status,
+            "somebody else's likes were readable",
+        )
+    }
+
+    private suspend fun io.ktor.server.testing.ApplicationTestBuilder.check(userId: String, token: String): String {
+        val response = client.get("/favorites/check/$userId/p-1") { bearerAuth(token) }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        return response.bodyAsText()
     }
 }

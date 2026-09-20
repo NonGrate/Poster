@@ -21,6 +21,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import com.example.poster.auth.Argon2PasswordHasher
+import com.example.poster.auth.AccountTokens
 import com.example.poster.auth.AuthConfig
 import com.example.poster.auth.AuthService
 import com.example.poster.auth.TokenService
@@ -66,6 +67,7 @@ class AuthRoutesTest {
             passwordHasher = Argon2PasswordHasher(),
             tokenService = tokenService,
             config = config,
+            tokens = AccountTokens(driver),
         )
 
         application {
@@ -169,6 +171,7 @@ class AuthRoutesTest {
             passwordHasher = Argon2PasswordHasher(),
             tokenService = tokenService,
             config = config,
+            tokens = AccountTokens(driver),
         )
         application {
             install(ContentNegotiation) { json() }

@@ -63,7 +63,6 @@
     <string name="groups_you_are_in">You are in</string>
     <string name="groups_none_owned">You have not made a group yet.</string>
     <string name="groups_none_joined">You have not joined a group yet.</string>
-    <string name="group_members">Members</string>
     <!-- On a group you are only a member of: whose room this is. -->
     <string name="group_owner_named">Looked after by %1$s</string>
     <string name="group_close">Close group</string>
@@ -358,10 +357,14 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="notification_comment">New comment on your post “%1$s”</string>
     <string name="notification_group_added">You were added to %1$s</string>
     <string name="notification_group_joined">Somebody joined %1$s</string>
+    <!-- A kind of activity this build of the app does not know about yet. -->
+    <string name="notification_other">Something happened on your posts</string>
     <string name="settings_notifications_title">Activity</string>
     <string name="settings_notifications">Activity</string>
     <string name="settings_notifications_body">Likes, comments and group news, on this device too.</string>
     <string name="notifications_open">Open activity</string>
+    <!-- Spoken when a notification row is tapped. -->
+    <string name="notification_open_post">Open the post</string>
     <!-- Passwordless sign-in (feature.magicLink) -->
     <string name="magic_link_title">Sign in with an emailed link</string>
     <string name="magic_link_body">We will email a link that signs you in on this device.</string>

@@ -1,9 +1,10 @@
 package com.example.poster.comments
 
 import com.example.poster.authenticatedUserId
+import com.example.poster.displayAuthor
 import com.example.poster.config.Features
 import com.example.poster.domain.validation.CommentRules
-import com.example.poster.model.AccountLocalRepository
+import com.example.poster.model.AccountRepository
 import com.example.poster.model.ApiError
 import com.example.poster.model.CommentRequest
 import com.example.poster.model.PostsRepository
@@ -25,7 +26,7 @@ import io.ktor.server.routing.route
 fun Route.commentRoutes(
     comments: CommentsRepository,
     posts: PostsRepository,
-    accounts: AccountLocalRepository,
+    accounts: AccountRepository,
     /** Called with the post and the commenter after a comment is stored; the notifier listens. */
     onCommented: (post: com.example.poster.model.Post, actor: String) -> Unit = { _, _ -> },
 ) {
@@ -86,9 +87,8 @@ fun Route.commentRoutes(
     }
 }
 
-private fun com.example.poster.model.Comment.withAuthor(accounts: AccountLocalRepository): com.example.poster.model.Comment {
-    if (!Features.AUTHORS) return this
-    val user = accounts.userById(author) ?: return this
-    return copy(authorName = "${user.name} ${user.surname}".trim(), authorPhoto = user.photo)
+private fun com.example.poster.model.Comment.withAuthor(accounts: AccountRepository): com.example.poster.model.Comment {
+    val (name, photo) = accounts.displayAuthor(author) ?: return this
+    return copy(authorName = name, authorPhoto = photo)
 }
 

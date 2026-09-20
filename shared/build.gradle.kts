@@ -32,6 +32,17 @@ val posterFeatureKeys = listOf(
     "images", "liquidDesign", "liquidNavBar", "comments", "pushNotifications", "magicLink", "authors", "publicGroups", "follows", "bookmarks", "drafts", "offlineOutbox", "desktop",
 )
 
+/**
+ * The flags a missing key leaves OFF, against the general rule below that a
+ * missing key means on. These three are opt-ins that change the shape of a
+ * build, and defaulting them on would add a desktop target and a different look
+ * to anyone who deleted the line.
+ *
+ * `desktop` is also read straight out of poster.properties by composeApp's
+ * build script, which decides whether to add the jvm("desktop") target at all.
+ */
+val posterOptInFeatures = setOf("desktop", "liquidDesign", "liquidNavBar")
+
 val posterColorRoles = listOf(
     "primary", "onPrimary", "primaryContainer", "onPrimaryContainer", "inversePrimary",
     "secondary", "onSecondary", "secondaryContainer", "onSecondaryContainer",
@@ -69,7 +80,8 @@ val generatePosterConfig by tasks.registering {
             appendLine("/** GENERATED from poster.properties — do not edit. Flip a flag there instead. */")
             appendLine("object Features {")
             posterFeatureKeys.forEach { key ->
-                val enabled = props.getProperty("feature.$key", "true").trim().toBoolean()
+                val default = if (key in posterOptInFeatures) "false" else "true"
+                val enabled = props.getProperty("feature.$key", default).trim().toBoolean()
                 appendLine("    const val ${key.toConstName()}: Boolean = $enabled")
             }
             appendLine("}")

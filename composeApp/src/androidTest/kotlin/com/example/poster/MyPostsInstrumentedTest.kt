@@ -32,10 +32,24 @@ class MyPostsInstrumentedTest : KoinComponent {
         1,
         Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
         emptyList(),
-        isFavorite = true
     )
 
-    fun wrapped(action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit) {
+    /** Somebody else's post, seeded by the one test that needs the feed busy. */
+    private val elsewhere = Post(
+        guid = "held-back-feed-post",
+        title = "Arrived from elsewhere",
+        message = "…",
+        author = "user2@example.com",
+        group = null,
+        likes = 0,
+        date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
+        tags = emptyList(),
+    )
+
+    fun wrapped(
+        seeded: List<Post> = emptyList(),
+        action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit,
+    ) {
         TestUtils.runWrapped(
             composeTestRule,
             before = {
@@ -43,6 +57,7 @@ class MyPostsInstrumentedTest : KoinComponent {
                 TestUtils.navigateToMyPosts(it)
             },
             after = { TestUtils.performLogout(it) },
+            seeded = seeded,
             action = action
         )
     }
@@ -238,7 +253,7 @@ class MyPostsInstrumentedTest : KoinComponent {
      */
     @Test
     fun myPostsAreNotHeldBackByTheFeedsButton() {
-        wrapped { composeTestRule ->
+        wrapped(seeded = listOf(elsewhere)) { composeTestRule ->
             composeTestRule.onNodeWithTag("create_post_fab").performClick()
             composeTestRule.onNodeWithTag("post_title_field").performTextInput("Mine to see")
             composeTestRule.onNodeWithTag("post_message_field").performTextInput("Please like")
@@ -247,21 +262,7 @@ class MyPostsInstrumentedTest : KoinComponent {
             TestUtils.awaitTag(composeTestRule, "my_post_card")
 
             // Someone else posts, which is what puts the feed behind its button.
-            runBlocking {
-                TestUtils.seedPostAsSecondUser(
-                    Post(
-                        guid = "held-back-feed-post",
-                        title = "Arrived from elsewhere",
-                        message = "…",
-                        author = "user2@example.com",
-                        group = null,
-                        likes = 0,
-                        date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
-                        tags = emptyList(),
-                        isFavorite = false,
-                    )
-                )
-            }
+            runBlocking { TestUtils.seedPostAsSecondUser(elsewhere) }
             TestUtils.navigateToHome(composeTestRule)
             TestUtils.navigateToMyPosts(composeTestRule)
 

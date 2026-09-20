@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -13,7 +14,10 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import com.example.poster.admin.AdminConfig
 import com.example.poster.admin.adminRoutes
-import com.example.poster.admin.bootstrapAdmin
+import com.example.poster.auth.AttemptThrottle
+import com.example.poster.comments.CommentsRepository
+import com.example.poster.model.EventRepository
+import com.example.poster.model.FeedbackRepository
 import com.example.poster.admin.configureAdminSessions
 import com.example.poster.auth.Argon2PasswordHasher
 import com.example.poster.model.AccountLocalRepository
@@ -169,8 +173,12 @@ class AdminRoutesTest {
                 adminRoutes(
                     accounts, moderation, hasher, groups, TagLocalRepository(database), memberships,
                     revokeSessions = { revoked += it },
+                    throttle = AttemptThrottle(),
                     crashes = crashes,
                     reports = reports,
+                    feedback = FeedbackRepository(database),
+                    events = EventRepository(driver),
+                    comments = CommentsRepository(database),
                 )
             }
         }
@@ -259,6 +267,7 @@ class AdminRoutesTest {
 
     @Test
     fun theReportsPageLinksHideToTheRealPostId() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.REPORTS) return@ApplicationTestBuilderScope
         // The Hide and Dismiss forms were built with the wrong dollar escape, so
         // their action was the literal "/admin/reports/${item.postId}/hide":
         // the id never interpolated, the route matched nothing, and Hide did
@@ -289,6 +298,7 @@ class AdminRoutesTest {
 
     @Test
     fun anonymousCannotReachGroupManagement() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.GROUPS) return@ApplicationTestBuilderScope
         val client = ctx.app.createClient { followRedirects = false }
         val response = client.get("/admin/groups")
         assertEquals(HttpStatusCode.Found, response.status)
@@ -536,6 +546,7 @@ class AdminRoutesTest {
      */
     @Test
     fun theTagsPageSaysHowManyPostsCarryEachTag() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.newDetailedPost(
             "p-1", "One", "words", PostVisibility.PUBLIC, null, listOf("wellbeing", "advice"),
@@ -569,6 +580,7 @@ class AdminRoutesTest {
      */
     @Test
     fun theTagsPageNamesThePostsCarryingAnUnfiledTag() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         // wellbeing is curated and filed; trevoga is neither.
         ctx.newDetailedPost(
@@ -602,6 +614,7 @@ class AdminRoutesTest {
      */
     @Test
     fun deletingUnfiledTagsLeavesTheFiledOnesAlone() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.newDetailedPost(
             "p-1", "A post", "words", PostVisibility.PUBLIC, null,
@@ -625,6 +638,7 @@ class AdminRoutesTest {
     /** And the post keeps the tag that survived. */
     @Test
     fun aPostKeepsItsFiledTagAfterTheTidyUp() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.newDetailedPost(
             "p-1", "A post", "words", PostVisibility.PUBLIC, null, listOf("wellbeing", "trevoga"),
@@ -649,6 +663,7 @@ class AdminRoutesTest {
      */
     @Test
     fun theWrongCountDeletesNothing() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.newDetailedPost(
             "p-1", "A post", "words", PostVisibility.PUBLIC, null, listOf("trevoga", "rest"),
@@ -668,6 +683,7 @@ class AdminRoutesTest {
 
     @Test
     fun theTidyUpWithoutCsrfIsRejected() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.TAGS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.newDetailedPost("p-1", "A post", "words", PostVisibility.PUBLIC, null, listOf("trevoga"))
         val client = ctx.app.createClient { followRedirects = false }
@@ -736,6 +752,7 @@ class AdminRoutesTest {
      */
     @Test
     fun theCrashesPageShowsWhatTheAppsReported() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.CRASH_REPORTS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.crashes.record(
             CrashReport(
@@ -762,6 +779,7 @@ class AdminRoutesTest {
 
     @Test
     fun theCrashesPageIsNotForOrdinaryPeople() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.CRASH_REPORTS) return@ApplicationTestBuilderScope
         val client = ctx.app.createClient { followRedirects = false }
 
         val response = client.get("/admin/crashes")
@@ -842,6 +860,7 @@ class AdminRoutesTest {
      */
     @Test
     fun renamingKeepsTheOwnerAndTheInviteCode() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.GROUPS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         val owner = ctx.newUser("owner@example.com", User.ROLE_USER, User.STATUS_ACTIVE)
         ctx.groups.addOrUpdateGroup(
@@ -865,6 +884,7 @@ class AdminRoutesTest {
 
     @Test
     fun renamingToABlankNameIsRefused() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.GROUPS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.groups.addOrUpdateGroup(Group("c-1", "Keep me", "INVITE", owner = null))
         val client = ctx.app.createClient { followRedirects = false }
@@ -902,6 +922,7 @@ class AdminRoutesTest {
      */
     @Test
     fun theListSaysWhoCreatedEachGroup() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.GROUPS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         val owner = ctx.newUser("owner@example.com", User.ROLE_USER, User.STATUS_ACTIVE)
         ctx.groups.addOrUpdateGroup(Group("c-1", "Theirs", "AAAAAAAA", owner = owner.guid))
@@ -919,6 +940,7 @@ class AdminRoutesTest {
 
     @Test
     fun theListCountsThePostsInEachGroup() = ApplicationTestBuilderScope { ctx ->
+        if (!Features.GROUPS) return@ApplicationTestBuilderScope
         ctx.newUser("admin@example.com", User.ROLE_ADMIN, User.STATUS_ACTIVE)
         ctx.groups.addOrUpdateGroup(Group("c-1", "Busy", "AAAAAAAA", owner = null))
         val client = ctx.app.createClient { followRedirects = false }

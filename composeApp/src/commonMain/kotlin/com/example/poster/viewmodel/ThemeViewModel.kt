@@ -41,10 +41,6 @@ class ThemeViewModel(
         }
     }
 
-    fun toggleDarkTheme() {
-        setDarkTheme(!darkThemeEnabled)
-    }
-
     fun setDarkTheme(enabled: Boolean) {
         appPreferences.setDarkTheme(enabled)
     }

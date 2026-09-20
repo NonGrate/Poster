@@ -32,6 +32,7 @@ import com.example.poster.domain.validation.CommentRules
 import com.example.poster.model.Comment
 import com.example.poster.theme.Spacing
 import com.example.poster.ui.platform.AdaptiveTextField
+import com.example.poster.viewmodel.AccountViewModel
 import com.example.poster.viewmodel.CommentsViewModel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -63,6 +64,7 @@ fun CommentsSection(
     isPostAuthor: Boolean,
     modifier: Modifier = Modifier,
     viewModel: CommentsViewModel = koinInject(),
+    accountViewModel: AccountViewModel = koinInject(),
 ) {
     val items by viewModel.items.collectAsState()
     val sending by viewModel.sending.collectAsState()
@@ -70,6 +72,17 @@ fun CommentsSection(
     var draft by remember(postGuid) { mutableStateOf("") }
     var failed by remember(postGuid) { mutableStateOf(false) }
     LaunchedEffect(postGuid) { viewModel.load(postGuid) }
+
+    // The comment was declined for want of a confirmed address. The same dialog
+    // the post form gets, at the same moment: the refusal is when the sentence
+    // "confirm your email" answers a question somebody is actually asking.
+    val needsVerifiedEmail by viewModel.needsVerifiedEmail.collectAsState()
+    if (needsVerifiedEmail) {
+        VerifyEmailDialog(
+            onDismiss = { viewModel.acknowledgeVerification() },
+            accountViewModel = accountViewModel,
+        )
+    }
 
     val tooLong = CommentRules.tooLong(draft)
     val canSend = CommentRules.textValid(draft) && !sending

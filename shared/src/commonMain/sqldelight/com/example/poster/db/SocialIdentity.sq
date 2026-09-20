@@ -30,13 +30,6 @@ linkIdentity:
 INSERT OR REPLACE INTO SocialIdentity(provider, subject, user_id, email, linked_at)
 VALUES (?, ?, ?, ?, ?);
 
-identitiesFor:
-SELECT * FROM SocialIdentity WHERE user_id = ?;
-
-unlinkIdentity:
-DELETE FROM SocialIdentity WHERE provider = ? AND subject = ?;
-
--- The providers that could sign them back in.
 deleteIdentitiesOfUser:
 DELETE FROM SocialIdentity WHERE user_id = ?;
 

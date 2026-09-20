@@ -1,13 +1,11 @@
 package com.example.poster.model
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
 
 // Takes the database rather than opening its own, matching AccountLocalRepository:
 // a test can then hand it an in-memory one instead of the real file.
 class GroupLocalRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) : GroupRepository {
     private val groupQueries = database.groupQueries
     private val postQueries = database.postQueries

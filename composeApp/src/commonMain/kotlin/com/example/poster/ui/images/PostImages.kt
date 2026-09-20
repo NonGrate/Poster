@@ -34,19 +34,24 @@ import poster.composeapp.generated.resources.post_image
  * HTTP cache plugin would be the cheap upgrade.
  */
 class PostImageLoader(private val api: PostApi) {
-    private val cache = LinkedHashMap<String, ImageBitmap>()
+    // Swapped whole under the lock rather than mutated in place: [cached] is
+    // read from composition on the main thread while a load finishes on
+    // another, and the old LinkedHashMap could be rehashing under that read.
+    // Insertion order survives Map.plus, so the oldest entry is still the
+    // first key.
+    private var cache: Map<String, ImageBitmap> = emptyMap()
     private val lock = Mutex()
 
     fun cached(id: String?): ImageBitmap? = id?.let { cache[it] }
 
     suspend fun load(id: String): ImageBitmap? {
-        cache[id]?.let { return it }
+        lock.withLock { cache[id] }?.let { return it }
         val bitmap = withContext(Dispatchers.Default) {
             runCatching { api.fetchImage(id)?.decodeToImageBitmap() }.getOrNull()
         } ?: return null
         lock.withLock {
-            cache[id] = bitmap
-            while (cache.size > MAX_CACHED) cache.remove(cache.keys.first())
+            val next = cache + (id to bitmap)
+            cache = if (next.size > MAX_CACHED) next - next.keys.first() else next
         }
         return bitmap
     }

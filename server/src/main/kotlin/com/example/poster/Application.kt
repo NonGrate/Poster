@@ -1,7 +1,5 @@
 package com.example.poster
 
-import com.example.poster.model.BookmarksLocalRepository
-import com.example.poster.model.FollowsLocalRepository
 import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
@@ -46,8 +44,6 @@ import com.example.poster.admin.adminRoutes
 import com.example.poster.admin.bootstrapAdmin
 import com.example.poster.admin.configureAdminSessions
 import com.example.poster.auth.configureBearerAuthentication
-import com.example.poster.model.CompletePostRequest
-import com.example.poster.model.ModerationRepository
 import com.example.poster.model.*
 import com.example.poster.config.Features
 import com.example.poster.domain.validation.ImageRules
@@ -62,7 +58,6 @@ import com.example.poster.push.deviceWithdrawalRoute
 import com.example.poster.push.notificationRoutes
 import com.example.poster.uploads.uploadRoutes
 import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import kotlinx.serialization.json.Json
 
 
@@ -120,13 +115,17 @@ fun Application.module(
         }
     }
 
-    val database = DatabaseManager(DatabaseDriverFactory()).getDatabase()
-    val tagRepository = TagLocalRepository()
+    // One database for the whole server: one connection, one migration run, and
+    // no two repositories queueing behind each other for the write lock. Every
+    // repository below is handed it rather than opening its own.
+    val driver = DatabaseDriverFactory().createDriver()
+    val database = PostDatabase(driver)
+    val tagRepository = TagLocalRepository(database)
     // The starting set, once. Anything already there is left alone, so labels
     // corrected in the panel are not overwritten by a deploy — and a new tag
     // does not need a deploy at all.
     tagRepository.seedCuratedTags()
-    val postsRepository = PostsLocalRepository(tagRepository)
+    val postsRepository = PostsLocalRepository(database, tagRepository)
     // Null when images are off: no directory is created and every image id
     // arriving in a post is dropped.
     val uploadStore = if (Features.IMAGES) UploadStore.fromEnvironment() else null
@@ -139,10 +138,10 @@ fun Application.module(
         uploadStore.sweepOrphans(UploadStore.PENDING_GRACE) { it in inUse }
     }
     val accountRepository = AccountLocalRepository(database)
-    val favoritesRepository = FavoritesLocalRepository()
-    val followsRepository = FollowsLocalRepository()
-    val bookmarksRepository = BookmarksLocalRepository()
-    val groupRepository = GroupLocalRepository()
+    val favoritesRepository = FavoritesLocalRepository(database, tagRepository)
+    val followsRepository = FollowsLocalRepository(database)
+    val bookmarksRepository = BookmarksLocalRepository(database)
+    val groupRepository = GroupLocalRepository(database)
     val userGroupRepository = UserGroupLocalRepository(database)
     val developmentMode = System.getProperty("io.ktor.development").toBoolean()
     val fixturesEnabled = System.getenv("POSTER_FIXTURES_ENABLED")?.toBooleanStrictOrNull()
@@ -156,7 +155,10 @@ fun Application.module(
             },
     )
     val passwordHasher = Argon2PasswordHasher()
-    val accountTokens = AccountTokens()
+    val accountTokens = AccountTokens(driver)
+    // Once per start, like the upload sweep above: nothing reads an expired
+    // token, but until now nothing removed them either.
+    accountTokens.forgetExpired()
     val accountMail = AccountMail(mailer = mailer, tokens = accountTokens)
     val groupMail = GroupMail(mailer = mailer)
     // Google sign-in, when this deployment was given a client id. Absent is an
@@ -164,7 +166,7 @@ fun Application.module(
     // hides the button, the same way billing does without a key.
     val googleClientId = googleClientIdOverride ?: System.getenv("POSTER_GOOGLE_CLIENT_ID").orEmpty()
     val socialVerifiers = verifiers ?: buildList {
-        if (googleClientId.isNotBlank()) {
+        if (Features.GOOGLE_SIGN_IN && googleClientId.isNotBlank()) {
             log.info("google sign-in: enabled")
             add(GoogleVerifier(googleClientId, GoogleVerifier.googleKeys()))
         } else {
@@ -180,7 +182,7 @@ fun Application.module(
             System.getenv("POSTER_APPLE_BUNDLE_ID").orEmpty(),
             System.getenv("POSTER_APPLE_SERVICE_ID").orEmpty(),
         ).filter { it.isNotBlank() }
-        if (appleAudiences.isNotEmpty()) {
+        if (Features.APPLE_SIGN_IN && appleAudiences.isNotEmpty()) {
             log.info("apple sign-in: enabled (${appleAudiences.size} audience(s))")
             add(AppleVerifier(appleAudiences.joinToString(","), AppleVerifier.appleKeys()))
         } else {
@@ -204,7 +206,7 @@ fun Application.module(
     // never exposed by accident on an environment that does not need it.
     val adminConfig = AdminConfig()
     val moderationRepository = ModerationRepository(database)
-    val crashRepository = CrashRepository()
+    val crashRepository = CrashRepository(driver)
     val reportsRepository = ReportsRepository(database)
     val feedbackRepository = FeedbackRepository(database)
     val commentsRepository = CommentsRepository(database)
@@ -215,7 +217,7 @@ fun Application.module(
     } else {
         null
     }
-    val eventRepository = EventRepository()
+    val eventRepository = EventRepository(driver)
     // Operator alerts to Telegram. Not configured on staging or in tests, where
     // it prints instead. Fired and forgotten so a Telegram outage never fails or
     // slows the request that triggered it.
@@ -233,6 +235,14 @@ fun Application.module(
         log.info("admin panel: disabled (set POSTER_ADMIN_ENABLED=true to enable)")
     }
 
+    // One throttle for the API login, the web delete-account page and the
+    // admin panel: all three check the same password, so a separate allowance
+    // on any of them would simply be the way around the others.
+    val credentialThrottle = AttemptThrottle()
+    // Registering gets its own. Sharing the login's would let somebody lock a
+    // person out of signing in by registering at their address five times.
+    val registerThrottle = AttemptThrottle()
+
     routing {
         landingPage()
         privacyPage()
@@ -249,6 +259,7 @@ fun Application.module(
                 tagRepository,
                 userGroupRepository,
                 revokeSessions = authService::revokeAll,
+                throttle = credentialThrottle,
                 crashes = crashRepository,
                 reports = reportsRepository,
                 feedback = feedbackRepository,
@@ -329,10 +340,7 @@ fun Application.module(
             }
         }
 
-        // One throttle for both, because both check the same password: a
-        // separate allowance on the web page would be the way around the API's.
-        val credentialThrottle = AttemptThrottle()
-        authRoutes(authService, accountMail, accountRepository, socialVerifiers, credentialThrottle)
+        authRoutes(authService, accountMail, accountRepository, socialVerifiers, credentialThrottle, registerThrottle)
         // Where the links in those emails land.
         accountPages(
             authService,
@@ -485,15 +493,9 @@ fun Application.module(
         }
 
         route("/posts") {
-            // `likes` is never written to the post row — the favorites table is the
-            // source of truth, so fill it in on the way out.
             if (Features.COMMENTS) {
                 commentRoutes(commentsRepository, postsRepository, accountRepository) { post, actor -> notifier?.commented(post, actor) }
             }
-            fun Post.withLikeCount() = copy(
-                likes = favoritesRepository.countPostFavorites(guid).toInt(),
-                comments = if (Features.COMMENTS) commentsRepository.countFor(guid) else 0,
-            ).withAuthor(accountRepository)
 
             get {
                 // The feed obeys the languages this person reads. Their own
@@ -550,11 +552,12 @@ fun Application.module(
                     .filter { it.isNotEmpty() }
                 val query = call.request.queryParameters["q"].orEmpty()
                 // Only people the reader follows. Signed out there is nobody to follow.
-                val following = Features.FOLLOWS && call.request.queryParameters["following"] == "true"
+                val following = Features.FOLLOWS && Features.AUTHORS &&
+                    call.request.queryParameters["following"] == "true"
                 val saved = Features.BOOKMARKS && call.request.queryParameters["saved"] == "true"
                 val posts = postsRepository
                     .visiblePosts(viewer, languages, limit, before, tags, groups, query, following, saved)
-                    .map { it.withLikeCount() }
+                    .map { it.withLikeCount(favoritesRepository, commentsRepository, accountRepository) }
                 call.respond(posts)
             }
             // Your own posts, all of them. The feed is a page and yours can
@@ -562,11 +565,7 @@ fun Application.module(
             // thrown one away.
             get("/mine") {
                 val viewer = call.authenticatedUserId()
-                if (viewer == null) {
-                    call.respond(HttpStatusCode.Unauthorized)
-                    return@get
-                }
-                call.respond(postsRepository.postsByAuthor(viewer).map { it.withLikeCount() })
+                call.respond(postsRepository.postsByAuthor(viewer).map { it.withLikeCount(favoritesRepository, commentsRepository, accountRepository) })
             }
             get("/byId/{taskId}") {
                 val guid = call.parameters["taskId"]
@@ -583,7 +582,7 @@ fun Application.module(
                     call.respond(HttpStatusCode.NotFound)
                     return@get
                 }
-                call.respond(post.withLikeCount())
+                call.respond(post.withLikeCount(favoritesRepository, commentsRepository, accountRepository))
             }
             post {
                 try {
@@ -614,6 +613,31 @@ fun Application.module(
                         call.respond(HttpStatusCode.Forbidden)
                         return@post
                     }
+                    // Visibility decides who ever sees this, so it is checked
+                    // rather than stored as sent: an unknown value matches no
+                    // clause in the feed's WHERE and the post goes nowhere.
+                    if (post.visibility !in POST_VISIBILITIES) {
+                        call.respond(HttpStatusCode.BadRequest, ApiError("Unknown visibility"))
+                        return@post
+                    }
+                    // With the feature off there is one kind of post.
+                    val visibility =
+                        if (Features.POST_VISIBILITY) post.visibility else PostVisibility.PUBLIC
+                    // A group post goes into a room the writer is in. Without
+                    // this, naming any group id drops a post in front of every
+                    // one of its members — the feed serves it on membership
+                    // alone and never asks whether the author belongs there.
+                    if (visibility == PostVisibility.GROUP) {
+                        val room = post.group
+                        if (room == null) {
+                            call.respond(HttpStatusCode.BadRequest, ApiError("A group post needs a group"))
+                            return@post
+                        }
+                        if (!userGroupRepository.isMember(currentUserId, room)) {
+                            call.respond(HttpStatusCode.Forbidden, ApiError("You are not in that group"))
+                            return@post
+                        }
+                    }
                     // The form counts to the same number, but a form is not a
                     // boundary: anything can post here, and a post nobody can
                     // read past is the thing being prevented.
@@ -629,7 +653,16 @@ fun Application.module(
                     // An image must be one this server stored; a made-up id
                     // would be a post pointing at nothing, or at somebody else's
                     // image. With images off the field is simply dropped.
-                    val saved = if (uploadStore == null) post.copy(image = null) else post
+                    // `likes` and `comments` are counted from their own tables
+                    // on the way out, so what the body says about them is
+                    // dropped rather than written: otherwise a writer sets
+                    // their own like count. An existing row keeps its number.
+                    val saved = post.copy(
+                        visibility = visibility,
+                        image = if (uploadStore == null) null else post.image,
+                        likes = existingPost?.likes ?: 0,
+                        comments = 0,
+                    )
                     val image = saved.image
                     if (image != null && (!ImageRules.isValidId(image) || uploadStore?.file(image) == null)) {
                         call.respond(HttpStatusCode.BadRequest, ApiError("Unknown image"))
@@ -708,9 +741,7 @@ fun Application.module(
                     call.respond(HttpStatusCode.NotFound)
                     return@post
                 }
-                // "public" is PostVisibility.PUBLIC; compared as a literal to
-                // avoid an import for one use.
-                if (post.visibility != "public") {
+                if (post.visibility != PostVisibility.PUBLIC) {
                     call.respond(
                         HttpStatusCode.BadRequest,
                         ApiError("Only public posts can be shared"),
@@ -726,7 +757,7 @@ fun Application.module(
             /**
              * "This should not be here."
              *
-             * Recorded, not acted on. In a family app the usual reason a
+             * Recorded, not acted on. In a small community app the usual reason a
              * post looks wrong is that somebody misread it, and hiding
              * something because one reader pressed a button would be a way to
              * silence the person it was written about.
@@ -843,7 +874,7 @@ fun Application.module(
                     val languages = user.languages.filter(Language::isKnown).distinct()
                         .ifEmpty { currentUser.languages }
                     // An avatar is an upload id this server stored (feature.authors + images).
-                    val photo = user.photo?.takeIf { Features.AUTHORS }
+                    val photo = user.photo?.takeIf { Features.AUTHORS && Features.IMAGES }
                     if (photo != null && (!ImageRules.isValidId(photo) || uploadStore?.file(photo) == null)) {
                         call.respond(HttpStatusCode.BadRequest, ApiError("Unknown picture"))
                         return@post
@@ -913,7 +944,7 @@ fun Application.module(
             }
         }
 
-        if (Features.FOLLOWS) route("/follows") {
+        if (Features.FOLLOWS && Features.AUTHORS) route("/follows") {
             // The ids this reader follows; the app matches them against post authors.
             get { call.respond(followsRepository.following(call.authenticatedUserId())) }
             post("/{userId}") {
@@ -933,15 +964,9 @@ fun Application.module(
         }
 
         if (Features.LIKES) route("/favorites") {
-            // Same as /posts: the stored `likes` column is meaningless, fill it from the table.
-            fun Post.withLikeCount() = copy(
-                likes = favoritesRepository.countPostFavorites(guid).toInt(),
-                comments = if (Features.COMMENTS) commentsRepository.countFor(guid) else 0,
-            ).withAuthor(accountRepository)
-
             get("/me") {
                 val posts = favoritesRepository.getUserFavoritePosts(call.authenticatedUserId())
-                call.respond(posts.map { it.withLikeCount() })
+                call.respond(posts.map { it.withLikeCount(favoritesRepository, commentsRepository, accountRepository) })
             }
             get("/user/{userId}") {
                 val userId = call.parameters["userId"]
@@ -954,7 +979,7 @@ fun Application.module(
                     return@get
                 }
                 val posts = favoritesRepository.getUserFavoritePosts(userId)
-                call.respond(posts.map { it.withLikeCount() })
+                call.respond(posts.map { it.withLikeCount(favoritesRepository, commentsRepository, accountRepository) })
             }
             get("/check/{userId}/{postId}") {
                 val userId = call.parameters["userId"]
@@ -965,6 +990,12 @@ fun Application.module(
                 }
                 if (userId != call.authenticatedUserId()) {
                     call.respond(HttpStatusCode.Forbidden)
+                    return@get
+                }
+                // Asking about a post you cannot see reads as not-found,
+                // the same as fetching it — see /bookmarks.
+                if (postsRepository.visiblePostById(userId, postId) == null) {
+                    call.respond(HttpStatusCode.NotFound)
                     return@get
                 }
                 val isFavorite = favoritesRepository.isPostFavorite(userId, postId)
@@ -981,6 +1012,10 @@ fun Application.module(
                     call.respond(HttpStatusCode.Forbidden)
                     return@post
                 }
+                if (postsRepository.visiblePostById(userId, postId) == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@post
+                }
                 favoritesRepository.addFavoritePost(userId, postId)
                 postsRepository.postById(postId)?.let { notifier?.liked(it, userId) }
                 call.respond(HttpStatusCode.NoContent)
@@ -994,6 +1029,10 @@ fun Application.module(
                 }
                 if (userId != call.authenticatedUserId()) {
                     call.respond(HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                if (postsRepository.visiblePostById(userId, postId) == null) {
+                    call.respond(HttpStatusCode.NotFound)
                     return@delete
                 }
                 if (favoritesRepository.removeFavoritePost(userId, postId)) {
@@ -1012,6 +1051,10 @@ fun Application.module(
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
+                if (postsRepository.visiblePostById(call.authenticatedUserId(), postId) == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@get
+                }
                 val count = favoritesRepository.countPostFavorites(postId)
                 call.respond(count)
             }
@@ -1026,6 +1069,10 @@ fun Application.module(
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
+                if (postsRepository.visiblePostById(call.authenticatedUserId(), postId) == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@get
+                }
                 call.respond(favoritesRepository.likers(postId))
             }
         }
@@ -1038,14 +1085,20 @@ fun Application.module(
                 groupRepository.groupById(id)?.owner == callerId ||
                     userGroupRepository.roleOf(callerId, id) == "admin"
 
-            // Groups CRUD
-            get {
-                val groups = groupRepository.allGroups()
-                call.respond(groups)
-            }
+            // The invite code is the whole of the security on an invite-only
+            // group, so it travels only to the people who may hand it out.
+            // The app never reads it from these responses; the admins' panel
+            // gets its codes from /{id}/invites.
+            fun Group.forCaller(callerId: String): Group =
+                if (canManage(id, callerId)) this else copy(inviteCode = "")
+
+            // Listing every group was here, and it answered any signed-in
+            // caller with every group's invite code — which is the whole of
+            // the security on a group. Nothing in the app asked for it.
             // feature.publicGroups: what anybody may browse and join without an invite.
             if (Features.PUBLIC_GROUPS) get("/public") {
-                call.respond(groupRepository.publicGroups())
+                val me = call.authenticatedUserId()
+                call.respond(groupRepository.publicGroups().map { it.forCaller(me) })
             }
             if (Features.PUBLIC_GROUPS) post("/{id}/visibility") {
                 val id = call.parameters["id"].orEmpty()
@@ -1054,10 +1107,9 @@ fun Application.module(
                     call.respond(HttpStatusCode.BadRequest, ApiError("visibility is public or private"))
                     return@post
                 }
-                if (groupRepository.groupById(id) == null) {
-                    call.respond(HttpStatusCode.NotFound)
-                    return@post
-                }
+                // Authorisation before existence, like /{id}/members: a
+                // different answer for a group that is not the caller's and one
+                // that is not there tells them which group ids are real.
                 if (!canManage(id, call.authenticatedUserId())) {
                     call.respond(HttpStatusCode.Forbidden)
                     return@post
@@ -1075,7 +1127,7 @@ fun Application.module(
                 if (group == null) {
                     call.respond(HttpStatusCode.NotFound)
                 } else {
-                    call.respond(group)
+                    call.respond(group.forCaller(call.authenticatedUserId()))
                 }
             }
             get("/byInvite/{inviteCode}") {
@@ -1194,13 +1246,16 @@ fun Application.module(
                 val userId = call.authenticatedUserId()
                 val id = call.parameters["id"].orEmpty()
                 val memberId = call.parameters["memberId"].orEmpty()
+                // Authorisation before existence, like /{id}/members: a
+                // different answer for a group that is not the caller's and one
+                // that is not there tells them which group ids are real.
+                if (!canManage(id, userId)) {
+                    call.respond(HttpStatusCode.Forbidden, "Only an owner or admin can remove somebody")
+                    return@delete
+                }
                 val group = groupRepository.groupById(id)
                 if (group == null) {
                     call.respond(HttpStatusCode.NotFound)
-                    return@delete
-                }
-                if (!canManage(id, userId)) {
-                    call.respond(HttpStatusCode.Forbidden, "Only an owner or admin can remove somebody")
                     return@delete
                 }
                 // An admin cannot remove the owner or another admin — that is a
@@ -1239,11 +1294,10 @@ fun Application.module(
                 val id = call.parameters["id"].orEmpty()
                 val memberId = call.parameters["memberId"].orEmpty()
                 val group = groupRepository.groupById(id)
-                if (group == null) {
-                    call.respond(HttpStatusCode.NotFound)
-                    return@post
-                }
-                if (group.owner != userId) {
+                // Authorisation before existence, like /{id}/members: a
+                // different answer for a group that is not the caller's and one
+                // that is not there tells them which group ids are real.
+                if (group == null || group.owner != userId) {
                     call.respond(HttpStatusCode.Forbidden, "Only the owner can change roles")
                     return@post
                 }
@@ -1280,11 +1334,10 @@ fun Application.module(
                 val userId = call.authenticatedUserId()
                 val id = call.parameters["id"].orEmpty()
                 val group = groupRepository.groupById(id)
-                if (group == null) {
-                    call.respond(HttpStatusCode.NotFound)
-                    return@delete
-                }
-                if (group.owner != userId) {
+                // Authorisation before existence, like /{id}/members: a
+                // different answer for a group that is not the caller's and one
+                // that is not there tells them which group ids are real.
+                if (group == null || group.owner != userId) {
                     call.respond(HttpStatusCode.Forbidden, "Only the owner can close a group")
                     return@delete
                 }
@@ -1311,15 +1364,7 @@ fun Application.module(
                     call.respond(HttpStatusCode.Forbidden)
                     return@post
                 }
-                val code = newInviteCode { taken ->
-                    // Unique across every invite, not just this group's: a
-                    // code is redeemed without saying which group it is for.
-                    if (userGroupRepository.invitesFor(id).any { it.code == taken }) {
-                        Group(id = "taken", name = "", inviteCode = taken)
-                    } else {
-                        userGroupRepository.getGroupByInviteCode(taken)
-                    }
-                }
+                val code = newInviteCode { taken -> inviteCodeTaken(userGroupRepository, id, taken) }
                 userGroupRepository.createInvite(
                     groupId = id,
                     createdBy = userId,
@@ -1362,13 +1407,7 @@ fun Application.module(
                 }
 
                 val recipient = accountRepository.userByEmail(address)
-                val code = newInviteCode { taken ->
-                    if (userGroupRepository.invitesFor(id).any { it.code == taken }) {
-                        Group(id = "taken", name = "", inviteCode = taken)
-                    } else {
-                        userGroupRepository.getGroupByInviteCode(taken)
-                    }
-                }
+                val code = newInviteCode { taken -> inviteCodeTaken(userGroupRepository, id, taken) }
                 userGroupRepository.createInvite(
                     groupId = id,
                     createdBy = userId,
@@ -1427,7 +1466,7 @@ fun Application.module(
                     return@get
                 }
                 val userGroups = userGroupRepository.getGroupsForUser(userId)
-                call.respond(userGroups)
+                call.respond(userGroups.map { it.forCaller(userId) })
             }
             /**
              * Join a user to a group by invite code or groupId
@@ -1517,6 +1556,22 @@ fun Application.module(
                     call.respond(HttpStatusCode.BadRequest)
                     return@delete
                 }
+                // Not a member, or no such group: the same answer either way,
+                // because which group ids are real is not a stranger's to learn.
+                if (!userGroupRepository.isMember(userId, groupId)) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@delete
+                }
+                // An owner walking out strands the room: nobody left could
+                // admit anybody, change a role or close it. Closing it is the
+                // act they are actually after, and it has its own route.
+                if (groupRepository.groupById(groupId)?.owner == userId) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ApiError("An owner cannot leave their own group. Close it instead."),
+                    )
+                    return@delete
+                }
                 userGroupRepository.removeUserFromGroup(userId, groupId)
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -1548,15 +1603,18 @@ private const val GROUPS_PER_PERSON = 5
  * trusted to be unique — the space is large but the table is small, and a
  * duplicate would silently put somebody in the wrong group.
  */
+internal const val INVITE_ALPHABET = "BCDFGHJKMNPQRSTVWXYZ23456789"
+internal const val INVITE_CODE_LENGTH = 8
+
 internal fun newInviteCode(taken: (String) -> Group?): String {
-    val alphabet = "BCDFGHJKMNPQRSTVWXYZ23456789"
+    val alphabet = INVITE_ALPHABET
     // SecureRandom, not Random.default. This code is the whole of the security
     // on a group — the comment above says nobody can guess it, and that is
     // only true of a generator built to resist guessing. The admin panel's copy
     // of this function had it right; this one did not.
     val random = java.security.SecureRandom()
     repeat(10) {
-        val code = (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
+        val code = (1..INVITE_CODE_LENGTH).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
         if (taken(code) == null) return code
     }
     error("could not find an unused invite code")
@@ -1583,12 +1641,55 @@ internal fun ApplicationCall.authenticatedUserId(): String =
     checkNotNull(principal<JWTPrincipal>()?.payload?.subject)
 
 /**
- * feature.authors: the writer's name and avatar go out with the post. A blank
- * surname (an account made by a sign-in link) shows as the name alone.
+ * feature.authors: how somebody is named beside something they wrote, or null
+ * when the flag is off or the account has gone. Shared so a post and a comment
+ * name the same person the same way. A blank surname (an account made by a
+ * sign-in link) shows as the name alone.
  */
-internal fun Post.withAuthor(accounts: AccountRepository): Post {
-    if (!Features.AUTHORS) return this
-    val user = accounts.userById(author) ?: return this
-    return copy(authorName = "${user.name} ${user.surname}".trim(), authorPhoto = user.photo)
+internal fun AccountRepository.displayAuthor(id: String): Pair<String, String?>? {
+    if (!Features.AUTHORS) return null
+    val user = userById(id) ?: return null
+    return "${user.name} ${user.surname}".trim() to user.photo
 }
+
+/** feature.authors: the writer's name and avatar go out with the post. */
+internal fun Post.withAuthor(accounts: AccountRepository): Post {
+    val (name, photo) = accounts.displayAuthor(author) ?: return this
+    return copy(authorName = name, authorPhoto = photo)
+}
+
+/**
+ * The stored `likes` column is not a count anybody should be shown — the
+ * favorites table is the authority, and comments are counted from theirs — so
+ * both are filled in on the way out. One copy, because two that drift apart
+ * are two screens disagreeing about the same post.
+ */
+internal fun Post.withLikeCount(
+    favorites: FavoritesRepository,
+    comments: CommentsRepository,
+    accounts: AccountRepository,
+): Post = copy(
+    likes = favorites.countPostFavorites(guid).toInt(),
+    comments = if (Features.COMMENTS) comments.countFor(guid) else 0,
+).withAuthor(accounts)
+
+/** The visibilities a post may be sent in; anything else is a client with a bug. */
+private val POST_VISIBILITIES =
+    setOf(PostVisibility.PUBLIC, PostVisibility.GROUP, PostVisibility.PRIVATE)
+
+/**
+ * Whether an invite code is already spoken for, shaped as [newInviteCode] wants
+ * it: a non-null group means taken. Unique across every invite rather than one
+ * group's, because a code is redeemed without saying which group it is for.
+ */
+private fun inviteCodeTaken(
+    memberships: UserGroupRepository,
+    groupId: String,
+    code: String,
+): Group? =
+    if (memberships.invitesFor(groupId).any { it.code == code }) {
+        Group(id = "taken", name = "", inviteCode = code)
+    } else {
+        memberships.getGroupByInviteCode(code)
+    }
 

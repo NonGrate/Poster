@@ -16,7 +16,6 @@ import com.example.poster.model.LogoutRequest
 import com.example.poster.model.TokenRequest
 import com.example.poster.model.EmailRequest
 import com.example.poster.model.PasswordResetRequest
-import io.ktor.http.isSuccess
 import com.example.poster.model.RegisterRequest
 import com.example.poster.network.UserApi
 import com.example.poster.auth.AuthTokenStorage
@@ -77,8 +76,6 @@ open class KtorUserApi(
         }
     }
 
-
-
     override suspend fun updateUser(user: User) {
         // Server uses POST /accounts as upsert (no PUT route)
         httpClient.post("accounts") {
@@ -87,12 +84,10 @@ open class KtorUserApi(
         }
     }
 
-
     override suspend fun logIn(user: String): User? {
         // Minimal login: fetch the user by ID
         return getUserById(user)
     }
-
 
     override suspend fun currentUser(): User? {
         return runCatching { httpClient.get("auth/me").body<User>() }.getOrNull()

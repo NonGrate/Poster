@@ -3,7 +3,7 @@ package com.example.poster.viewmodel
 import com.example.poster.cache.PostCache
 import com.example.poster.model.Post
 import com.example.poster.network.PostApi
-import com.example.poster.preview.FakeUserApi
+import com.example.poster.preview.FakePostApi
 import com.example.poster.repository.PostRepository
 import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +81,6 @@ class OlderPageFavoritesTest {
 
     private fun repository(api: PostApi, cache: PostCache = PostCache()) = PostRepository(
         postApi = api,
-        userApi = FakeUserApi(),
         cache = cache,
         dispatchers = DispatcherProvider(main = Dispatchers.Unconfined, io = Dispatchers.Unconfined),
     )
@@ -100,27 +99,18 @@ class OlderPageFavoritesTest {
     private class PagedPostApi(
         private val first: List<Post>,
         private val second: List<Post>,
-    ) : PostApi {
+    ) : PostApi by FakePostApi() {
         override suspend fun getPostPage(
             limit: Int,
             beforeDate: String?,
             beforeGuid: String?,
             tags: List<String>,
             groups: List<String>,
-        query: String,
-        following: Boolean,
-        saved: Boolean,
+            query: String,
+            following: Boolean,
+            saved: Boolean,
         ): List<Post> = if (beforeDate == null) first else second
 
         override suspend fun getAllPosts(): List<Post> = first + second
-        override suspend fun getFavoritePosts(): List<Post> = emptyList()
-        override suspend fun removePost(post: Post) = Unit
-        override suspend fun updatePost(post: Post) = Unit
-        override suspend fun addPost(post: Post) = Unit
-        override suspend fun completePost(postId: String, message: String?) = Unit
-        override suspend fun reopenPost(postId: String) = Unit
-        override suspend fun isFavorite(userId: String, postId: String) = false
-        override suspend fun addFavorite(userId: String, postId: String) = Unit
-        override suspend fun removeFavorite(userId: String, postId: String) = Unit
     }
 }

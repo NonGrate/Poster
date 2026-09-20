@@ -7,8 +7,11 @@ import kotlinx.datetime.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
+/** A sign-in link is a session in the making; a day would be a standing invitation. */
+private val MAGIC_LINK_LIFETIME: Duration = 15.minutes
+
 /**
- * The two messages this app sends, and the guard on how often.
+ * The messages this app sends, and the guard on how often — see [allowed].
  *
  * Both endpoints behind these take an address from anybody, so without a limit
  * they are a way to send mail to strangers over somebody else's domain — and
@@ -20,9 +23,6 @@ import kotlin.time.Duration.Companion.minutes
  * — the staging deployment runs one, deliberately, because it has one SQLite
  * file. If that ever changes this belongs in the database.
  */
-/** A sign-in link is a session in the making; a day would be a standing invitation. */
-private val MAGIC_LINK_LIFETIME: Duration = 15.minutes
-
 class AccountMail(
     private val mailer: Mailer,
     private val tokens: AccountTokens,

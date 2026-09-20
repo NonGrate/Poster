@@ -2,7 +2,8 @@ CREATE TABLE UserPostFavorite (
     user_id TEXT NOT NULL,
     post_id TEXT NOT NULL,
     -- When this person started liking it, for the detail screen's "added N
-    -- days ago". Nullable for rows imported without a timestamp.
+    -- days ago". Null on the device's own rows: it writes the join row the
+    -- moment somebody taps and has no server timestamp to put here.
     created_at TEXT,
     PRIMARY KEY (user_id, post_id),
     FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE,
@@ -34,12 +35,6 @@ removeFavoritePost:
 DELETE FROM UserPostFavorite
 WHERE user_id = ? AND post_id = ?;
 
--- Get all users who have favorited a specific post
-getUsersWhoFavoritedPost:
-SELECT user_id
-FROM UserPostFavorite
-WHERE post_id = ?;
-
 -- The people liking a post, newest first, with each one's name-visibility
 -- and when they started. The server names only the ones who opted in and counts
 -- the rest; banned accounts drop out entirely.
@@ -65,16 +60,12 @@ deleteFavoritesForUser:
 DELETE FROM UserPostFavorite
 WHERE user_id = ?;
 
--- What this person marked. Theirs to lose.
-deleteFavoritesOfUser:
-DELETE FROM UserPostFavorite WHERE user_id = ?;
-
 -- And what anybody marked on a post that is about to stop existing.
 deleteFavoritesOfPost:
 DELETE FROM UserPostFavorite WHERE post_id = ?;
 
 -- Account merge: move one user's favourites to another, skipping any the target
 -- already has (the (user_id, post_id) PK makes the duplicate rows no-ops under
--- OR IGNORE); the leftovers are cleared with deleteFavoritesOfUser(from).
+-- OR IGNORE); the leftovers are cleared with deleteFavoritesForUser(from).
 reassignFavorites:
 UPDATE OR IGNORE UserPostFavorite SET user_id = :into WHERE user_id = :from;

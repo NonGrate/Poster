@@ -10,12 +10,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -118,36 +116,4 @@ class AccountDeletionTest {
         setBody("""{"email":"$email","password":"password123"}""")
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String, title: String) {
-        val response = client.post("/posts") {
-            bearerAuth(user.tokens.accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"$guid","title":"$title","message":"words","author":"${user.user.guid}",""" +
-                    """"group":null,"likes":0,"date":"2026-08-23T10:00","visibility":"public",""" +
-                    """"tags":[],"language":"en"}""",
-            )
-        }
-        assertEquals(HttpStatusCode.NoContent, response.status, "could not post the post this test needs")
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-deletion").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

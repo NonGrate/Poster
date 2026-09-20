@@ -4,13 +4,19 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.example.poster.config.Features
 import com.example.poster.util.TestUtils
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import kotlin.test.Test
 
 class TagsInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithTags() = assumeTrue(Features.TAGS)
 
     fun wrapped(action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit) {
         TestUtils.runWrapped(
@@ -88,8 +94,9 @@ class TagsInstrumentedTest {
             composeTestRule.onNodeWithTag("my_posts_tab").performClick()
             composeTestRule.onNodeWithTag("create_post_fab").performClick()
 
+            // The groups are the whole of it: there is nothing to type into.
             TestUtils.awaitTag(composeTestRule, "tag_groups")
-            composeTestRule.onAllNodesWithTag("tag_input_field").assertCountEquals(0)
+            composeTestRule.onNodeWithTag("tag_pick_group_hint").assertExists()
         }
     }
 

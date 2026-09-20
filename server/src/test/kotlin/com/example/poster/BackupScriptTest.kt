@@ -5,6 +5,7 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -42,15 +43,25 @@ class BackupScriptTest {
     fun oldBackupsArePrunedAndTheNewestAreKept() = withTemporaryDatabase { db, backups ->
         sqlite(db, "CREATE TABLE Post (guid TEXT PRIMARY KEY)")
 
-        repeat(4) {
-            assertEquals(0, runBackup(db, backups, keep = 2).exitCode)
-            // The filename carries a whole-second timestamp, so without this the
-            // four backups would collide into one name.
-            Thread.sleep(1100)
-        }
+        // Three earlier backups, written and dated by hand. Taking them for
+        // real means sleeping a second between each — the filename carries a
+        // whole-second timestamp and retention goes by modification time — and
+        // what is being pinned is the pruning, not the clock.
+        backups.mkdirs()
+        val earlier = listOf("2026-08-18T10-00-00Z", "2026-08-18T11-00-00Z", "2026-08-18T12-00-00Z")
+            .mapIndexed { index, stamp ->
+                File(backups, "post-$stamp.db.gz").apply {
+                    writeBytes(byteArrayOf(1))
+                    setLastModified(1_755_000_000_000L + index * 3_600_000L)
+                }
+            }
+
+        assertEquals(0, runBackup(db, backups, keep = 2).exitCode)
 
         val kept = backups.listFiles()!!.sortedBy { it.name }
         assertEquals(2, kept.size, "expected 2 backups, found ${kept.map { it.name }}")
+        assertTrue(kept.any { it.name == earlier.last().name }, "the newest of the old backups was pruned")
+        assertFalse(kept.any { it.name == earlier.first().name }, "the oldest backup was kept")
     }
 
     @Test

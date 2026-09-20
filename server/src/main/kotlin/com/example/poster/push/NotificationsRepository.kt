@@ -1,16 +1,15 @@
 package com.example.poster.push
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import com.example.poster.model.AppNotification
 import java.time.Instant
 import java.util.UUID
 
 data class Device(val token: String, val userId: String, val platform: String)
 
+// No default database, for the reason given on PostsLocalRepository.
 class NotificationsRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) {
     private val notifications = database.notificationQueries
     private val devices = database.deviceQueries

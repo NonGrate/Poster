@@ -17,8 +17,12 @@ import io.ktor.server.sessions.get
 import io.ktor.server.sessions.sessions
 import io.ktor.server.sessions.set
 import io.ktor.server.application.call
+import com.example.poster.auth.AttemptThrottle
 import com.example.poster.auth.PasswordHasher
+import com.example.poster.INVITE_ALPHABET
+import com.example.poster.INVITE_CODE_LENGTH
 import com.example.poster.model.AccountRepository
+import com.example.poster.newInviteCode
 import com.example.poster.model.Group
 import com.example.poster.model.GroupRepository
 import com.example.poster.model.UserGroupRepository
@@ -54,11 +58,17 @@ fun Route.adminRoutes(
     // sessions opened with the old one keep working, so this has no default:
     // a caller has to say what it does.
     revokeSessions: (userId: String) -> Unit,
-    crashes: CrashRepository = CrashRepository(),
-    reports: ReportsRepository = ReportsRepository(),
-    feedback: FeedbackRepository = FeedbackRepository(),
-    events: EventRepository = EventRepository(),
-    comments: CommentsRepository = CommentsRepository(),
+    /**
+     * The same allowance /auth/login spends. A separate one here would be a
+     * second five guesses per address against the very accounts that can ban
+     * people — and this form takes an ordinary account's password.
+     */
+    throttle: AttemptThrottle,
+    crashes: CrashRepository,
+    reports: ReportsRepository,
+    feedback: FeedbackRepository,
+    events: EventRepository,
+    comments: CommentsRepository,
     /** After the panel adds somebody to a group: (member, group, admin). The notifier listens. */
     onMemberAdded: (userId: String, group: Group, actor: String) -> Unit = { _, _, _ -> },
 ) {
@@ -71,6 +81,14 @@ fun Route.adminRoutes(
             val params = call.receiveParameters()
             val email = params["email"]?.trim()?.lowercase().orEmpty()
             val password = params["password"].orEmpty()
+            // Unthrottled, this form was the way around /auth/login's limit
+            // against exactly the accounts worth guessing at.
+            if (throttle.retryAfter(email) != null) {
+                call.respondHtml(HttpStatusCode.TooManyRequests) {
+                    loginPage(error = "Too many attempts. Try again later.")
+                }
+                return@post
+            }
             val user = accounts.userByEmail(email)
 
             // One message for every failure: a distinct "no such account" reply
@@ -80,9 +98,11 @@ fun Route.adminRoutes(
                 !user.isBanned &&
                 hasher.verify(password, user.passwordHash)
             if (!ok) {
+                throttle.recordFailure(email)
                 call.respondHtml(HttpStatusCode.Unauthorized) { loginPage(error = "Invalid credentials") }
                 return@post
             }
+            throttle.clear(email)
             call.sessions.set(AdminSession(userId = user!!.guid, csrf = newCsrfToken()))
             call.respondRedirect("/admin")
         }
@@ -113,9 +133,9 @@ fun Route.adminRoutes(
                     div("cards") {
                         // Wants a person. Coloured only when there is something
                         // to do, so colour keeps meaning something.
-                        statCard("Reports waiting", waiting, "/admin/reports", urgent = waiting > 0)
-                        statCard("Crashes", recentCrashes, "/admin/crashes", urgent = recentCrashes > 0)
-                        statCard("Misbehaviours", misbehaviours, "/admin/events", urgent = misbehaviours > 0)
+                        if (Features.REPORTS) statCard("Reports waiting", waiting, "/admin/reports", urgent = waiting > 0)
+                        if (Features.CRASH_REPORTS) statCard("Crashes", recentCrashes, "/admin/crashes", urgent = recentCrashes > 0)
+                        if (Features.TELEMETRY) statCard("Misbehaviours", misbehaviours, "/admin/events", urgent = misbehaviours > 0)
                         statCard("Unconfirmed accounts", unconfirmed, "/admin/users", urgent = false)
                     }
                     h2 { +"Where things stand" }
@@ -124,8 +144,8 @@ fun Route.adminRoutes(
                         statCard("Banned", users.count { it.isBanned }, "/admin/users")
                         statCard("Posts", posts.count { !it.second }, "/admin/posts")
                         statCard("Hidden posts", posts.count { it.second }, "/admin/posts")
-                        statCard("Groups", groups.allGroups().size, "/admin/groups")
-                        statCard("Tags", tags.allTags().size, "/admin/tags")
+                        if (Features.GROUPS) statCard("Groups", groups.allGroups().size, "/admin/groups")
+                        if (Features.TAGS) statCard("Tags", tags.allTags().size, "/admin/tags")
                     }
                     h2 { +"Everything else" }
                     div("links") {
@@ -308,7 +328,7 @@ fun Route.adminRoutes(
          * lands in the audit log beside every other moderation action and can
          * be undone from the posts page.
          */
-        get("/reports") {
+        if (Features.REPORTS) get("/reports") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val csrf = call.sessions.get<AdminSession>()!!.csrf
             val authors = moderation.allUsersIncludingBanned().associateBy { it.guid }
@@ -324,7 +344,7 @@ fun Route.adminRoutes(
                     }
                     p("hint") {
                         +("A report is somebody saying this should not be here. It hides nothing "
-                            + "on its own — in a family app the usual reason a post looks wrong "
+                            + "on its own — in a small community app the usual reason a post looks wrong "
                             + "is that somebody misread it.")
                     }
                     table {
@@ -399,7 +419,7 @@ fun Route.adminRoutes(
         }
 
         /** Hides it and clears the reports: the decision has been made. */
-        post("/reports/{id}/hide") {
+        if (Features.REPORTS) post("/reports/{id}/hide") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -410,7 +430,7 @@ fun Route.adminRoutes(
         }
 
         /** Looked at, and it is fine. The pile has to be able to shrink. */
-        post("/reports/{id}/dismiss") {
+        if (Features.REPORTS) post("/reports/{id}/dismiss") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -418,7 +438,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/reports")
         }
 
-        get("/feedback") {
+        if (Features.FEEDBACK) get("/feedback") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val csrf = call.sessions.get<AdminSession>()!!.csrf
             call.respondHtml {
@@ -477,7 +497,7 @@ fun Route.adminRoutes(
         }
 
         /** The developer's reply. Flips it to answered; shown on the sender's next open. */
-        post("/feedback/{id}/respond") {
+        if (Features.FEEDBACK) post("/feedback/{id}/respond") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -677,7 +697,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/comments")
         }
 
-        get("/tags") {
+        if (Features.TAGS) get("/tags") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val csrf = call.sessions.get<AdminSession>()!!.csrf
             val authors = moderation.allUsersIncludingBanned().associateBy { it.guid }
@@ -830,7 +850,7 @@ fun Route.adminRoutes(
             }
         }
 
-        post("/tags") {
+        if (Features.TAGS) post("/tags") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -844,7 +864,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/tags")
         }
 
-        post("/tags/{id}") {
+        if (Features.TAGS) post("/tags/{id}") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -863,7 +883,7 @@ fun Route.adminRoutes(
          * wrong shelf — and one form saving both means every filing change also
          * rewrites labels somebody may be midway through editing.
          */
-        post("/tags/{id}/group") {
+        if (Features.TAGS) post("/tags/{id}/group") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -888,7 +908,7 @@ fun Route.adminRoutes(
          * loaded before somebody filed a few — carries the old count and is
          * refused, which is the point.
          */
-        post("/tags/unfiled/delete") {
+        if (Features.TAGS) post("/tags/unfiled/delete") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -908,7 +928,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/tags")
         }
 
-        post("/tags/{id}/delete") {
+        if (Features.TAGS) post("/tags/{id}/delete") {
             val admin = call.requireAdmin(accounts) ?: return@post
             if (!call.checkCsrf(call.receiveParameters()["csrf"])) return@post
             val id = call.parameters["id"].orEmpty()
@@ -917,7 +937,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/tags")
         }
 
-        get("/groups") {
+        if (Features.GROUPS) get("/groups") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val csrf = call.sessions.get<AdminSession>()!!.csrf
             val all = groups.allGroups().sortedBy { it.name }
@@ -998,7 +1018,7 @@ fun Route.adminRoutes(
             }
         }
 
-        post("/groups") {
+        if (Features.GROUPS) post("/groups") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -1007,15 +1027,26 @@ fun Route.adminRoutes(
                 call.respondText("A name is required", status = HttpStatusCode.BadRequest)
                 return@post
             }
+            // A code typed in by hand is checked to the shape the generator
+            // makes it. Anything shorter, or carrying a vowel, is guessable —
+            // and the code is the whole of the security on a group.
+            val typed = params["inviteCode"]?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+            if (typed != null && !validInviteCode(typed)) {
+                call.respondText(
+                    "An invite code is $INVITE_CODE_LENGTH characters from $INVITE_ALPHABET",
+                    status = HttpStatusCode.BadRequest,
+                )
+                return@post
+            }
             val id = java.util.UUID.randomUUID().toString()
-            val invite = params["inviteCode"]?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: newInviteCode()
+            val invite = typed ?: newInviteCode(groups::groupByInviteCode)
             val visibility = if (Features.PUBLIC_GROUPS && params["visibility"] == "public") "public" else "private"
             groups.addOrUpdateGroup(Group(id = id, name = name, inviteCode = invite, visibility = visibility))
             moderation.recordGroupAction(admin.guid, "group:create", id, name)
             call.respondRedirect("/admin/groups")
         }
 
-        post("/groups/{id}/invite") {
+        if (Features.GROUPS) post("/groups/{id}/invite") {
             val admin = call.requireAdmin(accounts) ?: return@post
             if (!call.checkCsrf(call.receiveParameters()["csrf"])) return@post
             val id = call.parameters["id"].orEmpty()
@@ -1025,12 +1056,12 @@ fun Route.adminRoutes(
                 return@post
             }
             // Rotating the code invalidates every invite already handed out.
-            groups.addOrUpdateGroup(group.copy(inviteCode = newInviteCode()))
+            groups.addOrUpdateGroup(group.copy(inviteCode = newInviteCode(groups::groupByInviteCode)))
             moderation.recordGroupAction(admin.guid, "group:rotate-invite", id, null)
             call.respondRedirect("/admin/groups")
         }
 
-        get("/groups/{id}") {
+        if (Features.GROUPS) get("/groups/{id}") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val csrf = call.sessions.get<AdminSession>()!!.csrf
             val id = call.parameters["id"].orEmpty()
@@ -1097,7 +1128,7 @@ fun Route.adminRoutes(
          * The name and nothing else: the invite code is what people join with,
          * and rotating it is a separate, deliberate act with its own button.
          */
-        post("/groups/{id}/rename") {
+        if (Features.GROUPS) post("/groups/{id}/rename") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -1117,7 +1148,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/groups/$id")
         }
 
-        post("/groups/{id}/add") {
+        if (Features.GROUPS) post("/groups/{id}/add") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -1129,7 +1160,7 @@ fun Route.adminRoutes(
             call.respondRedirect("/admin/groups/$id")
         }
 
-        post("/groups/{id}/remove") {
+        if (Features.GROUPS) post("/groups/{id}/remove") {
             val admin = call.requireAdmin(accounts) ?: return@post
             val params = call.receiveParameters()
             if (!call.checkCsrf(params["csrf"])) return@post
@@ -1146,7 +1177,7 @@ fun Route.adminRoutes(
          * Newest first, and nothing here says who it happened to: a fault
          * report says what broke, not who was holding the phone.
          */
-        get("/crashes") {
+        if (Features.CRASH_REPORTS) get("/crashes") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val reports = crashes.recent()
             call.respondHtml {
@@ -1172,7 +1203,7 @@ fun Route.adminRoutes(
             }
         }
 
-        get("/events") {
+        if (Features.TELEMETRY) get("/events") {
             val admin = call.requireAdmin(accounts) ?: return@get
             val all = events.recent()
             val users = moderation.allUsersIncludingBanned().associateBy { it.guid }
@@ -1292,15 +1323,15 @@ private fun HTML.page(heading: String, admin: User, waiting: Int = 0, content: B
             a(href = "/admin/users") { +"Users" }
             a(href = "/admin/posts") { +"Posts" }
             if (Features.COMMENTS) a(href = "/admin/comments") { +"Comments" }
-            a(href = "/admin/groups") { +"Groups" }
+            if (Features.GROUPS) a(href = "/admin/groups") { +"Groups" }
             a(href = "/admin/audit") { +"Audit" }
-            a(href = "/admin/crashes") { +"Crashes" }
-            a(href = "/admin/reports") {
+            if (Features.CRASH_REPORTS) a(href = "/admin/crashes") { +"Crashes" }
+            if (Features.REPORTS) a(href = "/admin/reports") {
                 +"Reports"
                 if (waiting > 0) span("badge count") { +waiting.toString() }
             }
-            a(href = "/admin/feedback") { +"Feedback" }
-            a(href = "/admin/events") { +"Events" }
+            if (Features.FEEDBACK) a(href = "/admin/feedback") { +"Feedback" }
+            if (Features.TELEMETRY) a(href = "/admin/events") { +"Events" }
             div("spacer") {}
             span("who") { +admin.email }
             form(action = "/admin/logout", method = FormMethod.post) { submitInput { value = "Sign out" } }
@@ -1467,12 +1498,14 @@ private fun kotlinx.html.DL.field(label: String, value: String?) {
     if (!value.isNullOrBlank()) { dt { +label }; dd { +value } }
 }
 
-/** Short, unambiguous, shouted over a dinner table without spelling it out. */
-private fun newInviteCode(): String {
-    val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  // no I/O/0/1
-    val random = java.security.SecureRandom()
-    return (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
-}
+/**
+ * A code an operator typed in by hand. Same shape the generator makes — eight
+ * of its alphabet — because a short or vowel-carrying code is a guessable one,
+ * and the code is the whole of the security on a group.
+ */
+private fun validInviteCode(code: String): Boolean = INVITE_CODE.matches(code)
+
+private val INVITE_CODE = Regex("[$INVITE_ALPHABET]{$INVITE_CODE_LENGTH}")
 
 /** The group dropdown, the same in the add form and on every row. */
 private fun kotlinx.html.FlowOrInteractiveOrPhrasingContent.groupSelect(selected: String?) {

@@ -4,6 +4,7 @@ import com.example.poster.cache.PostCache
 import com.example.poster.model.Post
 import com.example.poster.network.PostApi
 import com.example.poster.preview.FakePlatformDataStore
+import com.example.poster.preview.FakePostApi
 import com.example.poster.preview.FakeUserApi
 import com.example.poster.repository.SessionRepository
 import com.example.poster.util.AppPreferences
@@ -36,17 +37,9 @@ class FeedStabilityTest {
         date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
     )
 
-    private class ServerStub(var posts: List<Post>) : PostApi {
+    /** Serves a feed; everything else is the preview backend's do-nothing. */
+    private class ServerStub(var posts: List<Post>) : PostApi by FakePostApi() {
         override suspend fun getAllPosts(): List<Post> = posts
-        override suspend fun getFavoritePosts(): List<Post> = emptyList()
-        override suspend fun removePost(post: Post) = Unit
-        override suspend fun updatePost(post: Post) = Unit
-        override suspend fun addPost(post: Post) = Unit
-        override suspend fun completePost(postId: String, message: String?) = Unit
-        override suspend fun reopenPost(postId: String) = Unit
-        override suspend fun addFavorite(userId: String, postId: String) = Unit
-        override suspend fun removeFavorite(userId: String, postId: String) = Unit
-        override suspend fun isFavorite(userId: String, postId: String) = false
     }
 
     /** Signed in, because a feed with nobody signed in is empty by design. */
@@ -64,7 +57,6 @@ class FeedStabilityTest {
         val model = PostsViewModel(
             repository = PostRepository(
                 postApi = api,
-                userApi = FakeUserApi(),
                 cache = PostCache(),
                 dispatchers = dispatchers,
             ),

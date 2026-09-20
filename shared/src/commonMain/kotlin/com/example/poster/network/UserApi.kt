@@ -6,20 +6,13 @@ interface UserApi {
 
     suspend fun getUserById(id: String): User?
 
-
-
     suspend fun updateUser(user: User)
-
 
     /**
      * Logs in a user by their ID (for integrated backend)
      * Returns the user if login is successful, null otherwise.
      */
     suspend fun logIn(user: String): User?
-
-    /**
-     * Creates a new user with the given ID (for integrated backend)
-     */
 
     /**
      * Returns the current logged-in user (for integrated backend)

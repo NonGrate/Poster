@@ -23,15 +23,6 @@ recordReport:
 INSERT OR REPLACE INTO PostReport(id, post_id, reporter_id, reason, created_at)
 VALUES (?, ?, ?, ?, ?);
 
--- Newest first, with what was reported, for whoever has to read them.
-openReports:
-SELECT r.id, r.post_id, r.reporter_id, r.reason, r.created_at,
-       p.title, p.message, p.author
-FROM PostReport r
-JOIN Post p ON p.guid = r.post_id
-ORDER BY r.created_at DESC
-LIMIT ?;
-
 countReports:
 SELECT count(*) FROM PostReport;
 

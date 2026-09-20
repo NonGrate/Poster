@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -9,14 +10,13 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.ApiError
 import com.example.poster.model.Group
+import com.example.poster.model.GroupLocalRepository
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -34,6 +34,7 @@ class CreateGroupTest {
 
     @Test
     fun creatingOneJoinsYouToIt() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
 
         val group = create(user, "Tuesday evening group")
@@ -50,6 +51,7 @@ class CreateGroupTest {
     /** A code the client chose is a code somebody else can guess. */
     @Test
     fun theServerPicksTheInviteCode() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
 
         val first = create(user, "One")
@@ -65,6 +67,7 @@ class CreateGroupTest {
 
     @Test
     fun thereIsALimitOnHowManyOneAccountMayCreate() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
         repeat(5) { create(user, "Group $it") }
 
@@ -77,6 +80,7 @@ class CreateGroupTest {
     /** The cap is per account, not global — one person filling up is not everybody. */
     @Test
     fun theLimitIsPerAccount() = withServer {
+        if (!Features.GROUPS) return@withServer
         val first = register("one@example.com")
         repeat(5) { create(first, "Group $it") }
         val second = register("two@example.com")
@@ -88,6 +92,7 @@ class CreateGroupTest {
 
     @Test
     fun aBlankNameIsRefused() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
 
         assertEquals(HttpStatusCode.BadRequest, post(user, "   ").first)
@@ -96,6 +101,7 @@ class CreateGroupTest {
 
     @Test
     fun aNameTooLongForARowIsRefused() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
 
         assertEquals(HttpStatusCode.BadRequest, post(user, "x".repeat(61)).first)
@@ -105,6 +111,7 @@ class CreateGroupTest {
     /** Surrounding space is a typo, not a different group. */
     @Test
     fun theNameIsTrimmed() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
 
         assertEquals("Sunday group", create(user, "  Sunday group  ").name)
@@ -118,6 +125,7 @@ class CreateGroupTest {
      */
     @Test
     fun anUnconfirmedAddressCannotMakeAGroup() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = registerUnconfirmed("unconfirmed@example.com")
 
         val response = client.post("/groups/create") {
@@ -137,6 +145,7 @@ class CreateGroupTest {
     /** And confirming it is what opens the door. */
     @Test
     fun aConfirmedAddressCan() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = registerUnconfirmed("later@example.com")
         confirmAddress("later@example.com")
 
@@ -145,6 +154,7 @@ class CreateGroupTest {
 
     @Test
     fun creatingNeedsASession() = withServer {
+        if (!Features.GROUPS) return@withServer
         val response = client.post("/groups/create") {
             contentType(ContentType.Application.Json)
             setBody("""{"name":"Anonymous"}""")
@@ -159,10 +169,11 @@ class CreateGroupTest {
      */
     @Test
     fun groupsWithNoOwnerCountAgainstNobody() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
         assertNull(create(user, "Mine").owner?.takeIf { it != user.user.guid })
 
-        val all = allGroups(user)
+        val all = allGroups()
 
         assertEquals(1, all.count { it.owner == user.user.guid })
     }
@@ -175,6 +186,7 @@ class CreateGroupTest {
      */
     @Test
     fun deletingAnAccountLeavesItsGroupsWithoutAnOwner() = withServer {
+        if (!Features.GROUPS) return@withServer
         val user = register("owner@example.com")
         val group = create(user, "Theirs")
 
@@ -185,7 +197,7 @@ class CreateGroupTest {
         assertEquals(HttpStatusCode.OK, deleted.status)
 
         val survivor = register("someone@example.com")
-        val stored = allGroups(survivor).single { it.id == group.id }
+        val stored = allGroups().single { it.id == group.id }
         assertEquals("Theirs", stored.name, "the group went with the account")
         assertNull(stored.owner, "the group still claims a user who no longer exists")
     }
@@ -217,10 +229,8 @@ class CreateGroupTest {
             }.bodyAsText(),
         )
 
-    private suspend fun ApplicationTestBuilder.allGroups(user: AuthResponse): List<Group> =
-        Json.decodeFromString(
-            client.get("/groups") { bearerAuth(user.tokens.accessToken) }.bodyAsText(),
-        )
+    /** Every group there is, read from the store: no route lists them any more. */
+    private fun allGroups(): List<Group> = GroupLocalRepository(testDatabase()).allGroups()
 
     /**
      * Registers and confirms, which is what every test here wants — making a
@@ -239,23 +249,4 @@ class CreateGroupTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-groups").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

@@ -1,6 +1,6 @@
 package com.example.poster
 
-import io.ktor.client.request.bearerAuth
+import com.example.poster.config.Features
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -8,7 +8,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.auth.SocialAccount
 import com.example.poster.auth.SocialSignInException
 import com.example.poster.auth.SocialVerifier
@@ -17,7 +16,6 @@ import com.example.poster.model.RegisterRequest
 import com.example.poster.model.SocialSignInRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -35,7 +33,7 @@ import kotlin.test.assertTrue
 class SocialSignInRoutesTest {
 
     @Test
-    fun signingInWithGoogleLandsOnTheAccountYouAlreadyHad() = withServer {
+    fun signingInWithGoogleLandsOnTheAccountYouAlreadyHad() = withGoogle {
         // Registered the ordinary way first.
         val registered = register("somebody@example.com")
 
@@ -50,7 +48,7 @@ class SocialSignInRoutesTest {
     }
 
     @Test
-    fun somebodyNewGetsAnAccount() = withServer {
+    fun somebodyNewGetsAnAccount() = withGoogle {
         val (status, response) = social("google", "any-token")
 
         assertEquals(HttpStatusCode.OK, status)
@@ -64,13 +62,13 @@ class SocialSignInRoutesTest {
      * an email they never asked for before they could write anything.
      */
     @Test
-    fun anAccountReachedThroughGoogleCanWriteImmediately() = withServer {
+    fun anAccountReachedThroughGoogleCanWriteImmediately() = withGoogle {
         val session = social("google", "any-token").second
         assertNotNull(session)
 
-        val posted = postPost(session.tokens.accessToken, author = session.user.guid)
+        val posted = postPost(session, "social-1", title = "A post", message = "words", date = "2026-08-21T10:00", expect = null)
 
-        assertEquals(HttpStatusCode.NoContent, posted, "a google account was asked to verify its email")
+        assertEquals(HttpStatusCode.NoContent, posted.status, "a google account was asked to verify its email")
     }
 
     /**
@@ -82,13 +80,14 @@ class SocialSignInRoutesTest {
      * find an email they ignored, before they can write anything.
      */
     @Test
-    fun signingInWithGoogleConfirmsAnAccountThatNeverOpenedItsEmail() = withServer {
+    fun signingInWithGoogleConfirmsAnAccountThatNeverOpenedItsEmail() = withGoogle {
+        if (!Features.EMAIL_VERIFICATION_REQUIRED) return@withGoogle
         val registered = register("somebody@example.com")
         // Unverified: registering does not confirm, and this proves it rather
         // than assuming it — otherwise the rest of this test proves nothing.
         assertEquals(
             HttpStatusCode.Forbidden,
-            postPost(registered.tokens.accessToken, author = registered.user.guid),
+            postPost(registered, "social-1", title = "A post", message = "words", date = "2026-08-21T10:00", expect = null).status,
             "an unverified account was allowed to write, so this test cannot show anything",
         )
 
@@ -98,13 +97,13 @@ class SocialSignInRoutesTest {
         assertEquals(registered.user.guid, throughGoogle.user.guid)
         assertEquals(
             HttpStatusCode.NoContent,
-            postPost(throughGoogle.tokens.accessToken, author = throughGoogle.user.guid),
+            postPost(throughGoogle, "social-1", title = "A post", message = "words", date = "2026-08-21T10:00", expect = null).status,
             "google vouched for the address and the account is still unconfirmed",
         )
     }
 
     @Test
-    fun aRefusedTokenSignsNobodyIn() = withServer {
+    fun aRefusedTokenSignsNobodyIn() = withGoogle {
         val (status, _) = social("google", REJECT)
 
         assertEquals(HttpStatusCode.Unauthorized, status)
@@ -112,14 +111,14 @@ class SocialSignInRoutesTest {
 
     /** A provider this build knows nothing about is not a bad request — it is unbuilt. */
     @Test
-    fun aProviderThisBuildDoesNotHaveSaysSo() = withServer {
+    fun aProviderThisBuildDoesNotHaveSaysSo() = withGoogle {
         val (status, _) = social("apple", "any-token")
 
         assertEquals(HttpStatusCode.NotImplemented, status)
     }
 
     @Test
-    fun rubbishIsRefusedRatherThanCrashing() = withServer {
+    fun rubbishIsRefusedRatherThanCrashing() = withGoogle {
         val response = client.post("/auth/social") {
             contentType(ContentType.Application.Json)
             setBody("{\"nonsense\":true}")
@@ -137,7 +136,7 @@ class SocialSignInRoutesTest {
      * the app can match it to the request it started.
      */
     @Test
-    fun theAppleCallbackBouncesTheTokenBackToTheApp() = withServer {
+    fun theAppleCallbackBouncesTheTokenBackToTheApp() = withGoogle {
         val response = client.post("/auth/apple/callback") {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody("id_token=header.payload.signature&state=state-123")
@@ -152,7 +151,7 @@ class SocialSignInRoutesTest {
 
     /** An Apple error is relayed, not swallowed, and no token is invented. */
     @Test
-    fun theAppleCallbackRelaysAnErrorWithoutAToken() = withServer {
+    fun theAppleCallbackRelaysAnErrorWithoutAToken() = withGoogle {
         val response = client.post("/auth/apple/callback") {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody("state=state-123&error=user_cancelled_authorize")
@@ -179,20 +178,6 @@ class SocialSignInRoutesTest {
         return response.status to body
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(
-        accessToken: String,
-        author: String,
-    ): HttpStatusCode =
-        client.post("/posts") {
-            bearerAuth(accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"social-1","title":"A post","message":"words",""" +
-                    """"author":"$author","group":null,"likes":0,"date":"2026-08-21T10:00",""" +
-                    """"visibility":"public","tags":[],"language":"en"}""",
-            )
-        }.status
-
     private suspend fun ApplicationTestBuilder.register(email: String): AuthResponse {
         val response = client.post("/auth/register") {
             contentType(ContentType.Application.Json)
@@ -218,27 +203,11 @@ class SocialSignInRoutesTest {
         }
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-social").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module(verifiers = listOf(StubGoogle())) }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
-
     private companion object {
         const val REJECT = "reject-me"
     }
+
+    /** The shared server, with the stub Google this suite's tokens come from. */
+    private fun withGoogle(block: suspend ApplicationTestBuilder.(TestServer) -> Unit) =
+        withServer(verifiers = listOf(StubGoogle()), block = block)
 }

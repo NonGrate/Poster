@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -9,7 +10,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.domain.validation.FeedbackRules
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Feedback
@@ -18,7 +18,6 @@ import com.example.poster.model.FeedbackStatus
 import com.example.poster.model.RegisterRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -35,6 +34,7 @@ class FeedbackRoutesTest {
 
     @Test
     fun sendingFeedbackStoresItAndItComesBack() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val user = register("someone@example.com")
 
         assertEquals(HttpStatusCode.NoContent, submit(user, "Please add a dark mode"))
@@ -47,6 +47,7 @@ class FeedbackRoutesTest {
 
     @Test
     fun aBlankMessageIsRefused() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val user = register("someone@example.com")
 
         assertEquals(HttpStatusCode.BadRequest, submit(user, "   "))
@@ -55,6 +56,7 @@ class FeedbackRoutesTest {
 
     @Test
     fun anOverlongMessageIsRefused() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val user = register("someone@example.com")
 
         val tooLong = "x".repeat(FeedbackRules.MESSAGE_LIMIT + 1)
@@ -65,6 +67,7 @@ class FeedbackRoutesTest {
     /** Feedback is one person's own: another account never sees it. */
     @Test
     fun feedbackIsPrivateToItsSender() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val one = register("one@example.com")
         val two = register("two@example.com")
 
@@ -77,11 +80,12 @@ class FeedbackRoutesTest {
     /** The developer's reply, left from the admin side, reaches the sender's list. */
     @Test
     fun aReplyShowsUpForTheSender() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val user = register("someone@example.com")
         submit(user, "A question")
         val id = myFeedback(user).first().id
 
-        FeedbackRepository().respond(id, "Here is the answer")
+        FeedbackRepository(testDatabase()).respond(id, "Here is the answer")
 
         val answered = myFeedback(user).first()
         assertEquals(FeedbackStatus.ANSWERED, answered.status)
@@ -90,6 +94,7 @@ class FeedbackRoutesTest {
 
     @Test
     fun sendingNeedsASession() = withServer {
+        if (!Features.FEEDBACK) return@withServer
         val response = client.post("/feedback") {
             contentType(ContentType.Application.Json)
             setBody("""{"message":"anonymous"}""")
@@ -121,23 +126,4 @@ class FeedbackRoutesTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-feedback").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

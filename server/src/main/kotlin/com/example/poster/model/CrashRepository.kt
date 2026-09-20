@@ -1,7 +1,6 @@
 package com.example.poster.model
 
 import app.cash.sqldelight.db.QueryResult
-import com.example.poster.db.DatabaseDriverFactory
 import kotlinx.datetime.Clock
 
 /**
@@ -11,8 +10,9 @@ import kotlinx.datetime.Clock
  * server's alone — no device has it, so it is not in the shared schema, and a
  * generated query for it would have to be.
  */
+// The driver is handed in and has no default: the server shares one connection.
 class CrashRepository(
-    private val driver: app.cash.sqldelight.db.SqlDriver = DatabaseDriverFactory().createDriver(),
+    private val driver: app.cash.sqldelight.db.SqlDriver,
     private val keep: Int = KEEP,
 ) {
     init {
@@ -44,7 +44,10 @@ class CrashRepository(
         driver.execute(
             identifier = null,
             sql = """
-                INSERT OR REPLACE INTO CrashReport(
+                -- The guid comes from the app, so a repeat is a resend rather than a new
+                -- report: OR IGNORE keeps the first one instead of letting a
+                -- caller overwrite anybody's row by guessing an id.
+                INSERT OR IGNORE INTO CrashReport(
                     guid, type, message, stack, platform, os_version, device,
                     app_version, occurred_at, received_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.config.AppInfo
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -10,14 +11,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
-import com.example.poster.mail.Mailer
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Group
-import com.example.poster.model.RegisterRequest
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -36,7 +32,8 @@ import kotlin.test.assertTrue
 class GroupEmailInviteTest {
 
     @Test
-    fun theInvitedPersonCanJoinWithTheCodeTheyWereSent() = withServer { mail ->
+    fun theInvitedPersonCanJoinWithTheCodeTheyWereSent() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -57,7 +54,8 @@ class GroupEmailInviteTest {
      * that one over themselves.
      */
     @Test
-    fun somebodyElseCannotSpendAnInviteSentToAnotherAddress() = withServer { mail ->
+    fun somebodyElseCannotSpendAnInviteSentToAnotherAddress() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         confirmed("guest@example.com")
@@ -85,7 +83,8 @@ class GroupEmailInviteTest {
 
     /** Case is not part of an address, and nobody types their own the same way twice. */
     @Test
-    fun theAddressIsMatchedWithoutCase() = withServer { mail ->
+    fun theAddressIsMatchedWithoutCase() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -99,6 +98,7 @@ class GroupEmailInviteTest {
     /** The choice made when invites became single-use: a code handed over by hand is unbound. */
     @Test
     fun aHandMadeInviteStaysUnbound() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val code = handMadeInvite(owner, group.id)
@@ -113,6 +113,7 @@ class GroupEmailInviteTest {
      */
     @Test
     fun theAnswerIsTheSameWhetherOrNotTheAddressHasAnAccount() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         confirmed("known@example.com")
@@ -126,7 +127,8 @@ class GroupEmailInviteTest {
 
     /** Somebody with no account is written to as well, and told what the app is. */
     @Test
-    fun anAddressWithNoAccountIsStillInvited() = withServer { mail ->
+    fun anAddressWithNoAccountIsStillInvited() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -148,7 +150,8 @@ class GroupEmailInviteTest {
      * right.
      */
     @Test
-    fun theInvitationCarriesAnHttpsLink() = withServer { mail ->
+    fun theInvitationCarriesAnHttpsLink() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -167,7 +170,8 @@ class GroupEmailInviteTest {
 
     /** Only the owner may invite into a room. */
     @Test
-    fun aMemberCannotInvite() = withServer { mail ->
+    fun aMemberCannotInvite() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val member = confirmed("member@example.com")
@@ -189,7 +193,8 @@ class GroupEmailInviteTest {
      * landed.
      */
     @Test
-    fun oneAccountCannotMailTheWorld() = withServer { mail ->
+    fun oneAccountCannotMailTheWorld() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -210,7 +215,8 @@ class GroupEmailInviteTest {
     }
 
     @Test
-    fun anAddressThatIsNotAnAddressIsRefused() = withServer { mail ->
+    fun anAddressThatIsNotAnAddressIsRefused() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -223,7 +229,8 @@ class GroupEmailInviteTest {
 
     /** The page the emailed link lands on names the room, and spends nothing. */
     @Test
-    fun theLinkLandsOnAPageThatNamesTheGroup() = withServer { mail ->
+    fun theLinkLandsOnAPageThatNamesTheGroup() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -240,7 +247,8 @@ class GroupEmailInviteTest {
     }
 
     @Test
-    fun aSpentCodeGivesTheSamePageAsAnInventedOne() = withServer { mail ->
+    fun aSpentCodeGivesTheSamePageAsAnInventedOne() = withServer { (mail) ->
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -254,23 +262,6 @@ class GroupEmailInviteTest {
     }
 
     // — helpers —
-
-    private class RecordedMail : Mailer {
-        val sent = mutableListOf<Triple<String, String, String>>()
-        override suspend fun send(to: String, subject: String, body: String): Boolean {
-            sent += Triple(to, subject, body)
-            return true
-        }
-
-        fun countFor(email: String) = sent.count { it.first.equals(email, ignoreCase = true) }
-
-        fun bodyFor(email: String): String? =
-            sent.lastOrNull { it.first.equals(email, ignoreCase = true) }?.third
-
-        /** The eight-character code, read out of the message the way a person would. */
-        fun codeFor(email: String): String? =
-            bodyFor(email)?.let { Regex("/join/([A-Z0-9]{4,})").find(it)?.groupValues?.get(1) }
-    }
 
     private suspend fun ApplicationTestBuilder.inviteByEmail(
         user: AuthResponse,
@@ -319,16 +310,6 @@ class GroupEmailInviteTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
     private suspend fun ApplicationTestBuilder.signIn(email: String): AuthResponse {
         val response = client.post("/auth/login") {
             contentType(ContentType.Application.Json)
@@ -338,24 +319,4 @@ class GroupEmailInviteTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.(RecordedMail) -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-email-invites").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        val mail = RecordedMail()
-        try {
-            testApplication {
-                application { module(mailer = mail) }
-                block(mail)
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
 }

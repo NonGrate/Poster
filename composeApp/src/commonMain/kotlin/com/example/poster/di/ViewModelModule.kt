@@ -16,6 +16,7 @@ import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.FeedbackViewModel
 import com.example.poster.viewmodel.TagViewModel
 import com.example.poster.viewmodel.ThemeViewModel
+import com.example.poster.config.Features
 
 fun viewModelModule() = module {
     single { SupportRepository(apiKey = get<AppConfig>().revenueCatApiKey, dispatchers = get()) }
@@ -46,11 +47,14 @@ fun viewModelModule() = module {
     single { TagViewModel(get(), get()) }
     single { com.example.poster.ui.images.PostImageLoader(get()) }
     single { GroupViewModel(get(), get(), get()) }
-    single { FeedbackViewModel(get(), get()) }
-    single { CommentsViewModel(get(), get()) }
+    // Gated where the only screen that resolves one is itself behind the flag.
+    // FollowsViewModel, BookmarksViewModel and PushRegistrar are not: HomeScreen
+    // and MainScreen inject them before any flag is looked at.
+    if (Features.FEEDBACK) single { FeedbackViewModel(get(), get()) }
+    if (Features.COMMENTS) single { CommentsViewModel(get(), get()) }
+    if (Features.PUSH_NOTIFICATIONS) single { NotificationsViewModel(get(), get()) }
     single { FollowsViewModel(get(), get()) }
     single { BookmarksViewModel(get(), get()) }
-    single { NotificationsViewModel(get(), get()) }
     single { PushRegistrar(session = get(), notifications = get(), dispatchers = get()) }
     single { ThemeViewModel(get(), get()) }
 }

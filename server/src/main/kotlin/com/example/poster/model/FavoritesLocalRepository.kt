@@ -1,15 +1,14 @@
 package com.example.poster.model
 
+import com.example.poster.PostDatabase
 import com.example.poster.config.Features
-import com.example.poster.db.DatabaseManager
-import com.example.poster.db.DatabaseDriverFactory
 import kotlinx.datetime.LocalDateTime
 
+// No default database, for the reason given on PostsLocalRepository.
 class FavoritesLocalRepository(
-    private val tagRepository: TagLocalRepository = TagLocalRepository(),
+    database: PostDatabase,
+    private val tagRepository: TagLocalRepository = TagLocalRepository(database),
 ) : FavoritesRepository {
-    private val databaseManager = DatabaseManager(DatabaseDriverFactory())
-    private val database = databaseManager.getDatabase()
     private val favoriteQueries = database.userPostFavoriteQueries
 
     override fun getUserFavoritePosts(userId: String): List<Post> {
@@ -31,7 +30,6 @@ class FavoritesLocalRepository(
                 completionMessage = it.completion_message,
                 visibility = it.visibility,
                 language = it.language,
-                isFavorite = true
             )
         }
     }
@@ -66,10 +64,6 @@ class FavoritesLocalRepository(
             return true
         }
         return false
-    }
-
-    override fun getUsersWhoFavoritedPost(postId: String): List<String> {
-        return favoriteQueries.getUsersWhoFavoritedPost(postId).executeAsList()
     }
 
     override fun countPostFavorites(postId: String): Long {

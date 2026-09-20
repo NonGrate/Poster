@@ -9,7 +9,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
+import com.example.poster.config.Features
 import com.example.poster.auth.SocialAccount
 import com.example.poster.auth.SocialVerifier
 import com.example.poster.model.AuthResponse
@@ -18,7 +18,6 @@ import com.example.poster.model.RegisterRequest
 import com.example.poster.model.SocialSignInRequest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -34,7 +33,7 @@ import kotlin.test.assertTrue
 class AccountMergeTest {
 
     @Test
-    fun mergingMovesTheContentAndLandsOnTheAccountYouKept() = withServer {
+    fun mergingMovesTheContentAndLandsOnTheAccountYouKept() = withApple {
         // A: the account they already had, email + password.
         val kept = register("main@example.com")
         // B: a first Apple sign-in with Hide My Email → a separate account.
@@ -42,7 +41,26 @@ class AccountMergeTest {
         assertNotEqualGuids(kept, apple)
 
         // Something written while on the Apple account, which must survive.
-        assertEquals(HttpStatusCode.NoContent, postPost(apple.tokens.accessToken, apple.user.guid, "Carry my mother"))
+        postPost(apple, "merge-1", title = "Carry my mother", message = "words", date = "2026-08-21T10:00")
+        // And the rest of what hangs off an account. Every one of these is a
+        // User row with ON DELETE CASCADE behind it, so a merge that only
+        // moved the posts threw the lot away when it deleted the merged id.
+        if (Features.COMMENTS) {
+            assertEquals(
+                HttpStatusCode.OK,
+                client.post("/posts/merge-1/comments") {
+                    bearerAuth(apple.tokens.accessToken)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"text":"She would have liked this"}""")
+                }.status,
+            )
+        }
+        if (Features.BOOKMARKS) {
+            assertEquals(
+                HttpStatusCode.NoContent,
+                client.post("/bookmarks/merge-1") { bearerAuth(apple.tokens.accessToken) }.status,
+            )
+        }
 
         val merged = merge(apple.tokens.accessToken, MergeRequest(email = "main@example.com", password = "password123"))
         assertEquals(HttpStatusCode.OK, merged.first)
@@ -54,6 +72,23 @@ class AccountMergeTest {
         val mine = client.get("/posts/mine") { bearerAuth(survivor.tokens.accessToken) }.bodyAsText()
         assertTrue(mine.contains("Carry my mother"), "the merged account's post did not move to the survivor")
 
+        if (Features.COMMENTS) {
+            val comments = client.get("/posts/merge-1/comments") {
+                bearerAuth(survivor.tokens.accessToken)
+            }.bodyAsText()
+            assertTrue(comments.contains("She would have liked this"), "the comment went with the merged account")
+            assertTrue(comments.contains(survivor.user.guid), "the comment still names an account that no longer exists")
+        }
+        if (Features.BOOKMARKS) {
+            assertEquals(
+                listOf("merge-1"),
+                Json.decodeFromString<List<String>>(
+                    client.get("/bookmarks") { bearerAuth(survivor.tokens.accessToken) }.bodyAsText(),
+                ),
+                "what the merged account had saved was thrown away",
+            )
+        }
+
         // Signing in with Apple now lands on the kept account, not a new one.
         assertEquals(
             kept.user.guid,
@@ -63,14 +98,14 @@ class AccountMergeTest {
     }
 
     @Test
-    fun mergingIntoTheAccountYouAreAlreadyOnIsRefused() = withServer {
+    fun mergingIntoTheAccountYouAreAlreadyOnIsRefused() = withApple {
         val kept = register("main@example.com")
         val (status, _) = merge(kept.tokens.accessToken, MergeRequest(email = "main@example.com", password = "password123"))
         assertEquals(HttpStatusCode.BadRequest, status)
     }
 
     @Test
-    fun mergingWithTheWrongPasswordIsRefused() = withServer {
+    fun mergingWithTheWrongPasswordIsRefused() = withApple {
         register("main@example.com")
         val apple = social("apple").second!!
         val (status, _) = merge(apple.tokens.accessToken, MergeRequest(email = "main@example.com", password = "wrong-password"))
@@ -80,7 +115,7 @@ class AccountMergeTest {
     }
 
     @Test
-    fun mergingWithoutBeingSignedInIsRefused() = withServer {
+    fun mergingWithoutBeingSignedInIsRefused() = withApple {
         val response = client.post("/auth/social/merge") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(MergeRequest(email = "main@example.com", password = "password123")))
@@ -125,16 +160,6 @@ class AccountMergeTest {
         return response.status to body
     }
 
-    private suspend fun ApplicationTestBuilder.postPost(accessToken: String, author: String, title: String): HttpStatusCode =
-        client.post("/posts") {
-            bearerAuth(accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"merge-1","title":"$title","message":"words","author":"$author",""" +
-                    """"group":null,"likes":0,"date":"2026-08-21T10:00","visibility":"public","tags":[],"language":"en"}""",
-            )
-        }.status
-
     private suspend fun ApplicationTestBuilder.register(email: String): AuthResponse {
         val response = client.post("/auth/register") {
             contentType(ContentType.Application.Json)
@@ -144,23 +169,7 @@ class AccountMergeTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-merge").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module(verifiers = listOf(AppleStub())) }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
-    }
+    /** The shared server, with the stub Apple this suite's tokens come from. */
+    private fun withApple(block: suspend ApplicationTestBuilder.(TestServer) -> Unit) =
+        withServer(verifiers = listOf(AppleStub()), block = block)
 }

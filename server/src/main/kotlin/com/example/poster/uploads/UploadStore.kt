@@ -2,12 +2,12 @@ package com.example.poster.uploads
 
 import java.nio.file.Files
 import java.nio.file.Path
+import com.example.poster.domain.validation.ImageRules
 import java.nio.file.StandardCopyOption
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.exists
-import kotlin.io.path.extension
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
@@ -43,7 +43,7 @@ class UploadStore(private val directory: Path) {
 
     /** The file for [id], or null when the id is malformed or nothing is there. */
     fun file(id: String): Path? {
-        if (!isValidId(id)) return null
+        if (!ImageRules.isValidId(id)) return null
         return directory.resolve(id).takeIf { it.exists() && it.isRegularFile() }
     }
 
@@ -64,21 +64,11 @@ class UploadStore(private val directory: Path) {
         directory.listDirectoryEntries().forEach { path ->
             if (!path.isRegularFile()) return@forEach
             val stale = path.getLastModifiedTime().toInstant().isBefore(cutoff)
-            val orphan = path.name.endsWith(".part") || (isValidId(path.name) && !isReferenced(path.name))
+            val orphan = path.name.endsWith(".part") || (ImageRules.isValidId(path.name) && !isReferenced(path.name))
             if (stale && orphan && Files.deleteIfExists(path)) removed++
         }
         return removed
     }
-
-    /** `image/jpeg` for `.jpg`, and so on — what the response is served as. */
-    fun contentType(id: String): String = when (Path.of(id).extension) {
-        "jpg" -> "image/jpeg"
-        "png" -> "image/png"
-        "webp" -> "image/webp"
-        else -> "application/octet-stream"
-    }
-
-    private fun isValidId(id: String) = id.matches(Regex("[0-9a-f]{32}\\.[a-z0-9]{1,5}"))
 
     private val random = SecureRandom()
 

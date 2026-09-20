@@ -43,7 +43,7 @@ class AuthService(
     private val config: AuthConfig,
     private val clock: Clock = Clock.systemUTC(),
     private val secureRandom: SecureRandom = SecureRandom(),
-    private val tokens: AccountTokens = AccountTokens(),
+    private val tokens: AccountTokens,
     private val userGroupRepository: UserGroupRepository? = null,
 ) {
     fun register(request: RegisterRequest): AuthResponse {

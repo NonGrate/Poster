@@ -42,13 +42,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.example.poster.cache.PostCache
-import com.example.poster.preview.FakePostApi
-import com.example.poster.preview.FakeUserApi
 import com.example.poster.navigation.Screen
-import com.example.poster.preview.FakePlatformDataStore
-import com.example.poster.repository.PostRepository
-import com.example.poster.repository.SessionRepository
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
 import com.example.poster.theme.AppTheme
@@ -79,9 +73,7 @@ import com.example.poster.ui.components.VerifyEmailDialog
 import com.example.poster.ui.platform.AdaptiveNavBar
 import com.example.poster.ui.platform.NavDestination
 import com.example.poster.util.AppPreferences
-import com.example.poster.util.DispatcherProvider
 import com.example.poster.viewmodel.AccountViewModel
-import com.example.poster.viewmodel.FavoritesViewModel
 import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.TagViewModel
 import com.example.poster.model.Post
@@ -98,9 +90,15 @@ import com.example.poster.network.GroupApi
 import com.example.poster.network.JoinResult
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.example.poster.preview.rememberPreviewGraph
+
+/**
+ * What is pushed over the tabs. One at a time, so the four booleans that could
+ * all be true at once are one thing that cannot. The open post is not here:
+ * the two-pane layout shows it *beside* the tab content rather than over it.
+ */
+private enum class Overlay { Profile, Groups, Feedback, Notifications }
 
 /** What the hoisted post form is open for: writing a new one, or editing one. */
 private sealed interface PostFormRequest {
@@ -111,7 +109,6 @@ private sealed interface PostFormRequest {
 @Composable
 fun MainScreen(
     postsViewModel: PostsViewModel = koinInject(),
-    favoritesViewModel: FavoritesViewModel = koinInject(),
     userViewModel: AccountViewModel = koinInject(),
     themeViewModel: ThemeViewModel = koinInject(),
     /**
@@ -150,7 +147,12 @@ fun MainScreen(
     val defaultVisibility by appPreferences.defaultVisibility.collectAsState()
     // feature.drafts: the unsent post, restored into the next "Add" and cleared when it is posted.
     var draft by remember { mutableStateOf<PostDraft?>(null) }
-    LaunchedEffect(Unit) { if (Features.DRAFTS) draft = appPreferences.postDraft() }
+    // Keyed on being signed in, not Unit: the kept words are this account's,
+    // and they used to survive a sign-out into the next person's form.
+    LaunchedEffect(isLoggedIn) {
+        if (!Features.DRAFTS) return@LaunchedEffect
+        draft = if (isLoggedIn) appPreferences.postDraft() else null
+    }
     val draftScope = rememberCoroutineScope()
     fun keepDraft(kept: PostDraft?) {
         draft = kept
@@ -182,7 +184,7 @@ fun MainScreen(
         }
         appPreferences.setKnownGroupIds(ids)
     }
-    LaunchedEffect(currentUser?.guid, inviteMessage == null) { if (primary) announceNewGroups() }
+    LaunchedEffect(currentUser?.guid) { if (primary) announceNewGroups() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (primary) welcomeScope.launch { announceNewGroups() }
     }
@@ -241,12 +243,9 @@ fun MainScreen(
     SyncSystemAppearance(darkTheme)
     AppTheme(darkTheme = darkTheme) {
         var selectedTab by remember { mutableStateOf(fixedTab ?: Screen.Main.route) }
-        // Overlays sit above the tabs: non-null id opens details, flag opens the profile.
+        // Above the tabs: an id opens the post, an [Overlay] opens a screen.
         var detailsPostId by remember { mutableStateOf<String?>(null) }
-        var showProfile by remember { mutableStateOf(false) }
-        var showGroups by remember { mutableStateOf(false) }
-        var showFeedback by remember { mutableStateOf(false) }
-        var showNotifications by remember { mutableStateOf(false) }
+        var overlay by remember { mutableStateOf<Overlay?>(null) }
         // Registers this device for pushes after sign-in and withdraws it on sign-out.
         val pushRegistrar: PushRegistrar = koinInject()
         LaunchedEffect(Unit) { if (primary) pushRegistrar.start() }
@@ -268,16 +267,13 @@ fun MainScreen(
         // is on screen — the open overlay first, then back to Home — and only
         // leaves the app when there is nothing left to go back to.
         AdaptiveBackHandler(
-            enabled = postForm != null || detailsPostId != null || showProfile ||
-                showGroups || showFeedback || showNotifications || selectedTab != Screen.Main.route
+            enabled = postForm != null || detailsPostId != null || overlay != null ||
+                selectedTab != Screen.Main.route
         ) {
             when {
                 postForm != null -> postForm = null
                 detailsPostId != null -> detailsPostId = null
-                showProfile -> showProfile = false
-                showGroups -> showGroups = false
-                showFeedback -> showFeedback = false
-                showNotifications -> showNotifications = false
+                overlay != null -> overlay = null
                 else -> if (fixedTab == null) selectedTab = Screen.Main.route
             }
         }
@@ -360,10 +356,7 @@ fun MainScreen(
             // this, Details/Profile/Groups stayed up over every tab.
             val selectTab: (String) -> Unit = { route ->
                 detailsPostId = null
-                showProfile = false
-                showGroups = false
-                showFeedback = false
-                showNotifications = false
+                overlay = null
                 // With a host-owned bar this instance cannot show another tab; ask the host.
                 if (fixedTab != null) NativeTabs.switcher?.invoke(route) else selectedTab = route
             }
@@ -389,14 +382,11 @@ fun MainScreen(
                             // Android. Only when an overlay is up; a swipe should
                             // not jump between tabs.
                             .adaptiveEdgeSwipeBack(
-                                enabled = detailsPostId != null || showProfile || showGroups || showFeedback || showNotifications,
+                                enabled = detailsPostId != null || overlay != null,
                                 onBack = {
                                     when {
                                         detailsPostId != null -> detailsPostId = null
-                                        showProfile -> showProfile = false
-                                        showGroups -> showGroups = false
-                                        showFeedback -> showFeedback = false
-                                        showNotifications -> showNotifications = false
+                                        else -> overlay = null
                                     }
                                 },
                             )
@@ -417,8 +407,8 @@ fun MainScreen(
                                 when (selectedTab) {
                                     Screen.Main.route -> HomeScreen(
                                         onPostClick = { detailsPostId = it.guid },
-                                        onNotifications = { showNotifications = true },
-                                        onJoinGroup = { showGroups = true },
+                                        onNotifications = { overlay = Overlay.Notifications },
+                                        onJoinGroup = { overlay = Overlay.Groups },
                                         onEditPost = { postForm = PostFormRequest.Edit(it) },
                                     )
                                     // Every list of posts opens the same details
@@ -430,15 +420,15 @@ fun MainScreen(
                                         onAddPost = { postForm = PostFormRequest.Add },
                                         onEditPost = { postForm = PostFormRequest.Edit(it) },
                                     )
-                                    Screen.Favorites.route -> FavoritesScreen(
+                                    Screen.Favorites.route -> if (Features.LIKES) FavoritesScreen(
                                         onPostClick = { detailsPostId = it.guid },
                                         onBrowseFeed = { selectTab(Screen.Main.route) },
                                     )
                                     Screen.Settings.route -> SettingsScreen(
-                                        onEditProfile = { showProfile = true },
-                                        onManageGroups = { showGroups = true },
-                                        onFeedback = { showFeedback = true },
-                                        onNotifications = { showNotifications = true },
+                                        onEditProfile = { overlay = Overlay.Profile },
+                                        onManageGroups = { overlay = Overlay.Groups },
+                                        onFeedback = { overlay = Overlay.Feedback },
+                                        onNotifications = { overlay = Overlay.Notifications },
                                     )
                                 }
                             }
@@ -453,12 +443,14 @@ fun MainScreen(
                             }
                         }
                         when {
-                            showProfile -> ProfileScreen(onBack = { showProfile = false })
-                            showGroups -> GroupsScreen(onBack = { showGroups = false })
-                            showFeedback -> FeedbackScreen(onBack = { showFeedback = false })
-                            showNotifications -> NotificationsScreen(
-                                onBack = { showNotifications = false },
-                                onOpenPost = { showNotifications = false; detailsPostId = it },
+                            overlay == Overlay.Profile -> ProfileScreen(onBack = { overlay = null })
+                            Features.GROUPS && overlay == Overlay.Groups ->
+                                GroupsScreen(onBack = { overlay = null })
+                            Features.FEEDBACK && overlay == Overlay.Feedback ->
+                                FeedbackScreen(onBack = { overlay = null })
+                            Features.PUSH_NOTIFICATIONS && overlay == Overlay.Notifications -> NotificationsScreen(
+                                onBack = { overlay = null },
+                                onOpenPost = { overlay = null; detailsPostId = it },
                             )
                             twoPane -> Row(modifier = Modifier.fillMaxSize()) {
                                 Box(modifier = Modifier.weight(0.45f).fillMaxHeight()) { tabContent() }
@@ -581,7 +573,6 @@ fun MainScreenPreview() {
     val graph = rememberPreviewGraph()
     MainScreen(
         postsViewModel = graph.postsViewModel,
-        favoritesViewModel = graph.favoritesViewModel,
         userViewModel = graph.accountViewModel,
         themeViewModel = graph.themeViewModel,
     )
@@ -590,31 +581,12 @@ fun MainScreenPreview() {
 @Preview
 @Composable
 fun MainScreenDarkPreview() {
-    val appPreferences = AppPreferences(FakePlatformDataStore())
-    val fakePostApi = FakePostApi()
-    val fakeUserApi = FakeUserApi()
-    val fakeCache = PostCache()
-    val dispatchers = DispatcherProvider(
-        main = Dispatchers.Default,
-        io = Dispatchers.Default
-    )
-    val repository = PostRepository(
-        postApi = fakePostApi,
-        userApi = fakeUserApi,
-        cache = fakeCache,
-        dispatchers = dispatchers
-    )
-    val session = SessionRepository(fakeUserApi, appPreferences, dispatchers)
-    val accountViewModel = AccountViewModel(session, dispatchers)
-    val postsViewModel = PostsViewModel(repository, session, dispatchers)
-    val favoritesViewModel = FavoritesViewModel(repository, session, dispatchers)
-    val previewThemeViewModel = ThemeViewModel(appPreferences, dispatchers).apply { setDarkTheme(true) }
+    val graph = rememberPreviewGraph()
     AppTheme(darkTheme = true) {
         MainScreen(
-            postsViewModel = postsViewModel,
-            favoritesViewModel = favoritesViewModel,
-            userViewModel = accountViewModel,
-            themeViewModel = previewThemeViewModel
+            postsViewModel = graph.postsViewModel,
+            userViewModel = graph.accountViewModel,
+            themeViewModel = graph.themeViewModel,
         )
     }
 }

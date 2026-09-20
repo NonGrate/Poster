@@ -3,7 +3,6 @@ package com.example.poster
 import com.example.poster.config.Features
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Group
-import com.example.poster.model.RegisterRequest
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -13,9 +12,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -76,26 +73,4 @@ class PublicGroupsTest {
             setBody("""{"visibility":"$visibility"}""")
         }.status
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest.serializer(), RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val root = Files.createTempDirectory("poster-public-groups")
-        val previous = mapOf("poster.database" to System.getProperty("poster.database"), "io.ktor.development" to System.getProperty("io.ktor.development"))
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication { application { module() }; block() }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
 }

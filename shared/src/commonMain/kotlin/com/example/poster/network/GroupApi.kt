@@ -22,19 +22,6 @@ enum class JoinResult { JOINED, WRONG_ADDRESS, INVALID }
  * thing: it takes a name and touches only a row the server just made.
  */
 interface GroupApi {
-    suspend fun getAllGroups(): List<Group>
-
-    suspend fun getGroupById(id: String): Group?
-
-    /**
-     * Looks a group up by its old standing code.
-     *
-     * Kept for reading only. Joining goes through [joinWithInvite] now, because
-     * an invite is spent by using it and the server is the only place that can
-     * say whether it is still good.
-     */
-    suspend fun getGroupByInviteCode(inviteCode: String): Group?
-
     /**
      * Redeems an invitation.
      *
@@ -124,12 +111,4 @@ interface GroupApi {
      * Removes a user from a group.
      */
     suspend fun removeUserFromGroup(userId: String, groupId: String)
-
-    /**
-     * Checks if a user is a member of a group.
-     */
-
-    /**
-     * Gets all users in a specific group.
-     */
 }

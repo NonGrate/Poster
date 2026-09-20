@@ -54,9 +54,6 @@ UPDATE Tag SET tag_group = ? WHERE guid = ? AND tag_group IS NULL;
 updateTagLabels:
 UPDATE Tag SET label_en = ?, label_ru = ? WHERE guid = ?;
 
-deleteTagByGuid:
-DELETE FROM Tag WHERE guid = ?;
-
 deleteTag:
 DELETE FROM Tag
 WHERE guid = ?;

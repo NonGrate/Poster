@@ -61,3 +61,22 @@ fun EmptyState(
         }
     }
 }
+
+/**
+ * What a signed-in-only list says to a signed-out reader: "Sign in" and the
+ * name of the thing they would see. My Posts and Liked each carried their own
+ * copy of this Box-in-a-Column.
+ */
+@Composable
+fun SignedOutPlaceholder(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+    }
+}

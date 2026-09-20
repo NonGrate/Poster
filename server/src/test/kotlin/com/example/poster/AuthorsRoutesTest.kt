@@ -2,7 +2,6 @@ package com.example.poster
 
 import com.example.poster.config.Features
 import com.example.poster.model.AuthResponse
-import com.example.poster.model.RegisterRequest
 import com.example.poster.model.User
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.forms.formData
@@ -17,13 +16,11 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -48,7 +45,7 @@ class AuthorsRoutesTest {
     }
 
     @Test
-    fun anAvatarIsAnUploadEverybodySignedInMaySee_andTheOldOneGoesWhenReplaced() = withServer {
+    fun anAvatarIsAnUploadEverybodySignedInMaySee_andTheOldOneGoesWhenReplaced() = withServer { (_, uploadsDir) ->
         if (!Features.AUTHORS || !Features.IMAGES) return@withServer
         val author = confirmed("author@example.com", "Ada", "Lovelace")
         val reader = confirmed("reader@example.com", "Rea", "Der")
@@ -69,7 +66,6 @@ class AuthorsRoutesTest {
 
     // --- helpers -----------------------------------------------------------
 
-    private lateinit var uploadsDir: Path
 
     private suspend fun ApplicationTestBuilder.upload(user: AuthResponse): String {
         val response = client.submitFormWithBinaryData("/uploads", formData {
@@ -85,36 +81,4 @@ class AuthorsRoutesTest {
             setBody(Json.encodeToString(User.serializer(), user.user.copy(photo = photo)))
         }.status
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String, name: String, surname: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest.serializer(), RegisterRequest(name, surname, email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String) {
-        val response = client.post("/posts") {
-            bearerAuth(user.tokens.accessToken); contentType(ContentType.Application.Json)
-            setBody("""{"guid":"$guid","title":"Title","message":"words","author":"${user.user.guid}","group":null,"likes":0,"date":"2026-08-23T10:00","visibility":"public","tags":[],"language":"en"}""")
-        }
-        assertEquals(HttpStatusCode.NoContent, response.status, response.bodyAsText())
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val root = Files.createTempDirectory("poster-authors-test")
-        uploadsDir = root.resolve("uploads")
-        val previous = mapOf("poster.database" to System.getProperty("poster.database"), "poster.uploads" to System.getProperty("poster.uploads"), "io.ktor.development" to System.getProperty("io.ktor.development"))
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("poster.uploads", uploadsDir.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication { application { module() }; block() }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
 }

@@ -12,6 +12,7 @@ import com.example.poster.ktor.createHttpClient
 import com.example.poster.model.Post
 import com.example.poster.repository.PostRepository
 import com.example.poster.repository.TagRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -41,17 +42,6 @@ object TestUtils : KoinComponent {
             val userApi = KtorUserApi(httpClient, tokenStorage)
             check(userApi.authenticateUser("user2@example.com", "password123") != null)
             KtorPostApi(httpClient).removePost(post)
-            userApi.logout()
-        }
-    }
-
-    /** The author saying how it went, which only the author may do. */
-    suspend fun completePostAsSecondUser(postId: String, message: String?) {
-        val tokenStorage = InMemoryAuthTokenStorage()
-        createHttpClient(TestServer.host, TestServer.port, authTokenStorage = tokenStorage).use { httpClient ->
-            val userApi = KtorUserApi(httpClient, tokenStorage)
-            check(userApi.authenticateUser("user2@example.com", "password123") != null)
-            KtorPostApi(httpClient).completePost(postId, message)
             userApi.logout()
         }
     }
@@ -117,10 +107,17 @@ object TestUtils : KoinComponent {
         }
     }
 
+    /**
+     * [seeded] is what this test put on the backend as the second user. It is
+     * removed again on the way out, whether the test passed or failed: the
+     * backend is shared by every class in the run, so a post left behind turns
+     * up in the next one's feed and in its counts.
+     */
     fun runWrapped(
         composeTestRule: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>,
         before: suspend (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit = {},
         after: suspend (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit = {},
+        seeded: List<Post> = emptyList(),
         action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit
     ) {
         try {
@@ -146,7 +143,7 @@ object TestUtils : KoinComponent {
             } catch (cleanup: Throwable) {
                 failure.addSuppressed(cleanup)
             } finally {
-                clearAppState()
+                clearAppState(seeded)
             }
             throw failure
         }
@@ -154,14 +151,20 @@ object TestUtils : KoinComponent {
             runBlocking { after(composeTestRule) }
         } finally {
             // Always clean up, even if after() fails
-            clearAppState()
+            clearAppState(seeded)
         }
     }
 
     /**
-     * Clears all app state using repositories instead of direct database access
+     * Clears this test's app state using repositories instead of direct
+     * database access.
+     *
+     * What it removes from the backend is only what this test put there: the
+     * posts it seeded and the posts the signed-in person wrote. It used to
+     * delete every post it could see, which on a backend shared by the whole
+     * run meant deleting the fixtures and whatever the next class had seeded.
      */
-    private fun clearAppState() {
+    private fun clearAppState(seeded: List<Post> = emptyList()) {
         runBlocking {
             try {
                 val currentUserId = appPreferences.getUserId()
@@ -171,11 +174,12 @@ object TestUtils : KoinComponent {
 
                 // Clear repository caches and underlying data
                 postRepository.clearCache()
-                postRepository.getAllPosts()
-                    .onSuccess { posts ->
-                        posts.forEach { postRepository.deletePost(it) }
-                    }
+                // Tolerant: a post the test itself already removed is fine.
+                seeded.forEach { post -> runCatching { deletePostAsSecondUser(post) } }
                 currentUserId?.let { userId ->
+                    postRepository.refreshMyPosts(userId)
+                    postRepository.myPosts(userId)?.first().orEmpty()
+                        .forEach { postRepository.deletePost(it) }
                     postRepository.getFavoritePosts()
                         .onSuccess { snapshot ->
                             snapshot.favoritePosts.forEach { post ->
@@ -336,9 +340,6 @@ object TestUtils : KoinComponent {
     }
 
     /**
-     * Navigates to favourites screen
-     */
-    /**
      * Waits for a tag to exist, then asserts it.
      *
      * Screens here arrive after a network round trip, so asserting the instant
@@ -367,9 +368,6 @@ object TestUtils : KoinComponent {
         }
     }
 
-    /**
-     * Navigates to favourites screen
-     */
     /**
      * Waits for at least one node with the tag. [awaitTag] insists on exactly
      * one, which is right for a screen and wrong for a list of cards.

@@ -87,17 +87,12 @@ interface PostApi {
     suspend fun removeFavorite(userId: String, postId: String)
 
     /**
-     * Checks if a post is a favorite for a user.
-     */
-    /**
      * Everything the signed-in person wrote, however old.
      *
      * Defaulted to the whole feed so the offline and preview backends, where
      * "everything" is a handful of posts in memory, need not implement it.
      */
     suspend fun getMyPosts(): List<Post> = getAllPosts()
-
-    suspend fun isFavorite(userId: String, postId: String): Boolean
 
     /**
      * Who liked a post — the opted-in names (newest first) and the

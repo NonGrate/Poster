@@ -21,7 +21,10 @@ VALUES (?, ?, ?, ?, ?);
 commentsForPost:
 SELECT * FROM Comment
 WHERE post_guid = ? AND deleted_at IS NULL
-ORDER BY created_at ASC;
+-- rowid breaks the tie: two comments written in the same second would
+-- otherwise come back in whatever order the query planner felt like, and
+-- oldest-first is the whole shape of a thread.
+ORDER BY created_at ASC, rowid ASC;
 
 commentById:
 SELECT * FROM Comment WHERE guid = ?;
@@ -45,5 +48,10 @@ SELECT Comment.guid, Comment.post_guid, Comment.author, Comment.text, Comment.cr
 FROM Comment
 JOIN User ON User.guid = Comment.author
 JOIN Post ON Post.guid = Comment.post_guid
-ORDER BY Comment.created_at DESC
+ORDER BY Comment.created_at DESC, Comment.rowid DESC
 LIMIT ?;
+
+-- Merging two accounts: what the merged id wrote is now the survivor's. No
+-- unique pair to trip over, so a plain UPDATE moves the lot.
+reassignCommentAuthor:
+UPDATE Comment SET author = :into WHERE author = :from;

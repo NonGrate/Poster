@@ -4,7 +4,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.example.poster.config.Features
 import com.example.poster.util.TestUtils
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import kotlin.test.Test
 
@@ -18,6 +21,9 @@ import kotlin.test.Test
 class LanguageInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun onlyWithMultipleLanguages() = assumeTrue(Features.MULTI_LANGUAGE)
 
     private fun wrapped(action: (AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>) -> Unit) {
         TestUtils.runWrapped(

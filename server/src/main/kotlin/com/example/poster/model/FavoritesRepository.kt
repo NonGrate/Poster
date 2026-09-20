@@ -5,7 +5,6 @@ interface FavoritesRepository {
     fun isPostFavorite(userId: String, postId: String): Boolean
     fun addFavoritePost(userId: String, postId: String)
     fun removeFavoritePost(userId: String, postId: String): Boolean
-    fun getUsersWhoFavoritedPost(postId: String): List<String>
     fun countPostFavorites(postId: String): Long
 
     /** Who liked a post: opted-in names (newest first) plus the total. */

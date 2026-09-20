@@ -320,7 +320,7 @@ fun FeedFilterSheet(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 modifier = Modifier.fillMaxWidth().testTag("filter_group_row"),
             ) {
-                item(key = "everyone") {
+                if (Features.GROUPS) item(key = "everyone") {
                     RoomChip(
                         label = stringResource(Res.string.filter_everyone),
                         // Not a state of its own: no rooms chosen *is*
@@ -330,7 +330,7 @@ fun FeedFilterSheet(
                         testTag = "filter_group_everyone",
                     )
                 }
-                if (Features.FOLLOWS) item(key = "following") {
+                if (Features.FOLLOWS && Features.AUTHORS) item(key = "following") {
                     RoomChip(
                         label = stringResource(Res.string.filter_following),
                         selected = selected.following,

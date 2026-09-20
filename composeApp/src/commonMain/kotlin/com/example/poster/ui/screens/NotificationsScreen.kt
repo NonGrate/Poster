@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.poster.model.AppNotification
@@ -47,6 +48,8 @@ import poster.composeapp.generated.resources.notification_comment
 import poster.composeapp.generated.resources.notification_group_added
 import poster.composeapp.generated.resources.notification_group_joined
 import poster.composeapp.generated.resources.notification_like
+import poster.composeapp.generated.resources.notification_open_post
+import poster.composeapp.generated.resources.notification_other
 import poster.composeapp.generated.resources.notifications_empty
 import poster.composeapp.generated.resources.notifications_title
 import poster.composeapp.generated.resources.settings
@@ -101,7 +104,9 @@ private fun NotificationRow(item: AppNotification, onOpenPost: (String) -> Unit)
         NotificationType.COMMENT -> stringResource(Res.string.notification_comment, item.postTitle ?: "")
         NotificationType.GROUP_ADDED -> stringResource(Res.string.notification_group_added, item.groupName ?: "")
         NotificationType.GROUP_JOINED -> stringResource(Res.string.notification_group_joined, item.groupName ?: "")
-        else -> item.type
+        // Never the raw enum name: a build that meets a kind it does not
+        // know about says something true rather than showing "GROUP_LEFT".
+        else -> stringResource(Res.string.notification_other)
     }
     val icon = when (item.type) {
         NotificationType.LIKE -> Icons.Filled.Favorite
@@ -109,11 +114,21 @@ private fun NotificationRow(item: AppNotification, onOpenPost: (String) -> Unit)
         else -> Icons.Outlined.Group
     }
     val postGuid = item.postGuid
+    val openPost = stringResource(Res.string.notification_open_post)
     Row(
         verticalAlignment = Alignment.Top,
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (postGuid != null) Modifier.clickable { onOpenPost(postGuid) } else Modifier)
+            .then(
+                if (postGuid != null) {
+                    Modifier.clickable(
+                        onClickLabel = openPost,
+                        role = Role.Button,
+                    ) { onOpenPost(postGuid) }
+                } else {
+                    Modifier
+                }
+            )
             .padding(vertical = Spacing.xs)
             .testTag("notification_row"),
     ) {

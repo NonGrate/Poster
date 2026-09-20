@@ -27,6 +27,13 @@ abstract class IdSetViewModel(dispatchers: DispatcherProvider) : ScopedViewModel
         }
     }
 
+    /**
+     * Signing out: the next person must not inherit this one's set. Not
+     * `clear()` — that is [ScopedViewModel]'s, and it cancels the scope this
+     * singleton still needs.
+     */
+    fun clearIds() { _ids.value = emptySet() }
+
     fun toggle(id: String) {
         val had = id in _ids.value
         _ids.value = if (had) _ids.value - id else _ids.value + id

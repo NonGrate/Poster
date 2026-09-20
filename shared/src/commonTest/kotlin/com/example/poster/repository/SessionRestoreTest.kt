@@ -3,6 +3,7 @@ package com.example.poster.repository
 import com.example.poster.model.User
 import com.example.poster.network.SessionCheck
 import com.example.poster.network.UserApi
+import com.example.poster.testing.NoopUserApi
 import com.example.poster.util.AppPreferences
 import com.example.poster.util.PlatformDataStore
 import com.example.poster.util.DispatcherProvider
@@ -46,10 +47,11 @@ class SessionRestoreTest {
         override suspend fun clear() { values.clear() }
     }
 
+    /** Answers about one person, and remembers being signed out. */
     private class Api(
         private val answer: suspend () -> User?,
         private val check: SessionCheck? = null,
-    ) : UserApi {
+    ) : NoopUserApi() {
         var loggedOut = false
             private set
 
@@ -57,31 +59,10 @@ class SessionRestoreTest {
             check ?: super.verifySession(userId)
 
         override suspend fun getUserById(id: String): User? = answer()
-
-        override suspend fun updateUser(user: User) = Unit
         override suspend fun logIn(user: String): User? = answer()
         override suspend fun authenticateUser(email: String, password: String): User? = answer()
-        override suspend fun createUser(
-            name: String,
-            surname: String,
-            email: String,
-            password: String,
-            groupCode: String?,
-            languages: List<String>,
-            defaultLanguage: String?,
-            showName: Boolean,
-        ): User = error("not used")
-        // The offline backend has no email and nothing to verify against: it exists
-        // so the app can run without a server at all.
-        override suspend fun verifyEmail(token: String): Boolean = false
-
-        override suspend fun resendVerification() = Unit
-
-        override suspend fun requestPasswordReset(email: String) = Unit
-
-        override suspend fun resetPassword(token: String, newPassword: String): Boolean = false
-        override suspend fun logout() { loggedOut = true }
         override suspend fun currentUser(): User? = answer()
+        override suspend fun logout() { loggedOut = true }
     }
 
     private fun sessionWith(api: UserApi, prime: suspend (AppPreferences) -> Unit): SessionRepository {

@@ -1,14 +1,13 @@
 package com.example.poster.model
 
 import com.example.poster.PostDatabase
-import com.example.poster.db.DatabaseDriverFactory
-import com.example.poster.db.DatabaseManager
 import java.time.Instant
 import java.util.UUID
 
 /** Feedback people send, and the developer's replies. */
+// No default database, for the reason given on PostsLocalRepository.
 class FeedbackRepository(
-    private val database: PostDatabase = DatabaseManager(DatabaseDriverFactory()).getDatabase(),
+    private val database: PostDatabase,
 ) {
     private val queries = database.feedbackQueries
 
@@ -59,9 +58,6 @@ class FeedbackRepository(
             id = id,
         )
     }
-
-    /** How many are still waiting — the number worth showing in the admin nav. */
-    fun openCount(): Long = queries.countOpenFeedback().executeAsOne()
 }
 
 /** One piece of feedback with its sender, for the admin panel. */

@@ -127,10 +127,6 @@ class FavoritesViewModel(
             .onFailure { fail("Unable to load favorites", it) }
     }
 
-    fun isPostFavorite(postId: String): Boolean = _state.value.isFavorite(postId)
-
-    fun favoritesCount(postId: String): Int = _state.value.counts[postId] ?: 0
-
     fun toggleFavorite(post: Post): Boolean {
         val user = session.user.value
         if (user == null) {

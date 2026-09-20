@@ -2,7 +2,6 @@ package com.example.poster.auth
 
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
-import com.example.poster.db.DatabaseDriverFactory
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -28,7 +27,7 @@ enum class TokenPurpose { VERIFY_EMAIL, RESET_PASSWORD, MAGIC_LINK }
  * shared schema and out of the client migrations.
  */
 class AccountTokens(
-    private val driver: SqlDriver = DatabaseDriverFactory().createDriver(),
+    private val driver: SqlDriver,
     private val random: SecureRandom = SecureRandom(),
     private val clock: Clock = Clock.System,
 ) {

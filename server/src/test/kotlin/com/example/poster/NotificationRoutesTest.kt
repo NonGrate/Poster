@@ -1,9 +1,9 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.model.AppNotification
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.NotificationType
-import com.example.poster.model.RegisterRequest
 import com.example.poster.push.PushMessage
 import com.example.poster.push.PushSender
 import io.ktor.client.request.bearerAuth
@@ -16,12 +16,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,10 +39,11 @@ class NotificationRoutesTest {
     private val ios = RecordingSender()
 
     @Test
-    fun aLikeTellsTheAuthorOnEveryDevice_notTheLiker() = withServer {
+    fun aLikeTellsTheAuthorOnEveryDevice_notTheLiker() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS || !Features.LIKES) return@withPush
         val author = confirmed("author@example.com")
         val fan = confirmed("fan@example.com")
-        postPost(author, "p1")
+        postPost(author, "p1", title = "Title")
         registerDevice(author, "author-android-token", "android")
         registerDevice(author, "author-ios-token", "ios")
         registerDevice(fan, "fan-token", "android")
@@ -66,25 +65,34 @@ class NotificationRoutesTest {
     }
 
     @Test
-    fun likingYourOwnPostIsNotNews() = withServer {
+    fun likingYourOwnPostIsNotNews() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS || !Features.LIKES) return@withPush
         val author = confirmed("author@example.com")
-        postPost(author, "p1")
+        postPost(author, "p1", title = "Title")
+        val fan = confirmed("fan@example.com")
         registerDevice(author, "t", "android")
         like(author, "p1")
-        delay(200)
-        assertTrue(android.sent.isEmpty())
-        assertTrue(list(author).isEmpty())
+
+        // Waiting a fixed moment for nothing to happen only proves the machine
+        // was busy. A like that must push is the anchor instead: whatever the
+        // author's own like sent is queued in front of it.
+        like(fan, "p1")
+        awaitPushes(1)
+
+        assertEquals(listOf("t"), android.sent.map { it.first }, "the author's own like was pushed to them")
+        assertEquals(1, list(author).size, "the author's own like became news too")
     }
 
     @Test
-    fun aCommentTellsTheAuthorInTheirLanguage() = withServer {
+    fun aCommentTellsTheAuthorInTheirLanguage() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS || !Features.COMMENTS) return@withPush
         val author = confirmed("author@example.com")
         val other = confirmed("other@example.com")
         client.post("/accounts") {
             bearerAuth(author.tokens.accessToken); contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(com.example.poster.model.User.serializer(), author.user.copy(languages = listOf("en", "ru"), defaultLanguage = "ru")))
         }
-        postPost(author, "p1")
+        postPost(author, "p1", title = "Title")
         registerDevice(author, "t", "ios")
         client.post("/posts/p1/comments") {
             bearerAuth(other.tokens.accessToken); contentType(ContentType.Application.Json); setBody("""{"text":"Nice"}""")
@@ -96,10 +104,11 @@ class NotificationRoutesTest {
     }
 
     @Test
-    fun readingClearsTheCount() = withServer {
+    fun readingClearsTheCount() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS || !Features.LIKES) return@withPush
         val author = confirmed("author@example.com")
         val fan = confirmed("fan@example.com")
-        postPost(author, "p1")
+        postPost(author, "p1", title = "Title")
         like(fan, "p1")
         assertEquals(1, unread(author))
         assertEquals(HttpStatusCode.NoContent, client.post("/notifications/read") { bearerAuth(author.tokens.accessToken) }.status)
@@ -108,10 +117,11 @@ class NotificationRoutesTest {
     }
 
     @Test
-    fun aDeadTokenIsForgotten_andAWithdrawnOneIsNotPushedTo() = withServer {
+    fun aDeadTokenIsForgotten_andAWithdrawnOneIsNotPushedTo() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS || !Features.LIKES) return@withPush
         val author = confirmed("author@example.com")
         val fan = confirmed("fan@example.com")
-        postPost(author, "p1")
+        postPost(author, "p1", title = "Title")
         registerDevice(author, "dead-token", "android")
         registerDevice(author, "live-token", "android")
         like(fan, "p1")
@@ -122,12 +132,24 @@ class NotificationRoutesTest {
         assertEquals(HttpStatusCode.NoContent, client.delete("/devices/live-token").status)
         client.delete("/favorites/${fan.user.guid}/p1") { bearerAuth(fan.tokens.accessToken) }
         like(fan, "p1")
-        delay(300)
-        assertTrue(android.sent.isEmpty(), "pushed to ${android.sent.map { it.first }}")
+
+        // Same anchor: a device that must be pushed to, registered after the
+        // like that must reach nobody, so its push lands behind any stray one.
+        registerDevice(author, "fresh-token", "android")
+        client.delete("/favorites/${fan.user.guid}/p1") { bearerAuth(fan.tokens.accessToken) }
+        like(fan, "p1")
+        awaitPushes(1)
+
+        assertEquals(
+            listOf("fresh-token"),
+            android.sent.map { it.first },
+            "a withdrawn or dead token was pushed to",
+        )
     }
 
     @Test
-    fun aDeviceNeedsATokenAndAKnownPlatform() = withServer {
+    fun aDeviceNeedsATokenAndAKnownPlatform() = withPush {
+        if (!Features.PUSH_NOTIFICATIONS) return@withPush
         val user = confirmed("someone@example.com")
         val response = client.post("/devices") {
             bearerAuth(user.tokens.accessToken); contentType(ContentType.Application.Json); setBody("""{"token":"abc","platform":"web"}""")
@@ -161,41 +183,7 @@ class NotificationRoutesTest {
         Json.parseToJsonElement(client.get("/notifications/unread") { bearerAuth(user.tokens.accessToken) }.bodyAsText())
             .jsonObject["unread"]!!.jsonPrimitive.content.toInt()
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest.serializer(), RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String) {
-        val response = client.post("/posts") {
-            bearerAuth(user.tokens.accessToken)
-            contentType(ContentType.Application.Json)
-            setBody(
-                """{"guid":"$guid","title":"Title","message":"words","author":"${user.user.guid}",""" +
-                    """"group":null,"likes":0,"date":"2026-08-23T10:00","visibility":"public","tags":[],"language":"en"}""",
-            )
-        }
-        assertEquals(HttpStatusCode.NoContent, response.status, response.bodyAsText())
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val root = Files.createTempDirectory("poster-notifications-test")
-        val previous = mapOf("poster.database" to System.getProperty("poster.database"), "io.ktor.development" to System.getProperty("io.ktor.development"))
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module(pushSenders = mapOf("android" to android, "ios" to ios)) }
-                block()
-            }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
+    /** The shared server, pushing to the recorders rather than to a phone. */
+    private fun withPush(block: suspend ApplicationTestBuilder.(TestServer) -> Unit) =
+        withServer(push = mapOf("android" to android, "ios" to ios), block = block)
 }

@@ -387,9 +387,9 @@ kotlin {
             getByName("desktopMain").dependencies {
                 implementation(compose.desktop.currentOs)
                 // The JVM has no default Ktor engine on the classpath; CIO is the plain one.
-                implementation(libs.ktor.ktor.client.cio)
+                implementation(libs.ktor.client.cio)
                 // Dispatchers.Main on the JVM is Swing's event thread.
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+                implementation(libs.kotlinx.coroutines.swing)
             }
         }
     }
@@ -527,15 +527,14 @@ android {
 // only ever reachable from there by the multiplatform plugin's courtesy.
 dependencies {
     debugImplementation(compose.uiTooling)
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4-android:1.12.0")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.test:runner:1.5.2")
-    androidTestImplementation("androidx.test:rules:1.5.0")
-    androidTestImplementation("androidx.activity:activity-compose:1.8.2")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.12.0")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.12.0")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.8.2")
+    androidTestImplementation(libs.compose.ui.test.junit4.android)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.activity.compose)
+    androidTestImplementation(libs.compose.ui.test.manifest)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
 
 

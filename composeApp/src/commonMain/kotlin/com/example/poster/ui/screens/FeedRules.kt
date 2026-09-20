@@ -89,13 +89,6 @@ data class PostFilter(
 fun List<Post>.withTags(tagIds: Set<String>): List<Post> =
     if (tagIds.isEmpty()) this else filter { post -> post.tags.any { it in tagIds } }
 
-/**
- * The feed narrowed to posts shared with any of these groups.
- *
- * Naming a room also drops public posts, the same rule the server applies:
- * "show me what my reading group is carrying" is not answered by a feed that
- * still holds everything posted to everybody. An empty set is no filter.
- */
 /** The same match the server makes: case-insensitive, anywhere in the title or the message. */
 fun List<Post>.matching(query: String): List<Post> {
     val needle = query.trim().lowercase()
@@ -111,6 +104,13 @@ fun List<Post>.fromAuthors(authors: Set<String>?): List<Post> =
 fun List<Post>.withGuids(guids: Set<String>?): List<Post> =
     if (guids == null) this else filter { it.guid in guids }
 
+/**
+ * The feed narrowed to posts shared with any of these groups.
+ *
+ * Naming a room also drops public posts, the same rule the server applies:
+ * "show me what my reading group is carrying" is not answered by a feed that
+ * still holds everything posted to everybody. An empty set is no filter.
+ */
 fun List<Post>.fromGroups(groupIds: Set<String>): List<Post> =
     if (groupIds.isEmpty()) this else filter { it.group in groupIds }
 

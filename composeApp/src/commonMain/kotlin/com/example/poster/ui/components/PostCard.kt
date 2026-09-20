@@ -1,58 +1,36 @@
 package com.example.poster.ui.components
 
-import poster.composeapp.generated.resources.post_unsent_label
 import poster.composeapp.generated.resources.bookmark_remove
 import poster.composeapp.generated.resources.bookmark_save
-import poster.composeapp.generated.resources.comments_title
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import com.example.poster.config.Features
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.poster.domain.validation.TagRules
 import com.example.poster.model.Post
 import com.example.poster.ui.images.PostImage
-import com.example.poster.model.PostVisibility
 import com.example.poster.theme.Spacing
 import com.example.poster.ui.platform.adaptiveCardElevation
 import org.jetbrains.compose.resources.stringResource
 import poster.composeapp.generated.resources.Res
-import poster.composeapp.generated.resources.visibility_group
-import poster.composeapp.generated.resources.post_visibility_private
-import poster.composeapp.generated.resources.post_mine_label
-import poster.composeapp.generated.resources.post_visibility_shared_with
 import poster.composeapp.generated.resources.delete
 import poster.composeapp.generated.resources.edit
 import poster.composeapp.generated.resources.post_report
 import poster.composeapp.generated.resources.post_share
 import poster.composeapp.generated.resources.more_options
 import poster.composeapp.generated.resources.post_complete
-import poster.composeapp.generated.resources.post_completed_label
-import poster.composeapp.generated.resources.post_like
 import poster.composeapp.generated.resources.post_reopen
-import poster.composeapp.generated.resources.post_like_count
-import poster.composeapp.generated.resources.post_unfavorite
 import com.example.poster.viewmodel.TagViewModel
 import androidx.compose.ui.text.intl.Locale
 import org.koin.compose.koinInject
@@ -109,8 +87,7 @@ fun PostCard(
     /**
      * Marks this as the reader's own where it sits among others' — the feed now
      * shows your posts too, and a "Yours" pill tells them apart. Off by default
-     * and left off on My Posts (all yours there) and Details (edit/delete
-     * already say so).
+     * and left off on My Posts, where every post is yours.
      */
     isOwn: Boolean = false,
     /** Tapping the author's name (feature.follows): the caller offers Follow/Unfollow. */
@@ -129,6 +106,12 @@ fun PostCard(
     // rebuild. Collecting it here recomposes the card the instant it arrives.
     val tagCatalog by tagLabels.tags.collectAsState()
     val language = Locale.current.language
+    // One pass over the catalogue rather than a scan per chip: the catalogue is
+    // the same list for every card on screen and only moves when it reloads or
+    // the reading language changes.
+    val tagLabelFor = remember(tagCatalog, language) {
+        tagCatalog.associate { it.name to it.label(language) }
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -337,11 +320,11 @@ fun PostCard(
                 // says so by handing over no callback, and a toggle that cannot
                 // be toggled is worse than none.
                 variant == PostCardVariant.Mine || onToggleLike == null -> {
-                    { LikeCountBadge(likeCount) }
+                    { LikePill(isLiked = false, count = likeCount, onClick = null, testTag = "like_count") }
                 }
                 else -> {
                     {
-                        LikeToggle(
+                        LikePill(
                             isLiked = isLiked,
                             count = likeCount,
                             onClick = onToggleLike,
@@ -371,7 +354,7 @@ fun PostCard(
                 // number now, and a post written before there was a cap is
                 // the only way this trims anything.
                 if (Features.TAGS) post.tags.take(TagRules.MAX_PER_POST).forEach { tagId ->
-                    TagChip(tagCatalog.firstOrNull { it.name == tagId }?.label(language) ?: tagId)
+                    TagChip(tagLabelFor[tagId] ?: tagId)
                 }
                 if (Features.COMMENTS && post.comments > 0) {
                     CommentCountBadge(post.comments)
@@ -407,389 +390,6 @@ fun PostCard(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-/**
- * Who can read a post: a group by name, or nobody but its author.
- *
- * A line under the title rather than a mark in the corner beside it. The corner
- * belongs to the overflow menu, and a name squeezed in next to it had to be
- * clipped at 120dp — so a room called "Молодёжная группа «Благодать»" came out
- * as three words and an ellipsis. Under the title it has the card's full width.
- *
- * A pill, matching the "Yours" and "Private" pills, so when a post is both
- * yours and in a group the two sit together on one row and read as one set
- * rather than a stack of mismatched labels. It stays clear of the tag chips
- * below by its own colour — neutral, not the tags' green — its group icon, and
- * its place above them: a group is who can see this, not a topic.
- */
-@Composable
-private fun PostAudienceLabel(
-    visibility: String,
-    groupName: String?,
-    expanded: Boolean,
-    isOwn: Boolean = false,
-    isUnsent: Boolean = false,
-) {
-    val audience: (@Composable () -> Unit)? = when (visibility) {
-        PostVisibility.PRIVATE -> {
-            { PrivatePill() }
-        }
-        PostVisibility.GROUP -> {
-            {
-                GroupPill(
-                    // A group whose name this device does not know — it
-                    // arrived before the list did, or the person has since left
-                    // it. The generic word is still true and still says it was
-                    // not public.
-                    name = groupName ?: stringResource(Res.string.visibility_group),
-                    expanded = expanded,
-                )
-            }
-        }
-        // Public. No pill, no word — the ordinary case.
-        else -> null
-    }
-    // Public and not the reader's own has nothing to show.
-    if (!isOwn && !isUnsent && audience == null) return
-    // The row owns the space on both sides of it, and the two are not equal:
-    // 4dp up to the title, 4dp down plus the 8dp every card already keeps above
-    // its message. It belongs to the title — the two of them say what this is
-    // and who it went to — so it sits close under it and holds the message off.
-    Spacer(modifier = Modifier.height(Spacing.xxs))
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (isOwn) MinePill()
-        if (isUnsent) UnsentPill()
-        audience?.invoke()
-    }
-    Spacer(modifier = Modifier.height(Spacing.xxs))
-}
-
-/**
- * The icon and the room's name, with no "Shared with" in front of it.
- *
- * The prefix is what the icon is for, and dropping it is what keeps the line on
- * one row in Russian, where the prefix alone would eat the name. It comes back
- * in the spoken label, where there is no icon to carry it.
- */
-@Composable
-private fun GroupPill(name: String, expanded: Boolean) {
-    val spoken = stringResource(Res.string.post_visibility_shared_with, name)
-    // Same neutral pill as "Yours": surfaceContainerHigh, not the old
-    // surfaceVariant that in dark was the very fill of an input field, so the
-    // badge read as a disabled control on a dark card. Never the tags' green.
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .semantics(mergeDescendants = true) { contentDescription = spoken }
-            .testTag("post_visibility_label"),
-    ) {
-        Row(
-            // Top-aligned only where the name is allowed to wrap, so the icon
-            // stays with the first line rather than floating beside two.
-            verticalAlignment = if (expanded) Alignment.Top else Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            modifier = Modifier.padding(start = Spacing.xs, end = 10.dp, top = Spacing.xxs, bottom = Spacing.xxs),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Group,
-                contentDescription = null,
-                modifier = Modifier.size(13.dp).then(if (expanded) Modifier.padding(top = 2.dp) else Modifier),
-            )
-            Text(
-                text = name,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                // The icon is a sibling of this text, not inside it, so the fact
-                // that a post is restricted survives a name too long to show.
-                maxLines = if (expanded) 2 else 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-/**
- * The one audience the app puts a word on.
- *
- * An icon alone cannot promise "nobody" — a lock on its own is read as "locked"
- * long before it is read as "only you". Outlined rather than filled: private is
- * a boundary, not an accent, and both the mint and the rose already mean
- * something else on this card.
- */
-/**
- * A neutral pill saying a post among others' is the reader's own.
- *
- * surfaceContainerHigh, not primaryContainer: an ownership badge is neutral
- * warm, not the primary accent, and in dark the brown primaryContainer sat so
- * close to the card it read as muddy. This one is a clear, quiet step off the
- * card in both themes and — unlike the old surfaceVariant on the group pill
- * — is not the same fill as an input field.
- */
-/** Same neutral pill as "Yours"; the words carry the meaning. */
-@Composable
-private fun UnsentPill() {
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.testTag("post_unsent_label"),
-    ) {
-        Text(
-            text = stringResource(Res.string.post_unsent_label),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
-        )
-    }
-}
-
-@Composable
-private fun MinePill() {
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.testTag("post_mine_label"),
-    ) {
-        Text(
-            text = stringResource(Res.string.post_mine_label),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
-        )
-    }
-}
-
-@Composable
-private fun PrivatePill() {
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
-        modifier = Modifier.testTag("post_visibility_label"),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            modifier = Modifier.padding(start = Spacing.xs, end = 10.dp, top = Spacing.xxs, bottom = Spacing.xxs),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Lock,
-                contentDescription = null,
-                modifier = Modifier.size(13.dp),
-            )
-            Text(
-                text = stringResource(Res.string.post_visibility_private),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-@Composable
-fun TagChip(tag: String) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-    ) {
-        Text(
-            text = tag,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
-        )
-    }
-}
-
-/** Inactive: hairline outline, "Like". Active: filled, "Liked · N". */
-@Composable
-fun LikeToggle(
-    isLiked: Boolean,
-    count: Int,
-    onClick: () -> Unit,
-    testTag: String = if (isLiked) "favorite_button_filled" else "favorite_button",
-) {
-    val label = if (isLiked || count > 0) {
-        stringResource(Res.string.post_like_count, count)
-    } else {
-        stringResource(Res.string.post_like)
-    }
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShapePill,
-        color = if (isLiked) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerLowest
-        },
-        contentColor = if (isLiked) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        border = if (isLiked) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.height(32.dp).testTag(testTag),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
-            modifier = Modifier.padding(horizontal = Spacing.sm),
-        ) {
-            Icon(
-                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = if (isLiked) {
-                    stringResource(Res.string.post_unfavorite)
-                } else {
-                    stringResource(Res.string.post_like)
-                },
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.testTag("favorite_count"),
-            )
-        }
-    }
-}
-
-/**
- * Your own post: the count, with no way to press it.
- *
- * Filled while anybody has liked, and bare at zero. The fill is what says
- * somebody is carrying this, so at nought there is nothing for it to say — but
- * the line stays, because "Liked · 0" is a true answer to a question the
- * author is asking, and an absent control reads as the app having no answer.
- *
- * Public because the details screen shows the same thing and had been drawing
- * its own bare Text — so the count that is a pill on every card was plain words
- * one tap later.
- */
-/** How many comments a post has, as a quiet chip; only shown when there are some. */
-@Composable
-fun CommentCountBadge(count: Int) {
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.height(32.dp).testTag("comment_count"),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
-            modifier = Modifier.padding(horizontal = Spacing.sm),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.ChatBubbleOutline,
-                contentDescription = stringResource(Res.string.comments_title),
-                modifier = Modifier.size(18.dp),
-            )
-            Text(text = count.toString(), style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
-@Composable
-fun LikeCountBadge(count: Int) {
-    val likedFor = count > 0
-    Surface(
-        shape = RoundedCornerShapePill,
-        color = if (likedFor) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            Color.Transparent
-        },
-        contentColor = if (likedFor) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        modifier = Modifier.height(32.dp).testTag("like_count"),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
-            modifier = Modifier.padding(horizontal = Spacing.sm),
-        ) {
-            Icon(
-                imageVector = if (likedFor) {
-                    Icons.Default.Favorite
-                } else {
-                    Icons.Default.FavoriteBorder
-                },
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = stringResource(Res.string.post_like_count, count),
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.testTag("favorite_count"),
-            )
-        }
-    }
-}
-
-/** A concluded post stays in the list, wearing the author's word on how it went. */
-@Composable
-private fun ResolvedBadge(message: String?) {
-    // A framed block below the post rather than a pill above it: an answered
-    // post's outcome is worth setting apart, and the frame — a hairline in the
-    // mint of "done", over a faint wash of it — reads as its own small panel
-    // without shouting. The tags below stay solid green chips; this is outlined,
-    // so the two do not blur together.
-    Surface(
-        // A fixed modest radius, not shapes.small: on iOS shapes.small is a full
-        // pill (for chips), which on this multi-line block sweeps the corners in
-        // and crowds the message text against the border.
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)),
-        modifier = Modifier.fillMaxWidth().testTag("post_resolved_badge"),
-    ) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = stringResource(Res.string.post_completed_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.tertiary,
-                )
-            }
-            if (!message.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(Spacing.xs))
-                // Not italic: italics slant emoji oddly, and the answer often is
-                // one. The label above already frames it as the outcome.
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
@@ -894,5 +494,3 @@ private fun PostOverflowMenu(
         }
     }
 }
-
-private val RoundedCornerShapePill = androidx.compose.foundation.shape.RoundedCornerShape(50)

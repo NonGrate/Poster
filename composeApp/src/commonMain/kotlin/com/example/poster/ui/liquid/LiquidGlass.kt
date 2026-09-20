@@ -2,6 +2,7 @@ package com.example.poster.ui.liquid
 
 import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -89,11 +90,13 @@ fun Modifier.liquidGlass(
 ): Modifier {
     val blurLayer = rememberGraphicsLayer()
     val radius = with(LocalDensity.current) { blur.toPx() }
-    // Set once, not per draw: changing a layer's effect invalidates its
-    // parent, and doing that from inside a draw is a redraw loop.
-    remember(blurLayer, radius) {
+    // Set once per radius, not per draw: changing a layer's effect invalidates
+    // its parent, and doing that from inside a draw is a redraw loop. An effect
+    // rather than a remember, because writing to the layer is a side effect and
+    // a remember may be thrown away before it is ever committed.
+    DisposableEffect(blurLayer, radius) {
         blurLayer.renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Clamp) else null
-        true
+        onDispose { }
     }
     return this
         .clip(shape)
@@ -121,7 +124,9 @@ private class GlassSourceNode(var backdrop: GlassBackdrop) :
         drawLayer(backdrop.layer)
         // What is behind the glass just changed; the glass has not, so it
         // would not redraw on its own.
-        backdrop.dependents.forEach { it.invalidateDraw() }
+        // Over a copy: invalidating can detach a surface, and a set mutated
+        // while it is being walked throws.
+        backdrop.dependents.toList().forEach { it.invalidateDraw() }
     }
 }
 

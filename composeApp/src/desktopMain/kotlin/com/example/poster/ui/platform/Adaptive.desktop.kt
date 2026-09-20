@@ -120,13 +120,6 @@ actual fun AdaptiveCreateHeaderAction(
 ) = Unit
 
 @Composable
-actual fun AdaptiveDestructiveTextButton(text: String, onClick: () -> Unit, modifier: Modifier) {
-    TextButton(onClick = onClick, modifier = modifier) {
-        Text(text = text, color = MaterialTheme.colorScheme.error)
-    }
-}
-
-@Composable
 actual fun AdaptiveConfirmDialog(
     title: String,
     body: String,

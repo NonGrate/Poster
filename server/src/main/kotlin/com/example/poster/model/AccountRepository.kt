@@ -36,8 +36,9 @@ interface AccountRepository {
     /**
      * Fold [from] into [into] and delete [from], in one transaction.
      *
-     * Every row keyed to [from] — posts, favourites, memberships, owned
-     * groups, invites, reports, its social identities, audit entries — is
+     * Every row keyed to [from] — posts, comments, favourites, bookmarks,
+     * follows, memberships, owned groups, invites, reports, notifications,
+     * devices, its social identities, audit entries — is
      * moved to [into] first, deduping where a pair is unique, so nothing is lost
      * and nothing is left pointing at a deleted id. This is the merge that
      * [deleteAccountAndContent] deliberately is not: it moves rather than

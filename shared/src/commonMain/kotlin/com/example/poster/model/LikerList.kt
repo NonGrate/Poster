@@ -19,6 +19,6 @@ data class LikerList(
 @Serializable
 data class Liker(
     val name: String,
-    /** When they started liking, ISO-8601, or null on pre-migration rows. */
+    /** When they started liking, ISO-8601, or null when the device wrote the row. */
     val date: String? = null,
 )

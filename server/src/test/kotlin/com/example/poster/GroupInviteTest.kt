@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -10,17 +11,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import com.example.poster.model.AuthResponse
 import com.example.poster.model.Group
 import com.example.poster.model.GroupMember
-import com.example.poster.model.RegisterRequest
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -34,6 +30,7 @@ class GroupInviteTest {
 
     @Test
     fun aninviteLetsSomebodyInOnce() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val code = invite(owner, group.id)
@@ -53,6 +50,7 @@ class GroupInviteTest {
     /** The whole point: a code that never dies is a standing key. */
     @Test
     fun theGroupsOwnCodeNoLongerLetsAnybodyIn() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -64,6 +62,7 @@ class GroupInviteTest {
 
     @Test
     fun aWithdrawnInviteIsDead() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val code = invite(owner, group.id)
@@ -79,6 +78,7 @@ class GroupInviteTest {
 
     @Test
     fun onlyTheOwnerCanIssueOrSeeInvites() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -101,6 +101,7 @@ class GroupInviteTest {
     /** The owner reads this list to see whether the invite they sent was used. */
     @Test
     fun theOwnerSeesWhoSpentWhich() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val code = invite(owner, group.id)
@@ -118,6 +119,7 @@ class GroupInviteTest {
 
     @Test
     fun membersAreNamesAndNotAddresses() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         join(confirmed("anna@example.com"), invite(owner, group.id))
@@ -132,6 +134,7 @@ class GroupInviteTest {
 
     @Test
     fun somebodyOutsideTheGroupCannotSeeItsMembers() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val stranger = confirmed("stranger@example.com")
@@ -146,6 +149,7 @@ class GroupInviteTest {
 
     @Test
     fun theOwnerCanRemoveSomebody() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val anna = confirmed("anna@example.com")
@@ -161,6 +165,7 @@ class GroupInviteTest {
 
     @Test
     fun aMemberCannotRemoveAnybody() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val anna = confirmed("anna@example.com")
@@ -179,6 +184,7 @@ class GroupInviteTest {
     /** An owner who removes themselves leaves a room nobody can administer. */
     @Test
     fun theOwnerCannotRemoveThemselves() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
 
@@ -193,6 +199,7 @@ class GroupInviteTest {
     /** The owner is marked, so the app can show the controls to the right person. */
     @Test
     fun theOwnerIsMarkedInTheList() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         join(confirmed("anna@example.com"), invite(owner, group.id))
@@ -218,6 +225,7 @@ class GroupInviteTest {
      */
     @Test
     fun rejoiningDoesNotBurnTheInviteOrFail() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val guest = confirmed("guest@example.com")
@@ -235,6 +243,7 @@ class GroupInviteTest {
     /** And the owner's own code still lets the person it was made for in. */
     @Test
     fun anInviteSpentByNobodyIsStillGood() = withServer {
+        if (!Features.GROUPS) return@withServer
         val owner = confirmed("owner@example.com")
         val group = create(owner, "Family")
         val code = invite(owner, group.id)
@@ -285,33 +294,22 @@ class GroupInviteTest {
         return Json.decodeFromString(response.bodyAsText())
     }
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
+    /** A pasted code becomes a group's name before anybody is asked to join it. */
+    @Test
+    fun aCodeNamesTheGroupItOpens() = withServer {
+        if (!Features.GROUPS) return@withServer
+        val owner = confirmed("owner@example.com")
+        val group = create(owner, "Family")
+        val guest = confirmed("guest@example.com")
 
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val databasePath = Files.createTempDirectory("poster-invites").resolve("test.db")
-        val previousDatabase = System.getProperty("poster.database")
-        val previousDevelopment = System.getProperty("io.ktor.development")
-        System.setProperty("poster.database", databasePath.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            if (previousDatabase == null) System.clearProperty("poster.database")
-            else System.setProperty("poster.database", previousDatabase)
-            if (previousDevelopment == null) System.clearProperty("io.ktor.development")
-            else System.setProperty("io.ktor.development", previousDevelopment)
-            databasePath.toFile().parentFile.deleteRecursively()
-        }
+        val response = client.get("/groups/byInvite/${group.inviteCode}") { bearerAuth(guest.tokens.accessToken) }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertEquals(group.id, Json.decodeFromString<Group>(response.bodyAsText()).id)
+
+        assertEquals(
+            HttpStatusCode.NotFound,
+            client.get("/groups/byInvite/ZZZZZZZZ") { bearerAuth(guest.tokens.accessToken) }.status,
+        )
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/groups/byInvite/${group.inviteCode}").status)
     }
 }

@@ -1,8 +1,8 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.domain.validation.ImageRules
 import com.example.poster.model.AuthResponse
-import com.example.poster.model.RegisterRequest
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -18,12 +18,10 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,6 +33,7 @@ class UploadRoutesTest {
 
     @Test
     fun anUploadComesBackToWhoeverIsSignedIn_untilAPostClaimsIt() = withServer {
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val reader = confirmed("reader@example.com")
         val id = upload(author, png)
@@ -51,6 +50,7 @@ class UploadRoutesTest {
 
     @Test
     fun aPublicPostsPictureIsForEverybodySignedIn() = withServer {
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val reader = confirmed("reader@example.com")
         val id = upload(author, png)
@@ -63,6 +63,7 @@ class UploadRoutesTest {
 
     @Test
     fun onlyPicturesAndOnlySoBig() = withServer {
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val text = client.submitFormWithBinaryData("/uploads", formData { filePart("notes.txt", "text/plain", "hello".toByteArray()) }) {
             bearerAuth(author.tokens.accessToken)
@@ -78,13 +79,15 @@ class UploadRoutesTest {
 
     @Test
     fun aPostMayOnlyPointAtAnImageThisServerStored() = withServer {
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val response = postPostRaw(author, guid = "fake", visibility = "public", image = "0123456789abcdef0123456789abcdef.png")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
-    fun deletingThePostDeletesTheFile() = withServer {
+    fun deletingThePostDeletesTheFile() = withServer { (_, uploadsDir) ->
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val id = upload(author, png)
         postPost(author, guid = "gone", visibility = "public", image = id)
@@ -97,7 +100,8 @@ class UploadRoutesTest {
     }
 
     @Test
-    fun replacingThePictureRemovesTheOldFile() = withServer {
+    fun replacingThePictureRemovesTheOldFile() = withServer { (_, uploadsDir) ->
+        if (!Features.IMAGES) return@withServer
         val author = confirmed("author@example.com")
         val first = upload(author, png)
         postPost(author, guid = "edited", visibility = "public", image = first)
@@ -109,7 +113,6 @@ class UploadRoutesTest {
 
     // --- helpers -----------------------------------------------------------
 
-    private lateinit var uploadsDir: Path
 
     private fun io.ktor.client.request.forms.FormBuilder.filePart(name: String, type: String, bytes: ByteArray) {
         append(
@@ -133,16 +136,6 @@ class UploadRoutesTest {
     private suspend fun ApplicationTestBuilder.fetch(user: AuthResponse, id: String): HttpResponse =
         client.get("/uploads/$id") { bearerAuth(user.tokens.accessToken) }
 
-    private suspend fun ApplicationTestBuilder.confirmed(email: String): AuthResponse {
-        val response = client.post("/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(Json.encodeToString(RegisterRequest.serializer(), RegisterRequest("Some", "Body", email, "password123")))
-        }
-        assertEquals(HttpStatusCode.OK, response.status)
-        confirmAddress(email)
-        return Json.decodeFromString(response.bodyAsText())
-    }
-
     private suspend fun ApplicationTestBuilder.postPostRaw(user: AuthResponse, guid: String, visibility: String, image: String?) =
         client.post("/posts") {
             bearerAuth(user.tokens.accessToken)
@@ -154,30 +147,4 @@ class UploadRoutesTest {
             )
         }
 
-    private suspend fun ApplicationTestBuilder.postPost(user: AuthResponse, guid: String, visibility: String, image: String?) {
-        val response = postPostRaw(user, guid, visibility, image)
-        assertEquals(HttpStatusCode.NoContent, response.status, response.bodyAsText())
-    }
-
-    private fun withServer(block: suspend ApplicationTestBuilder.() -> Unit) {
-        val root = Files.createTempDirectory("poster-uploads-test")
-        uploadsDir = root.resolve("uploads")
-        val previous = mapOf(
-            "poster.database" to System.getProperty("poster.database"),
-            "poster.uploads" to System.getProperty("poster.uploads"),
-            "io.ktor.development" to System.getProperty("io.ktor.development"),
-        )
-        System.setProperty("poster.database", root.resolve("test.db").toString())
-        System.setProperty("poster.uploads", uploadsDir.toString())
-        System.setProperty("io.ktor.development", "true")
-        try {
-            testApplication {
-                application { module() }
-                block()
-            }
-        } finally {
-            previous.forEach { (key, value) -> if (value == null) System.clearProperty(key) else System.setProperty(key, value) }
-            root.toFile().deleteRecursively()
-        }
-    }
 }

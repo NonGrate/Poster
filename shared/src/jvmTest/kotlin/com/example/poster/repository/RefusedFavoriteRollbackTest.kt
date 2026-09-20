@@ -4,17 +4,13 @@ import com.example.poster.cache.PostCache
 import com.example.poster.db.DatabaseDriverFactory
 import com.example.poster.db.DatabaseManager
 import com.example.poster.model.Post
-import com.example.poster.model.User
-import com.example.poster.network.PostApi
-import com.example.poster.network.UserApi
+import com.example.poster.testing.NoopPostApi
+import com.example.poster.testing.withTempDatabase
 import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
-import java.nio.file.Files
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -31,7 +27,6 @@ import kotlin.test.assertTrue
 class RefusedFavoriteRollbackTest {
 
     private lateinit var store: PostLocalStore
-    private var previousPath: String? = null
 
     private val post = Post(
         guid = "post-1",
@@ -43,27 +38,17 @@ class RefusedFavoriteRollbackTest {
         date = LocalDateTime.parse("2026-08-19T10:00"),
     )
 
-    @BeforeTest
-    fun setUp() {
-        previousPath = System.getProperty("poster.database")
-        val file = Files.createTempFile("poster-rollback", ".db").toFile()
-        file.delete()
-        file.deleteOnExit()
-        System.setProperty("poster.database", file.path)
+    /** A database of its own per test, put back afterwards. */
+    private fun withStore(block: suspend () -> Unit) = withTempDatabase {
         store = PostLocalStore(
             databaseManager = DatabaseManager(DatabaseDriverFactory()),
             dispatchers = dispatchers,
         )
-    }
-
-    @AfterTest
-    fun tearDown() {
-        previousPath?.let { System.setProperty("poster.database", it) }
-            ?: System.clearProperty("poster.database")
+        runBlocking { block() }
     }
 
     @Test
-    fun aRefusedPostLeavesTheCountAlone() = runBlocking {
+    fun aRefusedPostLeavesTheCountAlone() = withStore {
         store.replaceAll(listOf(post))
 
         val result = repository().addFavorite(USER, post.guid)
@@ -73,7 +58,7 @@ class RefusedFavoriteRollbackTest {
     }
 
     @Test
-    fun aRefusedWithdrawalLeavesTheCountAlone() = runBlocking {
+    fun aRefusedWithdrawalLeavesTheCountAlone() = withStore {
         store.replaceAll(listOf(post))
         store.addFavorite(USER, post.guid)
 
@@ -89,7 +74,7 @@ class RefusedFavoriteRollbackTest {
      * refused tap took away everything the person was liking.
      */
     @Test
-    fun aRefusedPostKeepsEverythingElseBeingLikedFor() = runBlocking {
+    fun aRefusedPostKeepsEverythingElseBeingLikedFor() = withStore {
         val other = post.copy(guid = "post-2")
         store.replaceAll(listOf(post, other))
         store.addFavorite(USER, other.guid)
@@ -101,51 +86,17 @@ class RefusedFavoriteRollbackTest {
 
     private fun repository() = PostRepository(
         postApi = RefusingPostApi(),
-        userApi = NoUserApi(),
         cache = PostCache(),
         dispatchers = dispatchers,
         localStore = store,
     )
 
-    private class RefusingPostApi : PostApi {
-        override suspend fun getAllPosts(): List<Post> = emptyList()
-        override suspend fun getFavoritePosts(): List<Post> = emptyList()
-        override suspend fun removePost(post: Post) = Unit
-        override suspend fun updatePost(post: Post) = Unit
-        override suspend fun addPost(post: Post) = Unit
-        override suspend fun completePost(postId: String, message: String?) = Unit
-        override suspend fun reopenPost(postId: String) = Unit
-        override suspend fun isFavorite(userId: String, postId: String) = false
+    private class RefusingPostApi : NoopPostApi() {
         override suspend fun addFavorite(userId: String, postId: String): Unit =
             throw IllegalStateException("server said no")
 
         override suspend fun removeFavorite(userId: String, postId: String): Unit =
             throw IllegalStateException("server said no")
-    }
-
-    /** Never asked anything: this test is about posts, not people. */
-    private class NoUserApi : UserApi {
-        override suspend fun getUserById(id: String): User? = null
-        override suspend fun updateUser(user: User) = Unit
-        override suspend fun logIn(user: String): User? = null
-        override suspend fun authenticateUser(email: String, password: String): User? = null
-        override suspend fun createUser(
-            name: String,
-            surname: String,
-            email: String,
-            password: String,
-            groupCode: String?,
-            languages: List<String>,
-            defaultLanguage: String?,
-            showName: Boolean,
-        ): User = error("not used")
-
-        override suspend fun verifyEmail(token: String): Boolean = false
-        override suspend fun resendVerification() = Unit
-        override suspend fun requestPasswordReset(email: String) = Unit
-        override suspend fun resetPassword(token: String, newPassword: String): Boolean = false
-        override suspend fun logout() = Unit
-        override suspend fun currentUser(): User? = null
     }
 
     private companion object {
