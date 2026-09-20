@@ -318,7 +318,7 @@ kotlin {
         }
     }
 
-    if (desktopEnabled) jvm("desktop")
+    if (desktopEnabled) jvm("desktop") { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
 
     sourceSets {
         // Same pattern as billing: Firebase Messaging only when the feature is on.

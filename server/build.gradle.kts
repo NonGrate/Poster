@@ -31,6 +31,14 @@ application {
 // file rather than a copy per consumer.
 sourceSets["main"].resources.srcDir("../assets")
 
+// Class files for Java 21 whatever JDK runs the build: the distribution is
+// started by whatever `java` the host has, and docs promise 21.
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) } }
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
 dependencies {
     implementation(projects.shared)
     implementation(libs.logback)

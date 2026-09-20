@@ -406,6 +406,11 @@ server/build/local/
 # this line existed.
 server/backups/
 
+# Written by IDEs that pick a daemon JDK (Android Studio wrote one for JDK 25);
+# with it present every module compiles for that JDK and the server
+# distribution stops starting on the JDK 21 the docs ask for.
+gradle/gradle-daemon-jvm.properties
+
 # Local, untracked iOS build overrides (RevenueCat key, TEAM_ID)
 iosApp/Configuration/Local.xcconfig
 

@@ -150,7 +150,8 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
-    jvm()
+    // Class files for Java 21 whatever JDK runs the build (the server ships this jar).
+    jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
 
     sourceSets {
         androidMain.dependencies {

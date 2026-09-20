@@ -34,7 +34,6 @@ import poster.composeapp.generated.resources.cancel
 import poster.composeapp.generated.resources.delete
 import poster.composeapp.generated.resources.login
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.nameOf
