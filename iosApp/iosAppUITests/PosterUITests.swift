@@ -22,8 +22,19 @@ class PosterTestCase: XCTestCase {
     }
 
     func element(_ identifier: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        let match = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        // With feature.liquidNavBar the tabs are SwiftUI's, and the system tab bar
+        // does not always surface the identifier set on the label; the title does.
+        if !match.exists, let title = Self.tabTitles[identifier] {
+            let button = app.tabBars.buttons[title]
+            if button.exists { return button }
+        }
+        return match
     }
+
+    private static let tabTitles = [
+        "feed_tab": "Feed", "my_posts_tab": "My Posts", "favourites_tab": "Liked", "settings_tab": "Settings",
+    ]
 
     func waitFor(
         _ identifier: String,

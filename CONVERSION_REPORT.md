@@ -593,6 +593,21 @@ taps by Compose test tag, which the SwiftUI tab buttons do not carry; a
 native-bar screenshot set needs identifiers on those buttons (or a
 title fallback in the test helper) and a run with the flag on.
 
+### 27. Screenshots: iOS Liquid Glass, wide and narrow everywhere (2026-09-20)
+
+- `screenshots/ios-liquid/`: the iOS set with `feature.liquidNavBar=true`, the
+  system's Liquid Glass tab bar. To get there: the SwiftUI tab buttons carry
+  the Compose test tags (`IosTabs.tabTestTag`), the XCUITest helper falls back
+  to the tab title for `*_tab` identifiers, the bar is tinted with the app's
+  accent (`.tint(Color("AccentColor"))`; the project sets no global accent, so
+  it was system blue), and `ios-screenshots.sh` uninstalls the app first — the
+  test ends in the dark theme and the simulator kept it, so a second run's
+  "light" shots came out dark.
+- Desktop and web: dark wide shots added beside the light ones; the README
+  gallery has a narrow row (Android, iOS, iOS Liquid Glass, web) and a wide row
+  (desktop with the expanded rail, web with a post open); `docs/Desktop.md`,
+  `docs/Web.md` and `docs/LiquidDesign.md` embed the relevant pairs.
+
 ## Verified
 
 (Last full pass on 2026-09-18, after images and liquid design.)

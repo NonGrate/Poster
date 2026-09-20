@@ -40,6 +40,7 @@ await click(300, 868); await sleep(4000); await shot('light-03-liked');
 await click(420, 868); await sleep(4000); await shot('light-04-settings');
 await click(60, 868); await sleep(3000);
 await size(1280, 800); await sleep(4000); await shot('light-05-wide-feed');
+await theme('dark'); await sleep(3000); await shot('dark-05-wide-feed'); await theme('light'); await sleep(2000);
 await click(300, 300); await sleep(4000); await shot('light-06-wide-details');
 // The rail's toggle sits top-left; expanded it shows the tab names.
 await click(40, 36); await sleep(3000); await shot('light-07-wide-rail-expanded');

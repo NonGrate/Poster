@@ -98,6 +98,13 @@ if [ "$SCREENSHOT_LANG" != "en" ]; then
   trap 'rm -rf "$TMP"; restore_locale' EXIT
 fi
 
+# A fresh install every run. The screenshot test ends in the dark theme, and
+# the app keeps that choice on the simulator; without this the next run's
+# "light" shots come out dark. The bundle id is the one the Xcode project builds.
+APP_BUNDLE_ID=$(sed -n 's/^BUNDLE_ID *= *//p' "$ROOT/iosApp/Configuration/Config.xcconfig" | head -1 | tr -d '\r ')
+xcrun simctl boot "$SIM_ID" 2>/dev/null || true
+xcrun simctl uninstall "$SIM_ID" "${APP_BUNDLE_ID:-com.example.poster}" 2>/dev/null || true
+
 # The server host is a build setting rather than a flag, so it is overridden here
 # instead of editing Config.xcconfig: captures run against the local backend while
 # the checked-in configuration keeps pointing wherever it points.

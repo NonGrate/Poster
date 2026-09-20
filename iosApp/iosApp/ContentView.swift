@@ -101,10 +101,16 @@ struct ContentView: View {
                 ForEach(IosTabsKt.tabRoutes(), id: \.self) { route in
                     TabComposeView(route: route)
                         .ignoresSafeArea(.container, edges: .top)
-                        .tabItem { Label(IosTabsKt.tabTitle(route: route), systemImage: IosTabsKt.tabSymbol(route: route)) }
+                        .tabItem {
+                            Label(IosTabsKt.tabTitle(route: route), systemImage: IosTabsKt.tabSymbol(route: route))
+                                .accessibilityIdentifier(IosTabsKt.tabTestTag(route: route))
+                        }
                         .tag(route)
                 }
             }
+            // The app's primary, from the generated AccentColor asset, rather than
+            // the system blue the bar would otherwise pick.
+            .tint(Color("AccentColor"))
             .onAppear { IosTabsKt.setNativeTabSwitcher { route in selection = route } }
         } else {
             ComposeView()

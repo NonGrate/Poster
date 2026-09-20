@@ -48,6 +48,14 @@ fun tabTitle(route: String): String = runBlocking {
     }
 }
 
+/** The test tag the Compose bars give the same tab, so one UI test drives both bars. */
+fun tabTestTag(route: String): String = when (route) {
+    Screen.MyPosts.route -> "my_posts_tab"
+    Screen.Favorites.route -> "favourites_tab"
+    Screen.Settings.route -> "settings_tab"
+    else -> "feed_tab"
+}
+
 /** SF Symbol names, matching the Material glyphs the Compose bars use. */
 fun tabSymbol(route: String): String = when (route) {
     Screen.MyPosts.route -> "doc.text"

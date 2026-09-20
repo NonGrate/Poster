@@ -3,7 +3,7 @@
 Captured from the running app with demo data, in the default palette. How: `scripts/web-screenshots.sh`: headless Chrome over the DevTools protocol against the bundle the Ktor server hosts under `/app` (docs/Web.md).
 
 [← README](../README.md) · other platforms:
-[Android](android.md) · [iOS](ios.md) · [Desktop (JVM)](desktop.md) · 
+[Android](android.md) · [iOS](ios.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [Desktop (JVM)](desktop.md) · 
 
 ## feed
 
@@ -25,7 +25,9 @@ Captured from the running app with demo data, in the default palette. How: `scri
 
 ## wide feed
 
-![wide feed](web/light-05-wide-feed.png)
+| Light | Dark |
+|---|---|
+| ![wide feed, light](web/light-05-wide-feed.png) | ![wide feed, dark](web/dark-05-wide-feed.png) |
 
 ## wide details
 

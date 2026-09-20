@@ -41,6 +41,14 @@ origin does not hand it a session; CORS is only about which pages may call.
 | Notifications, daily reminder, push | Not available; the switches report that. |
 | Time zones | `kotlinx-datetime` on Wasm reads them from `@js-joda/timezone` (an npm dependency of `composeApp`). |
 
+## What it looks like
+
+| Narrow (bottom bar) | Wide (rail, two panes) |
+|---|---|
+| ![web feed](../screenshots/web/light-01-feed.png) | ![web wide](../screenshots/web/light-06-wide-details.png) |
+
+All shots: [`screenshots/web.md`](../screenshots/web.md).
+
 ## Adding the SQLite cache later
 
 SQLDelight's web-worker driver (sql.js over IndexedDB) works with `wasmJs`, but

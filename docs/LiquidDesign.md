@@ -61,3 +61,11 @@ Box(Modifier.liquidGlass(backdrop, RoundedCornerShape(24.dp), MaterialTheme.colo
 
 `LocalGlassBackdrop` is null with the docked bar (nothing is recorded then);
 `liquidGlass` degrades to a plain tinted surface in that case.
+
+## What it looks like
+
+| iOS, the default docked bar | iOS with `feature.liquidNavBar=true` (the system's Liquid Glass bar on iOS 26) |
+|---|---|
+| ![iOS feed](../screenshots/ios/light-01-home.png) | ![iOS feed, Liquid Glass](../screenshots/ios-liquid/light-01-home.png) |
+
+All shots: [`screenshots/ios.md`](../screenshots/ios.md), [`screenshots/ios-liquid.md`](../screenshots/ios-liquid.md).

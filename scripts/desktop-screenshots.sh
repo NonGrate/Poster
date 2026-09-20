@@ -43,4 +43,5 @@ capture() { # name dark window [extra preference lines]
 capture light-01-feed false 480x900
 capture dark-01-feed true 480x900
 capture light-05-wide-feed false 1200x800
+capture dark-05-wide-feed true 1200x800
 capture light-06-wide-rail-expanded false 1200x800 'nav_rail_expanded=true'

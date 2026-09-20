@@ -25,5 +25,11 @@ What the desktop app does differently:
 | Notifications, daily reminder, push | Not available; the switches report that. |
 | Packaging | `compose.desktop.application` is configured with the main class only. Add `nativeDistributions { }` (formats, icons, version) when you ship. |
 
-The window is phone-sized (480×900) on purpose: the layouts are single-column.
-Two-pane layouts for wide windows are a roadmap item.
+The window opens phone-sized (480×900); `POSTER_WINDOW=1200x800` opens it wide,
+where the tabs sit in a left rail and the post opens beside the list.
+
+| Narrow | Wide, rail expanded |
+|---|---|
+| ![desktop feed](../screenshots/desktop/light-01-feed.png) | ![desktop wide](../screenshots/desktop/light-06-wide-rail-expanded.png) |
+
+All shots: [`screenshots/desktop.md`](../screenshots/desktop.md).

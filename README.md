@@ -28,21 +28,33 @@ already there and already tested.
 
 ## Screenshots
 
-The same feed on every platform, from the running app with demo data. Click a
-platform for its full set (light and dark, every screen).
+The same app from the running demo data. Narrow windows get a bottom tab bar;
+from 840 dp the tabs move to a left rail and the post opens beside the list.
+Click a platform for its full set (light and dark, every screen).
 
 <table>
   <tr>
     <th><a href="screenshots/android.md">Android</a></th>
     <th><a href="screenshots/ios.md">iOS</a></th>
-    <th><a href="screenshots/desktop.md">Desktop</a></th>
-    <th><a href="screenshots/web.md">Web</a></th>
+    <th><a href="screenshots/ios-liquid.md">iOS, Liquid Glass bar</a></th>
+    <th><a href="screenshots/web.md">Web, narrow</a></th>
   </tr>
   <tr>
     <td><a href="screenshots/android.md"><img src="screenshots/android/light-01-home.png" width="190" alt="Android feed"></a></td>
     <td><a href="screenshots/ios.md"><img src="screenshots/ios/light-01-home.png" width="190" alt="iOS feed"></a></td>
-    <td><a href="screenshots/desktop.md"><img src="screenshots/desktop/light-01-feed.png" width="190" alt="Desktop feed"></a></td>
-    <td><a href="screenshots/web.md"><img src="screenshots/web/light-01-feed.png" width="190" alt="Web feed"></a></td>
+    <td><a href="screenshots/ios-liquid.md"><img src="screenshots/ios-liquid/light-01-home.png" width="190" alt="iOS feed with the Liquid Glass tab bar"></a></td>
+    <td><a href="screenshots/web.md"><img src="screenshots/web/light-01-feed.png" width="190" alt="Web feed in a narrow window"></a></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th><a href="screenshots/desktop.md">Desktop, wide</a></th>
+    <th><a href="screenshots/web.md">Web, wide</a></th>
+  </tr>
+  <tr>
+    <td><a href="screenshots/desktop.md"><img src="screenshots/desktop/light-06-wide-rail-expanded.png" width="400" alt="Desktop: rail with titles, feed and an empty detail pane"></a></td>
+    <td><a href="screenshots/web.md"><img src="screenshots/web/light-06-wide-details.png" width="400" alt="Web: rail, feed and an open post side by side"></a></td>
   </tr>
 </table>
 
