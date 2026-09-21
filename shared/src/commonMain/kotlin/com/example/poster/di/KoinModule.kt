@@ -49,6 +49,15 @@ data class AppConfig(
     val serverPort: Int,
     val serverScheme: String = "http",
     /**
+     * Keep the refresh token in a cookie the page's script cannot read.
+     *
+     * Set by the web build, and only when the API is the origin the page came
+     * from: the cookie is SameSite=Strict, so a web app hosted elsewhere would
+     * never receive it. The apps do not use it — they have a keystore and a
+     * keychain, which is better than a cookie.
+     */
+    val cookieSession: Boolean = false,
+    /**
      * The RevenueCat public SDK key, or blank for a build with no billing.
      *
      * Blank is an ordinary state, not a misconfiguration: the test flavor ships
@@ -107,6 +116,7 @@ fun sharedModule(appConfig: AppConfig) = module {
             serverPort = appConfig.serverPort,
             serverScheme = appConfig.serverScheme,
             authTokenStorage = get(),
+            cookieSession = appConfig.cookieSession,
         )
     }
 

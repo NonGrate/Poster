@@ -13,21 +13,35 @@ import org.koin.dsl.module
 
 actual fun platformModule(): Module = module {
     single<PlatformDataStore> { PlatformDataStoreImpl() }
-    single<AuthTokenStorage> { LocalStorageTokenStorage() }
+    single<AuthTokenStorage> { InMemoryTokenStorage() }
     single<CrashStore> { NoCrashStore }
 }
 
 /**
- * The session in `localStorage`. Readable by any script on the origin, which is
- * the browser's model: serve the app from its own origin and it is as safe as
- * a cookie without the CSRF surface.
+ * The session in memory, and nowhere else.
+ *
+ * It used to live in `localStorage`, which any script on the origin can read —
+ * so a single injected script walked away with a thirty-day refresh token
+ * rather than the fifteen minutes an access token is worth. Now the refresh
+ * token is a cookie the server sets with `HttpOnly`, which script cannot
+ * reach at all, and the access token is held here for the life of the page.
+ *
+ * A reload therefore starts with nothing, the first request comes back 401,
+ * and the client refreshes against the cookie — which is the same number of
+ * round trips as before and leaves nothing on disk to steal. Any older
+ * session left in `localStorage` by a previous build is cleared on the way
+ * past, because it is exactly the thing being removed.
  */
-private class LocalStorageTokenStorage : AuthTokenStorage {
-    private val key = "poster.session"
-    override suspend fun load(): AuthTokens? =
-        localStorage.getItem(key)?.let { runCatching { Json.decodeFromString(AuthTokens.serializer(), it) }.getOrNull() }
-    override suspend fun save(tokens: AuthTokens) = localStorage.setItem(key, Json.encodeToString(AuthTokens.serializer(), tokens))
-    override suspend fun clear() = localStorage.removeItem(key)
+private class InMemoryTokenStorage : AuthTokenStorage {
+    private var tokens: AuthTokens? = null
+
+    init {
+        localStorage.removeItem("poster.session")
+    }
+
+    override suspend fun load(): AuthTokens? = tokens
+    override suspend fun save(tokens: AuthTokens) { this.tokens = tokens }
+    override suspend fun clear() { tokens = null }
 }
 
 private object NoCrashStore : CrashStore {

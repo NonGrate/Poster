@@ -39,6 +39,11 @@ fun main() {
                     serverHost = server.host,
                     serverPort = server.port,
                     serverScheme = server.scheme,
+                    // Only when the API is this page's own origin: the cookie
+                    // is SameSite=Strict and a browser would not send it to
+                    // anywhere else, so asking for one there would sign the
+                    // person out on every reload.
+                    cookieSession = server.isSameOriginAsPage(),
                     appVersion = appVersionLabel(),
                 ),
             ),
@@ -54,7 +59,15 @@ fun main() {
     ComposeViewport(document.body!!) { App() }
 }
 
-private data class ServerOrigin(val scheme: String, val host: String, val port: Int)
+private data class ServerOrigin(val scheme: String, val host: String, val port: Int) {
+    /** Whether the API lives on the origin this page was served from. */
+    fun isSameOriginAsPage(): Boolean {
+        val location = window.location
+        val pageScheme = location.protocol.removeSuffix(":")
+        val pagePort = location.port.toIntOrNull() ?: if (pageScheme == "https") 443 else 80
+        return scheme == pageScheme && host == location.hostname && port == pagePort
+    }
+}
 
 private fun serverOrigin(): ServerOrigin {
     val meta = document.querySelector("meta[name=poster-server]")?.getAttribute("content")?.trim().orEmpty()

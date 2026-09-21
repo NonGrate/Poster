@@ -1,5 +1,6 @@
 package com.example.poster.auth
 
+import com.example.poster.model.AuthResponse
 import com.example.poster.config.Features
 import com.example.poster.config.AppInfo
 import com.example.poster.config.BrandPalette
@@ -481,12 +482,22 @@ fun Route.authRoutes(
         }
         post("/refresh") {
             respondAuth {
-                authService.refresh(call.receive<RefreshTokenRequest>().refreshToken)
+                // From the body, or from the cookie when the browser is
+                // holding it: a web caller has nothing to put in the body.
+                val fromBody = runCatching { call.receive<RefreshTokenRequest>().refreshToken }
+                    .getOrNull()?.takeIf { it.isNotBlank() }
+                val token = fromBody ?: SessionCookie.read(call)
+                    ?: throw AuthException.InvalidRefreshToken
+                authService.refresh(token)
             }
         }
         post("/logout") {
-            val request = call.receive<LogoutRequest>()
-            authService.logout(request.refreshToken)
+            val fromBody = runCatching { call.receive<LogoutRequest>().refreshToken }
+                .getOrNull()?.takeIf { it.isNotBlank() }
+            (fromBody ?: SessionCookie.read(call))?.let(authService::logout)
+            // Cleared whether or not there was one: signing out must not
+            // leave a cookie behind for the next person on this browser.
+            SessionCookie.clear(call)
             call.respond(HttpStatusCode.NoContent)
         }
     }
@@ -510,7 +521,16 @@ private fun idTokenClaimsForLog(idToken: String): String = try {
 
 private suspend fun io.ktor.server.routing.RoutingContext.respondAuth(block: suspend () -> Any) {
     try {
-        call.respond(block())
+        val result = block()
+        // A caller that asked for cookie sessions gets the refresh token in a
+        // cookie script cannot read, and a blank in the body so nothing
+        // writes it to storage out of habit.
+        if (result is AuthResponse && SessionCookie.wanted(call)) {
+            SessionCookie.set(call, result.tokens.refreshToken, result.tokens.refreshTtlSeconds)
+            call.respond(result.copy(tokens = result.tokens.copy(refreshToken = "")))
+            return
+        }
+        call.respond(result)
     } catch (exception: AuthException.EmailAlreadyRegistered) {
         call.respond(HttpStatusCode.Conflict, ApiError(exception.message.orEmpty()))
     } catch (exception: AuthException.InvalidRegistration) {

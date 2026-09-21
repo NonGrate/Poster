@@ -83,6 +83,13 @@ data class AuthTokens(
     val accessToken: String,
     val refreshToken: String,
     val expiresInSeconds: Long,
+    /**
+     * How long the refresh token is good for.
+     *
+     * Only the web build reads it, to give its cookie the same life as the
+     * token inside it. Defaulted so an older client parsing this is unaffected.
+     */
+    val refreshTtlSeconds: Long = 0,
 )
 
 @Serializable

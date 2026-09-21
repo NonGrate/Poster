@@ -13,6 +13,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.header
 import io.ktor.http.URLProtocol
 import kotlinx.serialization.json.Json
 import io.ktor.serialization.kotlinx.json.json
@@ -45,12 +46,14 @@ fun createHttpClient(
     serverPort: Int,
     serverScheme: String = "http",
     authTokenStorage: AuthTokenStorage? = null,
+    cookieSession: Boolean = false,
 ) = HttpClient {
     configureClient(
         serverHost = serverHost,
         serverPort = serverPort,
         serverScheme = serverScheme,
         authTokenStorage = authTokenStorage,
+        cookieSession = cookieSession,
     )
 }
 
@@ -74,6 +77,14 @@ private fun HttpClientConfig<*>.configureClient(
     serverPort: Int,
     serverScheme: String,
     authTokenStorage: AuthTokenStorage?,
+    /**
+     * Ask the server to keep the refresh token in a cookie script cannot read.
+     *
+     * Only the web build sets it, and only when its API is the origin the page
+     * came from — the cookie is SameSite=Strict, so a web app hosted somewhere
+     * else would simply never receive it and could not stay signed in.
+     */
+    cookieSession: Boolean = false,
 ) {
     install(ContentNegotiation) {
         json(Json {
@@ -93,7 +104,10 @@ private fun HttpClientConfig<*>.configureClient(
                     }
                 }
                 refreshTokens {
-                    val refreshToken = oldTokens?.refreshToken ?: return@refreshTokens null
+                    // With a cookie session there is no token to send: the
+                    // browser attaches it and the server reads it there.
+                    val refreshToken = oldTokens?.refreshToken.orEmpty()
+                    if (refreshToken.isEmpty() && !cookieSession) return@refreshTokens null
                     val response = runCatching {
                         client.post("auth/refresh") {
                             contentType(ContentType.Application.Json)
@@ -127,6 +141,12 @@ private fun HttpClientConfig<*>.configureClient(
         }
         host = serverHost
         port = serverPort
+        // Says "keep my refresh token in a cookie". A header rather than a
+        // cookie flag because a browser sends cookies on any request to this
+        // host, including one a third-party page caused — so the header is
+        // what distinguishes this app's own fetch, and setting it
+        // cross-origin needs a preflight the CORS allowlist has to approve.
+        if (cookieSession) header("X-Poster-Session", "cookie")
     }
 }
 

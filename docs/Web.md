@@ -33,7 +33,7 @@ origin does not hand it a session; CORS is only about which pages may call.
 
 | Concern | Web |
 |---|---|
-| Storage | **No SQLite.** `PostRepository` runs without a `PostLocalStore`: the feed is fetched, not cached; My Posts and Liked come from their requests; the offline outbox and drafts are off (the flags are ignored there). Preferences and the session live in `localStorage`. |
+| Storage | **No SQLite.** `PostRepository` runs without a `PostLocalStore`: the feed is fetched, not cached; My Posts and Liked come from their requests; the offline outbox and drafts are off (the flags are ignored there). Preferences live in `localStorage`. The **session does not**: the refresh token is a cookie the server sets `HttpOnly`, so no script can read it, and the access token is held in memory for the life of the page. A reload starts with neither, the first request comes back 401, and the client refreshes against the cookie. |
 | Look | The Android (Material 3) components, the same file as the desktop actuals. Below 600 px the phone layout with a bottom bar; from 600 px a left rail (icons, expandable to titles); from 840 px the post beside the list as well. |
 | Images | `<input type="file">`; the file goes up as it is (no re-encoding in the browser), so the 5 MB limit applies to the original. |
 | Sharing | Copies the link to the clipboard. |
@@ -62,3 +62,21 @@ and `Main.kt`, which is where `localStore = null` is decided.
 
 The `web` job compiles both targets and builds the distribution with the flag
 on and billing off.
+
+## The session cookie
+
+The refresh token reaches the browser as a cookie rather than in the response
+body: `HttpOnly` so script cannot read it, `SameSite=Strict`, `Secure` outside
+a plain-HTTP local run, and scoped to `/auth`. The client asks for this with an
+`X-Poster-Session: cookie` header, which is also what keeps it safe from
+cross-site use — a browser attaches cookies to any request to this host, so the
+header is what says the caller is this app's own fetch, and setting it from
+another origin needs a preflight only a listed origin gets.
+
+It is asked for **only when the API is the origin the page came from**, which is
+the arrangement `POSTER_WEB_DIR` produces (the app served at `/app` by the same
+server). A web app hosted somewhere else would never be sent a `SameSite=Strict`
+cookie, so it keeps the session in memory and signs in again after a reload. If
+you host the app separately and want the session to survive a reload, put it
+behind the same origin as the API — a path on the same domain, or a reverse
+proxy — rather than loosening the cookie.

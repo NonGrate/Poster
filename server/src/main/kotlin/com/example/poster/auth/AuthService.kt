@@ -424,6 +424,7 @@ class AuthService(
                 accessToken = tokenService.createAccessToken(user.guid),
                 refreshToken = refreshToken,
                 expiresInSeconds = config.accessTokenTtlSeconds,
+                refreshTtlSeconds = config.refreshTokenTtlSeconds,
             ),
         )
     }
