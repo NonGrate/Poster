@@ -248,7 +248,10 @@ fun Application.module(
             }
         }
     }
-    val accountRepository = AccountLocalRepository(database)
+    // Before the account repository, which clears a person's events when
+    // their account goes: the table has no foreign key to cascade through.
+    val eventRepository = EventRepository(driver)
+    val accountRepository = AccountLocalRepository(database, eventRepository)
     val favoritesRepository = FavoritesLocalRepository(database, tagRepository)
     val followsRepository = FollowsLocalRepository(database)
     val bookmarksRepository = BookmarksLocalRepository(database)
@@ -328,7 +331,6 @@ fun Application.module(
     } else {
         null
     }
-    val eventRepository = EventRepository(driver)
     // Operator alerts to Telegram. Not configured on staging or in tests, where
     // it prints instead. Fired and forgotten so a Telegram outage never fails or
     // slows the request that triggered it.

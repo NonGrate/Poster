@@ -98,6 +98,24 @@ class EventRepository(
     /** How many misbehaviours are on record — the number worth flagging. */
     fun warnCount(): Int = recent().count { it.severity == AppEventSeverity.WARN }
 
+    /**
+     * Drops everything recorded against an account, for when it is deleted.
+     *
+     * These rows carry the account id and the identifier of the installation
+     * they came from, and the table has no foreign key, so deleting the
+     * account left them behind — a record of when somebody signed in, after
+     * they asked to be forgotten.
+     */
+    fun forgetUser(userId: String) {
+        driver.execute(
+            identifier = null,
+            sql = "DELETE FROM AppEvent WHERE user_id = ?",
+            parameters = 1,
+        ) {
+            bindString(0, userId)
+        }
+    }
+
     private fun prune() {
         driver.execute(
             identifier = null,

@@ -6,6 +6,16 @@ import com.example.poster.config.Features
 // No default database, for the reason given on PostsLocalRepository.
 class AccountLocalRepository(
     private val database: PostDatabase,
+    /**
+     * Cleared along with the account.
+     *
+     * The diagnostic events live in a table this schema does not describe —
+     * raw SQL, no foreign key — so nothing cascaded them away, and rows
+     * saying when somebody signed in outlived the account that asked to be
+     * forgotten. Null where the caller has no events to clear, which is the
+     * tests and the phone.
+     */
+    private val events: EventRepository? = null,
 ) : AccountRepository {
     private val userQueries = database.userQueries
     private val identityQueries = database.socialIdentityQueries
@@ -119,6 +129,10 @@ class AccountLocalRepository(
             database.groupInviteQueries.forgetRecipientsOf(guid)
             userQueries.deleteUser(guid)
         }
+        // After the transaction, not inside it: this repository may hold a
+        // different connection from the events table's, and a write lock held
+        // across a call into a collaborator has the two waiting on each other.
+        events?.forgetUser(guid)
         return true
     }
 
