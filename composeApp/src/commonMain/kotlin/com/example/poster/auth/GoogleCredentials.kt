@@ -19,7 +19,7 @@ interface GoogleCredentials {
      * opens the account sheet and closes it again has done nothing wrong.
      * Anything genuinely broken throws.
      */
-    suspend fun requestIdToken(): String?
+    suspend fun requestCredential(): SocialCredential?
 }
 
 /**
@@ -38,5 +38,5 @@ class GoogleCredentialsException(
 /** No client id, no sign-in — the ordinary state of a build without one. */
 object NoGoogleCredentials : GoogleCredentials {
     override val available = false
-    override suspend fun requestIdToken(): String? = null
+    override suspend fun requestCredential(): SocialCredential? = null
 }

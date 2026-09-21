@@ -32,6 +32,13 @@ data class LoginRequest(
 data class SocialSignInRequest(
     val provider: String,
     val idToken: String,
+    /**
+     * The raw value this app generated before asking the provider, of which
+     * only the SHA-256 was sent out. The token carries that hash, so sending
+     * the value proves the caller is the app that started this sign-in rather
+     * than something replaying a token it obtained elsewhere.
+     */
+    val nonce: String = "",
 )
 
 /**
@@ -45,6 +52,8 @@ data class MergeRequest(
     val password: String? = null,
     val provider: String? = null,
     val idToken: String? = null,
+    /** As on [SocialSignInRequest]. */
+    val nonce: String = "",
 )
 
 /**

@@ -14,7 +14,7 @@ import kotlin.coroutines.resumeWithException
  * with an identity token on success, null on cancel, or an error message.
  */
 interface AppleSignInLauncher {
-    fun signIn(completion: (idToken: String?, error: String?) -> Unit)
+    fun signIn(nonce: String, completion: (idToken: String?, error: String?) -> Unit)
 }
 
 /**
@@ -29,14 +29,17 @@ class IosAppleCredentials(
 
     override val available: Boolean get() = launcher != null
 
-    override suspend fun requestIdToken(): String? {
+    override suspend fun requestCredential(): SocialCredential? {
         val launcher = launcher ?: return null
+        // Only the hash reaches the provider; the value is what the server
+        // hashes and compares, and it never leaves this device otherwise.
+        val nonce = IosNonce.random()
         return suspendCancellableCoroutine { continuation ->
-            launcher.signIn { idToken, error ->
+            launcher.signIn(IosNonce.hash(nonce)) { idToken, error ->
                 when {
                     error != null -> continuation.resumeWithException(AppleCredentialsException(error))
                     // A null token with no error is a cancel: nothing happened.
-                    else -> continuation.resume(idToken)
+                    else -> continuation.resume(idToken?.let { SocialCredential(it, nonce) })
                 }
             }
         }

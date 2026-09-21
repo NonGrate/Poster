@@ -19,10 +19,15 @@ final class AppleSignInBridge: NSObject, AppleSignInLauncher {
     private var completion: ((String?, String?) -> Void)?
     private var controller: ASAuthorizationController?
 
-    func signIn(completion: @escaping (String?, String?) -> Void) {
+    func signIn(nonce: String, completion: @escaping (String?, String?) -> Void) {
         self.completion = completion
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
+        // The hash of a value the shared code generated. Apple puts it in the
+        // identity token, and the server checks that whoever presents the
+        // token can also produce the value behind it — so a token on its own
+        // is no longer enough to sign in as its subject.
+        request.nonce = nonce
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self

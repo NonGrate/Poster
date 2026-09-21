@@ -250,7 +250,7 @@ fun Route.authRoutes(
                 return@post
             }
             val account = try {
-                verifier.verify(request.idToken)
+                verifier.verify(request.idToken, request.nonce)
             } catch (refused: SocialSignInException) {
                 // The reason helps whoever runs this server and helps an
                 // attacker just as much, so it is logged here but never
@@ -374,7 +374,7 @@ fun Route.authRoutes(
                     return@post
                 }
                 val account = try {
-                    verifier.verify(request.idToken)
+                    verifier.verify(request.idToken, request.nonce)
                 } catch (refused: SocialSignInException) {
                     call.application.log.warn(
                         "social link refused (${request.provider}): ${refused.message} " +

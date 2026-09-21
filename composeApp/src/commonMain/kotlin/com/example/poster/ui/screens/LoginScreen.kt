@@ -211,7 +211,7 @@ fun LoginScreen(
                                 val idToken = try {
                                     // Null means the sheet was closed. Nothing
                                     // happened, so nothing is said.
-                                    googleCredentials.requestIdToken() ?: return@launch
+                                    googleCredentials.requestCredential() ?: return@launch
                                 } catch (failure: Exception) {
                                     // Anything else is worth saying out loud.
                                     // Swallowing it here is what made a failed
@@ -267,7 +267,7 @@ fun LoginScreen(
                                     accountViewModel.acknowledgeError()
                                     appleError = null
                                     val idToken = try {
-                                        appleCredentials.requestIdToken() ?: return@launch
+                                        appleCredentials.requestCredential() ?: return@launch
                                     } catch (failure: Exception) {
                                         appleError = failure.message
                                         showError = true

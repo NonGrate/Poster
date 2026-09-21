@@ -106,8 +106,8 @@ class SessionRepository(
      * Signing in with Google. The server decides whether the token is genuine;
      * this only carries it there and keeps whoever comes back.
      */
-    suspend fun signInWithProvider(provider: String, idToken: String): Result<User?> =
-        runCatching { withContext(dispatchers.io) { userApi.signInWithProvider(provider, idToken) } }
+    suspend fun signInWithProvider(provider: String, idToken: String, nonce: String): Result<User?> =
+        runCatching { withContext(dispatchers.io) { userApi.signInWithProvider(provider, idToken, nonce) } }
             .onSuccess { persist(it) }
 
     /**

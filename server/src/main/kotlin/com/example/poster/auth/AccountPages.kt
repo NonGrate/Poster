@@ -202,6 +202,7 @@ private fun Route.deleteAccountPages(
         val email = params["email"]?.trim().orEmpty()
         val password = params["password"].orEmpty()
         val credential = params["credential"].orEmpty()
+        val nonce = params["nonce"].orEmpty()
         val offered = googleClientId.takeIf { googleOffered }
 
         // The tick is the "are you sure", so it is checked before any
@@ -222,7 +223,11 @@ private fun Route.deleteAccountPages(
         // were told their details did not match, which was true and useless.
         if (credential.isNotBlank()) {
             val verifier = googleVerifier
-            val identity = if (verifier == null) null else runCatching { verifier.verify(credential) }.getOrNull()
+            // The page posts the token the Google button produced in this
+            // browser, with the nonce the script generated alongside it.
+            val identity = if (verifier == null) null else {
+                runCatching { verifier.verify(credential, nonce) }.getOrNull()
+            }
             val user = identity?.let { authService.accountForProvider(it) }
             if (user == null) {
                 // Same message as a wrong password, for the same reason: this
@@ -269,6 +274,11 @@ private fun Route.deleteAccountPages(
  * entirely rather than drawing one that cannot work.
  */
 private fun HTML.deleteAccountForm(copy: PageCopy, problem: String?, googleClientId: String?) {
+    // One per render. Google mints the token against its hash and the form
+    // posts the value back, which is what ties a token to this page's sign-in
+    // rather than to anything holding a token for this client id.
+    val pageNonce = java.util.Base64.getUrlEncoder().withoutPadding()
+        .encodeToString(ByteArray(32).also(java.security.SecureRandom()::nextBytes))
     simplePage(copy.deleteHeading) {
         problem?.let { p("problem") { +it } }
         p { +copy.deleteWhatGoes }
@@ -298,12 +308,18 @@ private fun HTML.deleteAccountForm(copy: PageCopy, problem: String?, googleClien
                 id = "social-form"
                 hiddenInput(name = "credential") { id = "credential" }
                 hiddenInput(name = "confirm") { id = "social-confirm" }
+                // The raw value behind the nonce below. Google mints the token
+                // against the hash; posting the value back is what proves the
+                // token came from this page's sign-in and is not one somebody
+                // obtained elsewhere and replayed here.
+                hiddenInput(name = "nonce") { value = pageNonce }
             }
             div {
                 id = "g_id_onload"
                 attributes["data-client_id"] = googleClientId
                 attributes["data-callback"] = "onGoogleCredential"
                 attributes["data-ux_mode"] = "popup"
+                attributes["data-nonce"] = nonceHash(pageNonce)
             }
             div("g_id_signin") {
                 attributes["data-type"] = "standard"

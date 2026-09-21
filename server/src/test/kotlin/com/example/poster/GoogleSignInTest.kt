@@ -1,5 +1,7 @@
 package com.example.poster
 
+import com.example.poster.auth.SocialVerifier
+import com.example.poster.auth.nonceHash
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poster.auth.GoogleVerifier
@@ -52,12 +54,16 @@ class GoogleSignInTest {
         expiresAt: Instant = now.plusSeconds(600),
         signWith: RSAPrivateKey = privateKey,
         keyId: String? = "key-1",
+        // The claim carries the hash; the verifier is handed the value behind
+        // it, which is what a caller replaying a token would not have.
+        nonce: String? = nonceHash(NONCE),
     ): String = JWT.create()
         .withKeyId(keyId)
         .withAudience(audience)
         .withIssuer(issuer)
         .apply {
             subject?.let { withSubject(it) }
+            nonce?.let { withClaim("nonce", it) }
             email?.let { withClaim("email", it) }
             emailVerified?.let { withClaim("email_verified", it) }
             withClaim("given_name", "Somebody")
@@ -68,7 +74,7 @@ class GoogleSignInTest {
 
     @Test
     fun aGoodTokenIdentifiesSomebody() {
-        val account = verifier().verify(token())
+        val account = verifier().check(token())
 
         assertEquals("somebody@gmail.com", account.email)
         assertEquals("google-subject-1", account.subject)
@@ -81,7 +87,7 @@ class GoogleSignInTest {
     fun aTokenForAnotherAppIsRefused() {
         val forSomebodyElse = token(audience = "some-other-app.apps.googleusercontent.com")
 
-        assertFailsWith<SocialSignInException> { verifier().verify(forSomebodyElse) }
+        assertFailsWith<SocialSignInException> { verifier().check(forSomebodyElse) }
     }
 
     /**
@@ -95,10 +101,10 @@ class GoogleSignInTest {
         val ios = "poster-ios.apps.googleusercontent.com"
         val multi = verifier(audience = "$CLIENT_ID, $ios")
 
-        assertEquals("google-subject-1", multi.verify(token(audience = CLIENT_ID)).subject)
-        assertEquals("google-subject-1", multi.verify(token(audience = ios)).subject)
+        assertEquals("google-subject-1", multi.check(token(audience = CLIENT_ID)).subject)
+        assertEquals("google-subject-1", multi.check(token(audience = ios)).subject)
         assertFailsWith<SocialSignInException> {
-            multi.verify(token(audience = "some-other-app.apps.googleusercontent.com"))
+            multi.check(token(audience = "some-other-app.apps.googleusercontent.com"))
         }
     }
 
@@ -107,21 +113,21 @@ class GoogleSignInTest {
     fun aTokenSignedBySomebodyElseIsRefused() {
         val forged = token(signWith = otherKeys.private as RSAPrivateKey)
 
-        assertFailsWith<SocialSignInException> { verifier().verify(forged) }
+        assertFailsWith<SocialSignInException> { verifier().check(forged) }
     }
 
     @Test
     fun anExpiredTokenIsRefused() {
         val stale = token(expiresAt = now.minusSeconds(1))
 
-        assertFailsWith<SocialSignInException> { verifier().verify(stale) }
+        assertFailsWith<SocialSignInException> { verifier().check(stale) }
     }
 
     @Test
     fun aTokenFromTheWrongIssuerIsRefused() {
         val elsewhere = token(issuer = "https://accounts.example.com")
 
-        assertFailsWith<SocialSignInException> { verifier().verify(elsewhere) }
+        assertFailsWith<SocialSignInException> { verifier().check(elsewhere) }
     }
 
     /**
@@ -130,25 +136,25 @@ class GoogleSignInTest {
      */
     @Test
     fun anUnverifiedAddressIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(emailVerified = false)) }
-        assertFailsWith<SocialSignInException> { verifier().verify(token(emailVerified = null)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(emailVerified = false)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(emailVerified = null)) }
     }
 
     @Test
     fun aTokenWithNoEmailIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(email = null)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(email = null)) }
     }
 
     @Test
     fun nonsenseIsRefusedRatherThanCrashing() {
-        assertFailsWith<SocialSignInException> { verifier().verify("not-a-token") }
-        assertFailsWith<SocialSignInException> { verifier().verify("") }
+        assertFailsWith<SocialSignInException> { verifier().check("not-a-token") }
+        assertFailsWith<SocialSignInException> { verifier().check("") }
     }
 
     /** Addresses differ in case; accounts do not. */
     @Test
     fun theAddressIsNormalised() {
-        val account = verifier().verify(token(email = "  SomeBody@GMail.com "))
+        val account = verifier().check(token(email = "  SomeBody@GMail.com "))
 
         assertEquals("somebody@gmail.com", account.email)
     }
@@ -158,10 +164,43 @@ class GoogleSignInTest {
         val unconfigured = GoogleVerifier(audience = "", keyFor = { publicKey }, clock = clock)
 
         assertTrue(!unconfigured.enabled)
-        assertFailsWith<SocialSignInException> { unconfigured.verify(token()) }
+        assertFailsWith<SocialSignInException> { unconfigured.check(token()) }
     }
 
     private companion object {
         const val CLIENT_ID = "poster.apps.googleusercontent.com"
     }
+
+    /**
+     * The replay case, which is the whole reason the nonce is there.
+     *
+     * A token is a bearer credential otherwise: anything that obtains one
+     * minted for this app's client id could present it and be signed in as
+     * its subject. The token carries only the hash, so presenting it without
+     * the value behind it proves nothing and is refused.
+     */
+    @Test
+    fun aTokenPresentedWithoutTheValueBehindItsNonceIsRefused() {
+        val stolen = token()
+
+        assertFailsWith<SocialSignInException> {
+            verifier().check(stolen, nonce = "a-guess")
+        }
+        assertFailsWith<SocialSignInException> {
+            verifier().check(stolen, nonce = "")
+        }
+        // A token minted without a nonce at all is refused too, so a caller
+        // cannot simply ask for the older shape.
+        assertFailsWith<SocialSignInException> {
+            verifier().check(token(nonce = null))
+        }
+        // And the honest case still works.
+        assertEquals("google-subject-1", verifier().check(stolen).subject)
+    }
+
+    /** The value behind the nonce in the tokens these tests mint. */
+    private val NONCE = "a-value-only-this-sign-in-knows"
+
+    /** Verifying with the nonce this suite's tokens were minted for. */
+    private fun SocialVerifier.check(idToken: String, nonce: String = NONCE) = verify(idToken, nonce)
 }

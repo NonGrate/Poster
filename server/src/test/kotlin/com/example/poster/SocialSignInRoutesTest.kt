@@ -200,7 +200,7 @@ class SocialSignInRoutesTest {
     private class StubGoogle : SocialVerifier {
         override val provider = "google"
         override val enabled = true
-        override fun verify(idToken: String): SocialAccount {
+        override fun verify(idToken: String, nonce: String): SocialAccount {
             if (idToken == REJECT) throw SocialSignInException("refused for the test")
             return SocialAccount(
                 provider = "google",

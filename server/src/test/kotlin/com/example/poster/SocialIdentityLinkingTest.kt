@@ -262,7 +262,7 @@ class SocialIdentityLinkingTest {
         var rejectEverything: Boolean = false,
     ) : SocialVerifier {
         override val enabled = true
-        override fun verify(idToken: String): SocialAccount {
+        override fun verify(idToken: String, nonce: String): SocialAccount {
             if (rejectEverything) throw com.example.poster.auth.SocialSignInException("refused for the test")
             return account()
         }
@@ -315,7 +315,7 @@ class SocialIdentityLinkingTest {
         val apple = object : SocialVerifier {
             override val provider = "apple"
             override val enabled = true
-            override fun verify(idToken: String) = stub.verify(idToken)
+            override fun verify(idToken: String, nonce: String) = stub.verify(idToken, nonce)
         }
         withServer(verifiers = listOf(stub, apple)) { block(stub) }
     }

@@ -53,12 +53,16 @@ class DeleteAccountSocialTest {
         emailVerified: Boolean = true,
         expiresAt: Instant = now.plusSeconds(600),
         signWith: RSAPrivateKey = privateKey,
+        // The page mints a nonce per render and posts the value back with the
+        // token; these tests do the same with a fixed pair.
+        nonce: String? = com.example.poster.auth.nonceHash(NONCE),
     ): String = JWT.create()
         .withKeyId("key-1")
         .withAudience(audience)
         .withIssuer("https://accounts.google.com")
         .withSubject(subject)
         .withClaim("email", email)
+        .apply { nonce?.let { withClaim("nonce", it) } }
         .withClaim("email_verified", emailVerified)
         .withExpiresAt(Date.from(expiresAt))
         .sign(Algorithm.RSA256(null, signWith))
@@ -114,12 +118,19 @@ class DeleteAccountSocialTest {
 
         assertEquals(HttpStatusCode.Unauthorized, stranger.first)
         assertEquals(HttpStatusCode.Unauthorized, wrongPassword.status)
+        // Compared with the nonce taken out: it is minted fresh on every
+        // render and says nothing about which of the two failed, so two pages
+        // that differ only there are the same page as far as a caller
+        // learning something is concerned.
         assertEquals(
-            wrongPassword.bodyAsText(),
-            stranger.second,
+            withoutNonce(wrongPassword.bodyAsText()),
+            withoutNonce(stranger.second),
             "a stranger's token was distinguishable from a wrong password",
         )
     }
+
+    private fun withoutNonce(page: String): String =
+        page.replace(Regex("[A-Za-z0-9_-]{43}"), "<nonce>")
 
     /** Every rule the verifier enforces for signing in still holds here. */
     @Test
@@ -170,6 +181,7 @@ class DeleteAccountSocialTest {
     ): Pair<HttpStatusCode, String> {
         val body = buildString {
             append("credential=").append(credential)
+            append("&nonce=").append(NONCE)
             if (confirm) append("&confirm=on")
         }
         val response = client.post("/delete-account") {
@@ -199,4 +211,7 @@ class DeleteAccountSocialTest {
             googleClientId = CLIENT_ID,
             block = block,
         )
+
+    /** The value behind the nonce in the tokens these tests mint. */
+    private val NONCE = "a-value-only-this-page-knows"
 }

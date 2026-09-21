@@ -17,41 +17,27 @@ final class GoogleSignInBridge: NSObject, GoogleSignInLauncher {
         self.clientId = clientId
     }
 
-    func signIn(completion: @escaping (String?, String?) -> Void) {
+    func signIn(nonce: String, completion: @escaping (String?, String?) -> Void) {
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
 
-        // The point of the native SDK: if this account was signed in before,
-        // restore it silently — no browser, no consent screen, no "access
-        // granted" email — and just refresh the id_token. Only when there is no
-        // stored session (first sign-in, or after a revoke) fall back to the
-        // interactive flow. We deliberately never call GIDSignIn.signOut on app
-        // logout, so this session survives and re-login stays silent.
-        if GIDSignIn.sharedInstance.hasPreviousSignIn() {
-            GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, error in
-                guard let user = user, error == nil else {
-                    self?.interactiveSignIn(completion: completion)
-                    return
-                }
-                user.refreshTokensIfNeeded { user, _ in
-                    if let idToken = user?.idToken?.tokenString {
-                        completion(idToken, nil)
-                    } else {
-                        self?.interactiveSignIn(completion: completion)
-                    }
-                }
-            }
-            return
-        }
-
-        interactiveSignIn(completion: completion)
+        // Always the interactive call, and always with the nonce.
+        //
+        // This used to restore a previous session silently and refresh its
+        // id_token, which was nicer: no sheet at all on a second sign-in. A
+        // refreshed token carries no nonce, though, and the server now refuses
+        // a token it cannot tie to the sign-in that asked for it — so a silent
+        // token would simply be rejected. For an account that has already
+        // granted access the sheet is one tap and no consent screen, which is
+        // the price of the token meaning something.
+        interactiveSignIn(nonce: nonce, completion: completion)
     }
 
-    private func interactiveSignIn(completion: @escaping (String?, String?) -> Void) {
+    private func interactiveSignIn(nonce: String, completion: @escaping (String?, String?) -> Void) {
         guard let presenter = Self.topViewController() else {
             completion(nil, "No window to present sign-in")
             return
         }
-        GIDSignIn.sharedInstance.signIn(withPresenting: presenter) { result, error in
+        GIDSignIn.sharedInstance.signIn(withPresenting: presenter, hint: nil, additionalScopes: nil, nonce: nonce) { result, error in
             if let error = error as NSError? {
                 // A cancel is not a failure to report — null token, no message.
                 if error.code == GIDSignInError.canceled.rawValue {

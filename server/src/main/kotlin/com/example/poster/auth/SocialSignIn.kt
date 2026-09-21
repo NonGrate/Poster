@@ -42,7 +42,37 @@ class SocialSignInException(message: String) : Exception(message)
 interface SocialVerifier {
     val provider: String
     val enabled: Boolean
-    fun verify(idToken: String): SocialAccount
+    /**
+     * [nonce] is the raw value the app generated before asking the provider,
+     * of which only the SHA-256 was ever sent out. The token carries that
+     * hash, so presenting the raw value proves the caller is the app that
+     * started this sign-in and not somebody replaying a token they obtained.
+     */
+    fun verify(idToken: String, nonce: String): SocialAccount
+}
+
+/** Base64url of the SHA-256, which is what a provider is given and echoes back. */
+internal fun nonceHash(nonce: String): String =
+    java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+        java.security.MessageDigest.getInstance("SHA-256").digest(nonce.toByteArray()),
+    )
+
+/**
+ * Refuses a token whose nonce is missing or is not the one this sign-in asked
+ * for.
+ *
+ * Without it an identity token is a bearer credential for as long as it lives:
+ * anything that obtains one minted for this app's client id can present it
+ * here and be signed in as its subject. The nonce binds the token to the
+ * attempt, and the binding is one-way — the token carries the hash, the caller
+ * must produce the value behind it.
+ */
+internal fun requireNonce(claim: String?, nonce: String) {
+    if (nonce.isBlank()) throw SocialSignInException("This sign-in carried no nonce")
+    if (claim.isNullOrBlank()) throw SocialSignInException("Token carries no nonce")
+    if (!java.security.MessageDigest.isEqual(claim.toByteArray(), nonceHash(nonce).toByteArray())) {
+        throw SocialSignInException("Token was not minted for this sign-in")
+    }
 }
 
 /**
@@ -72,7 +102,7 @@ class GoogleVerifier(
     /** No client id configured means the app was built without Google sign-in. */
     override val enabled: Boolean get() = audiences.isNotEmpty()
 
-    override fun verify(idToken: String): SocialAccount {
+    override fun verify(idToken: String, nonce: String): SocialAccount {
         if (!enabled) throw SocialSignInException("Google sign-in is not configured")
 
         val decoded = try {
@@ -103,6 +133,8 @@ class GoogleVerifier(
             ?: throw SocialSignInException("Token never expires")
         if (!expiry.isAfter(clock.instant())) throw SocialSignInException("Token has expired")
 
+        // The token has to belong to this sign-in, not merely to this app.
+        requireNonce(verified.getClaim("nonce").asString(), nonce)
         val email = verified.getClaim("email").asString()?.trim()?.lowercase()
         if (email.isNullOrEmpty()) throw SocialSignInException("Token carries no email")
 
@@ -179,7 +211,7 @@ class AppleVerifier(
     /** No bundle id or Service ID configured means this build was not set up for Apple. */
     override val enabled: Boolean get() = audiences.isNotEmpty()
 
-    override fun verify(idToken: String): SocialAccount {
+    override fun verify(idToken: String, nonce: String): SocialAccount {
         if (!enabled) throw SocialSignInException("Apple sign-in is not configured")
 
         val decoded = try {
@@ -207,6 +239,8 @@ class AppleVerifier(
             ?: throw SocialSignInException("Token never expires")
         if (!expiry.isAfter(clock.instant())) throw SocialSignInException("Token has expired")
 
+        // The token has to belong to this sign-in, not merely to this app.
+        requireNonce(verified.getClaim("nonce").asString(), nonce)
         val email = verified.getClaim("email").asString()?.trim()?.lowercase()
         if (email.isNullOrEmpty()) throw SocialSignInException("Token carries no email")
 

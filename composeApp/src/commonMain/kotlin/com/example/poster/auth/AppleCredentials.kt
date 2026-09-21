@@ -17,7 +17,7 @@ interface AppleCredentials {
      * not a failure and must not be reported as one; anything genuinely broken
      * throws [AppleCredentialsException].
      */
-    suspend fun requestIdToken(): String?
+    suspend fun requestCredential(): SocialCredential?
 }
 
 /** Something went wrong that somebody could act on — not a cancellation. */
@@ -29,5 +29,5 @@ class AppleCredentialsException(
 /** No Apple sign-in configured — the ordinary state of a build without it. */
 object NoAppleCredentials : AppleCredentials {
     override val available = false
-    override suspend fun requestIdToken(): String? = null
+    override suspend fun requestCredential(): SocialCredential? = null
 }

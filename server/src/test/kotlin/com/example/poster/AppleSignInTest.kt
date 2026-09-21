@@ -1,5 +1,7 @@
 package com.example.poster
 
+import com.example.poster.auth.SocialVerifier
+import com.example.poster.auth.nonceHash
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poster.auth.AppleVerifier
@@ -52,12 +54,16 @@ class AppleSignInTest {
         expiresAt: Instant = now.plusSeconds(600),
         signWith: RSAPrivateKey = privateKey,
         keyId: String? = "key-1",
+        // The claim carries the hash; the verifier is handed the value behind
+        // it, which is what a caller replaying a token would not have.
+        nonce: String? = nonceHash(NONCE),
     ): String = JWT.create()
         .withKeyId(keyId)
         .withAudience(audience)
         .withIssuer(issuer)
         .apply {
             subject?.let { withSubject(it) }
+            nonce?.let { withClaim("nonce", it) }
             email?.let { withClaim("email", it) }
             when (emailVerified) {
                 is Boolean -> withClaim("email_verified", emailVerified)
@@ -71,7 +77,7 @@ class AppleSignInTest {
 
     @Test
     fun aGoodTokenIdentifiesSomebody() {
-        val account = verifier().verify(token())
+        val account = verifier().check(token())
 
         assertEquals("somebody@icloud.com", account.email)
         assertEquals("apple-subject-1", account.subject)
@@ -85,7 +91,7 @@ class AppleSignInTest {
      */
     @Test
     fun thereIsNoNameInAnAppleToken() {
-        val account = verifier().verify(token())
+        val account = verifier().check(token())
 
         assertNull(account.name)
         assertNull(account.surname)
@@ -97,16 +103,16 @@ class AppleSignInTest {
      */
     @Test
     fun emailVerifiedIsAcceptedAsAStringToo() {
-        val account = verifier().verify(token(emailVerified = "true"))
+        val account = verifier().check(token(emailVerified = "true"))
 
         assertEquals("somebody@icloud.com", account.email)
     }
 
     @Test
     fun anUnverifiedAddressIsRefusedWhicheverWayItIsSpelt() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(emailVerified = false)) }
-        assertFailsWith<SocialSignInException> { verifier().verify(token(emailVerified = "false")) }
-        assertFailsWith<SocialSignInException> { verifier().verify(token(emailVerified = null)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(emailVerified = false)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(emailVerified = "false")) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(emailVerified = null)) }
     }
 
     /** The check that stops a token minted for a different app being accepted here. */
@@ -114,13 +120,13 @@ class AppleSignInTest {
     fun aTokenForAnotherAppIsRefused() {
         val forSomebodyElse = token(audience = "com.example.someone-else")
 
-        assertFailsWith<SocialSignInException> { verifier().verify(forSomebodyElse) }
+        assertFailsWith<SocialSignInException> { verifier().check(forSomebodyElse) }
     }
 
     @Test
     fun aTokenFromAnotherIssuerIsRefused() {
         assertFailsWith<SocialSignInException> {
-            verifier().verify(token(issuer = "https://appleid.apple.com.evil.example"))
+            verifier().check(token(issuer = "https://appleid.apple.com.evil.example"))
         }
     }
 
@@ -129,27 +135,27 @@ class AppleSignInTest {
     fun aTokenSignedByAnybodyElseIsRefused() {
         val forged = token(signWith = otherKeys.private as RSAPrivateKey)
 
-        assertFailsWith<SocialSignInException> { verifier().verify(forged) }
+        assertFailsWith<SocialSignInException> { verifier().check(forged) }
     }
 
     @Test
     fun anExpiredTokenIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(expiresAt = now.minusSeconds(1))) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(expiresAt = now.minusSeconds(1))) }
     }
 
     @Test
     fun aTokenWithoutAnEmailIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(email = null)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(email = null)) }
     }
 
     @Test
     fun aTokenWithoutASubjectIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify(token(subject = null)) }
+        assertFailsWith<SocialSignInException> { verifier().check(token(subject = null)) }
     }
 
     @Test
     fun somethingThatIsNotATokenIsRefused() {
-        assertFailsWith<SocialSignInException> { verifier().verify("not-a-token") }
+        assertFailsWith<SocialSignInException> { verifier().check("not-a-token") }
     }
 
     /** Without a bundle id this build cannot check the audience, so it refuses everything. */
@@ -161,7 +167,7 @@ class AppleSignInTest {
         // The reason matters: "not configured" is a deployment that never
         // offered Apple, and reading it as a bad token sends somebody hunting
         // for a problem in a token that was fine.
-        val refusal = assertFailsWith<SocialSignInException> { unconfigured.verify(token()) }
+        val refusal = assertFailsWith<SocialSignInException> { unconfigured.check(token()) }
         assertEquals("Apple sign-in is not configured", refusal.message)
     }
 
@@ -179,7 +185,7 @@ class AppleSignInTest {
         val strict = AppleVerifier(audience = BUNDLE_ID, keyFor = { publicKey }, clock = later)
 
         // Ten minutes of life by the system clock, twenty minutes ago by ours.
-        assertFailsWith<SocialSignInException> { strict.verify(token(expiresAt = now.plusSeconds(600))) }
+        assertFailsWith<SocialSignInException> { strict.check(token(expiresAt = now.plusSeconds(600))) }
     }
 
     /**
@@ -201,7 +207,7 @@ class AppleSignInTest {
     /** A relay address still signs somebody in; it is only linking that must be careful. */
     @Test
     fun someoneHidingTheirEmailCanStillSignIn() {
-        val account = verifier().verify(token(email = "abc123@privaterelay.appleid.com"))
+        val account = verifier().check(token(email = "abc123@privaterelay.appleid.com"))
 
         assertEquals("abc123@privaterelay.appleid.com", account.email)
     }
@@ -209,4 +215,10 @@ class AppleSignInTest {
     private companion object {
         const val BUNDLE_ID = "com.example.poster"
     }
+
+    /** The value behind the nonce in the tokens these tests mint. */
+    private val NONCE = "a-value-only-this-sign-in-knows"
+
+    /** Verifying with the nonce this suite's tokens were minted for. */
+    private fun SocialVerifier.check(idToken: String, nonce: String = NONCE) = verify(idToken, nonce)
 }

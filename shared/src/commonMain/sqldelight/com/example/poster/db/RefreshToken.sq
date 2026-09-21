@@ -3,12 +3,28 @@ CREATE TABLE RefreshToken (
     user_id TEXT NOT NULL,
     expires_at INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
+    -- When the sign-in this token descends from happened. Carried forward
+    -- unchanged by every rotation, so the chain has an age of its own and a
+    -- token that renews itself nightly still ends.
+    chain_started_at INTEGER NOT NULL DEFAULT 0,
+    -- Set when the token is spent, rather than deleting the row. A spent
+    -- token coming back is how a copied one announces itself.
+    used_at INTEGER,
     FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE
 );
 
 insertRefreshToken:
-INSERT INTO RefreshToken(token_hash, user_id, expires_at, created_at)
-VALUES (?, ?, ?, ?);
+INSERT INTO RefreshToken(token_hash, user_id, expires_at, created_at, chain_started_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- Spends a token, and says whether it was this call that spent it. A second
+-- caller presenting the same token changes no rows, which is the signal.
+markRefreshTokenUsed:
+UPDATE RefreshToken SET used_at = :now
+WHERE token_hash = :hash AND used_at IS NULL;
+
+changes:
+SELECT changes();
 
 getRefreshToken:
 SELECT * FROM RefreshToken
@@ -22,9 +38,11 @@ deleteRefreshTokensForUser:
 DELETE FROM RefreshToken
 WHERE user_id = ?;
 
+-- Expired, and past the point where a replay would still tell us anything: a
+-- spent row is kept for the life of its chain so reuse can be spotted.
 deleteExpiredRefreshTokens:
 DELETE FROM RefreshToken
-WHERE expires_at <= ?;
+WHERE expires_at <= :now AND chain_started_at <= :chainCutoff;
 
 deleteAllRefreshTokens:
 DELETE FROM RefreshToken;

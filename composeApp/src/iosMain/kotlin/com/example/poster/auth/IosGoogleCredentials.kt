@@ -14,7 +14,7 @@ import kotlin.coroutines.resumeWithException
  * an error message.
  */
 interface GoogleSignInLauncher {
-    fun signIn(completion: (idToken: String?, error: String?) -> Unit)
+    fun signIn(nonce: String, completion: (idToken: String?, error: String?) -> Unit)
 }
 
 /**
@@ -32,15 +32,18 @@ class IosGoogleCredentials(
 
     override val available: Boolean get() = launcher != null
 
-    override suspend fun requestIdToken(): String? {
+    override suspend fun requestCredential(): SocialCredential? {
         val launcher = launcher ?: return null
+        // Only the hash reaches the provider; the value is what the server
+        // hashes and compares, and it never leaves this device otherwise.
+        val nonce = IosNonce.random()
         return suspendCancellableCoroutine { continuation ->
-            launcher.signIn { idToken, error ->
+            launcher.signIn(IosNonce.hash(nonce)) { idToken, error ->
                 when {
                     error != null -> continuation.resumeWithException(GoogleCredentialsException(error))
                     // A null token with no error is a cancel: nothing happened,
                     // so nothing is said.
-                    else -> continuation.resume(idToken)
+                    else -> continuation.resume(idToken?.let { SocialCredential(it, nonce) })
                 }
             }
         }

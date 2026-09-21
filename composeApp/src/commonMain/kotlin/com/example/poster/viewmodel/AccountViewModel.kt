@@ -1,5 +1,6 @@
 package com.example.poster.viewmodel
 
+import com.example.poster.auth.SocialCredential
 import com.example.poster.model.MergeRequest
 import com.example.poster.model.User
 import com.example.poster.model.AppEventName
@@ -61,8 +62,8 @@ class AccountViewModel(
      * server refused the token, but only the second sets an error: changing
      * your mind is not a failure and does not deserve a message.
      */
-    suspend fun signInWithGoogle(idToken: String): Boolean =
-        session.signInWithProvider(GOOGLE, idToken).fold(
+    suspend fun signInWithGoogle(credential: SocialCredential): Boolean =
+        session.signInWithProvider(GOOGLE, credential.idToken, credential.nonce).fold(
             onSuccess = { user ->
                 if (user != null) events?.report(AppEventName.LOGIN, detail = "method=google")
                 user != null
@@ -70,8 +71,8 @@ class AccountViewModel(
             onFailure = { _error.value = UiError("Unable to sign in with Google", it); false },
         )
 
-    suspend fun signInWithApple(idToken: String): Boolean =
-        session.signInWithProvider(APPLE, idToken).fold(
+    suspend fun signInWithApple(credential: SocialCredential): Boolean =
+        session.signInWithProvider(APPLE, credential.idToken, credential.nonce).fold(
             onSuccess = { user ->
                 if (user != null) events?.report(AppEventName.LOGIN, detail = "method=apple")
                 user != null
@@ -87,8 +88,14 @@ class AccountViewModel(
         )
 
     /** Merge the current account into an existing one proved by a provider token. */
-    suspend fun mergeWithProvider(provider: String, idToken: String): Boolean =
-        session.mergeInto(MergeRequest(provider = provider, idToken = idToken)).fold(
+    suspend fun mergeWithProvider(provider: String, credential: SocialCredential): Boolean =
+        session.mergeInto(
+            MergeRequest(
+                provider = provider,
+                idToken = credential.idToken,
+                nonce = credential.nonce,
+            ),
+        ).fold(
             onSuccess = { it != null },
             onFailure = { _error.value = UiError("Couldn't merge with that account", it); false },
         )

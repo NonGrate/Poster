@@ -132,7 +132,7 @@ class AccountMergeTest {
     private class AppleStub : SocialVerifier {
         override val provider = "apple"
         override val enabled = true
-        override fun verify(idToken: String) = SocialAccount(
+        override fun verify(idToken: String, nonce: String) = SocialAccount(
             provider = "apple",
             subject = "apple-subject-1",
             email = "a1b2c3d4@privaterelay.appleid.com",

@@ -105,10 +105,10 @@ open class KtorUserApi(
         return response.user
     }
 
-    override suspend fun signInWithProvider(provider: String, idToken: String): User? {
+    override suspend fun signInWithProvider(provider: String, idToken: String, nonce: String): User? {
         val response = httpClient.post("auth/social") {
             contentType(ContentType.Application.Json)
-            setBody(SocialSignInRequest(provider = provider, idToken = idToken))
+            setBody(SocialSignInRequest(provider = provider, idToken = idToken, nonce = nonce))
         }.body<AuthResponse>()
         authTokenStorage.save(response.tokens)
         clearCachedBearerToken()

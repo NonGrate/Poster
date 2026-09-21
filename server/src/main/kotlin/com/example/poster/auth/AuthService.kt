@@ -219,7 +219,7 @@ class AuthService(
                     it.provider.equals(provider, ignoreCase = true) && it.enabled
                 } ?: return MergeOutcome.ProviderUnavailable
                 val account = try {
-                    verifier.verify(idToken)
+                    verifier.verify(idToken, request.nonce)
                 } catch (refused: SocialSignInException) {
                     return MergeOutcome.NoTarget
                 }
@@ -269,19 +269,56 @@ class AuthService(
     fun refresh(refreshToken: String): AuthResponse {
         val now = Instant.now(clock).epochSecond
         val tokenHash = hashToken(refreshToken)
-        return database.transactionWithResult {
+        // Set when a spent token is presented; the revocation happens once the
+        // transaction has rolled back, so it is not rolled back with it.
+        var reuseBy: String? = null
+        try {
+            return database.transactionWithResult {
             val stored = database.refreshTokenQueries.getRefreshToken(tokenHash).executeAsOneOrNull()
                 ?: throw AuthException.InvalidRefreshToken
-            if (stored.expires_at <= now) {
+
+            // A token that was already spent is a copied one. Either the real
+            // owner rotated and somebody replayed the old value, or the thief
+            // rotated first and the owner is now presenting a token that is no
+            // longer current. There is no way to tell which from here, and
+            // both mean one of the two is not who they say — so every session
+            // this account has ends and both parties sign in again.
+            //
+            // Recorded and acted on after this block, not inside it: throwing
+            // out of a transaction rolls it back, so revoking here and then
+            // refusing would undo the revocation and leave the thief's session
+            // alive. Found by the test below, which is why it is there.
+            if (stored.used_at != null) {
+                reuseBy = stored.user_id
                 throw AuthException.InvalidRefreshToken
             }
+            if (stored.expires_at <= now) throw AuthException.InvalidRefreshToken
+
+            // The sliding window renewed itself on every use, so a session that
+            // was never idle for thirty days lasted for ever. This is the
+            // ceiling measured from the sign-in itself, which no amount of
+            // rotation moves.
+            if (now - stored.chain_started_at >= config.sessionMaxAgeSeconds) {
+                throw AuthException.InvalidRefreshToken
+            }
+
             val user = accountRepository.userById(stored.user_id)
                 ?: throw AuthException.InvalidRefreshToken
             // Banning revokes the stored tokens, but one already in flight
             // would otherwise mint a fresh pair and outlive the ban.
             if (user.isBanned) throw AuthException.InvalidRefreshToken
-            database.refreshTokenQueries.deleteRefreshToken(tokenHash)
-            createSession(user)
+
+            // Marked rather than deleted, and only if this call is the one
+            // doing it: two requests arriving with the same token must not
+            // both be handed a new session.
+            database.refreshTokenQueries.markRefreshTokenUsed(now, tokenHash)
+            if (database.refreshTokenQueries.changes().executeAsOne() == 0L) {
+                throw AuthException.InvalidRefreshToken
+            }
+            createSession(user, chainStartedAt = stored.chain_started_at)
+            }
+        } finally {
+            reuseBy?.let { database.refreshTokenQueries.deleteRefreshTokensForUser(it) }
         }
     }
 
@@ -360,15 +397,26 @@ class AuthService(
         database.refreshTokenQueries.deleteRefreshTokensForUser(userId)
     }
 
-    private fun createSession(user: User): AuthResponse {
+    /**
+     * [chainStartedAt] is null for a fresh sign-in and carried forward by a
+     * rotation, so the absolute ceiling is measured from when the person
+     * actually signed in rather than from the newest token.
+     */
+    private fun createSession(user: User, chainStartedAt: Long? = null): AuthResponse {
         val now = Instant.now(clock).epochSecond
         val refreshToken = randomToken()
-        database.refreshTokenQueries.deleteExpiredRefreshTokens(now)
+        // Spent rows are kept for the life of their chain so a replay can still
+        // be recognised; past that there is nothing left to detect.
+        database.refreshTokenQueries.deleteExpiredRefreshTokens(
+            now = now,
+            chainCutoff = now - config.sessionMaxAgeSeconds,
+        )
         database.refreshTokenQueries.insertRefreshToken(
             token_hash = hashToken(refreshToken),
             user_id = user.guid,
             expires_at = now + config.refreshTokenTtlSeconds,
             created_at = now,
+            chain_started_at = chainStartedAt ?: now,
         )
         return AuthResponse(
             user = user,

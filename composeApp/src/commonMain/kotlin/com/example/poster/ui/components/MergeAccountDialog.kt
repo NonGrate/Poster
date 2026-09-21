@@ -130,7 +130,7 @@ fun MergeAccountDialog(
                     // the two ways of proving the other account read as separate.
                     Spacer(Modifier.height(Spacing.lg))
                     OutlinedButton(
-                        onClick = { attempt { googleCredentials.requestIdToken()?.let { accountViewModel.mergeWithProvider("google", it) } } },
+                        onClick = { attempt { googleCredentials.requestCredential()?.let { accountViewModel.mergeWithProvider("google", it) } } },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth().testTag("merge_google_button"),
                     ) {

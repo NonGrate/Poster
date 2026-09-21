@@ -36,12 +36,16 @@ class AndroidGoogleCredentials(
 
     override val available: Boolean get() = serverClientId.isNotBlank()
 
-    override suspend fun requestIdToken(): String? {
+    override suspend fun requestCredential(): SocialCredential? {
         if (!available) return null
 
         val context = activityProvider()
             ?: throw GoogleCredentialsException("No active screen to start Google sign-in from")
 
+        // Only the hash goes to Google; the value behind it is what this app
+        // later sends its own server to prove the token was minted for this
+        // sign-in rather than found somewhere.
+        val nonce = AndroidNonce.random()
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(
                 GetGoogleIdOption.Builder()
@@ -52,6 +56,7 @@ class AndroidGoogleCredentials(
                     // everybody signing in for the first time, which is
                     // everybody.
                     .setFilterByAuthorizedAccounts(false)
+                    .setNonce(AndroidNonce.hash(nonce))
                     .build(),
             )
             .build()
@@ -80,7 +85,7 @@ class AndroidGoogleCredentials(
             Log.w(TAG, "google sign-in returned an unexpected credential: ${credential.type}")
             throw GoogleCredentialsException("Unexpected credential type ${credential.type}")
         }
-        return GoogleIdTokenCredential.createFrom(credential.data).idToken
+        return SocialCredential(GoogleIdTokenCredential.createFrom(credential.data).idToken, nonce)
     }
 
     private companion object {

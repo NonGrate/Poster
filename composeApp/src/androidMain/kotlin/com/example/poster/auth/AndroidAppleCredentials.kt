@@ -41,7 +41,7 @@ class AndroidAppleCredentials(
 
     override val available: Boolean get() = serviceId.isNotBlank()
 
-    override suspend fun requestIdToken(): String? {
+    override suspend fun requestCredential(): SocialCredential? {
         if (!available) return null
         val context = activityProvider()
             ?: throw AppleCredentialsException("No active screen to start Apple sign-in from")
@@ -55,6 +55,9 @@ class AndroidAppleCredentials(
         val state = UUID.randomUUID().toString() + "." + challengeFor(verifier)
         val pending = AppleWebCallback.begin(state)
 
+        // Apple puts this in the token it mints. Only the hash goes out; the
+        // value is what the server hashes and compares.
+        val nonce = randomVerifier()
         val authorize = Uri.parse("https://appleid.apple.com/auth/authorize").buildUpon()
             .appendQueryParameter("client_id", serviceId)
             .appendQueryParameter("redirect_uri", redirectUri)
@@ -64,6 +67,7 @@ class AndroidAppleCredentials(
             .appendQueryParameter("response_mode", "form_post")
             .appendQueryParameter("scope", "name email")
             .appendQueryParameter("state", state)
+            .appendQueryParameter("nonce", challengeFor(nonce))
             .build()
 
         try {
@@ -82,8 +86,9 @@ class AndroidAppleCredentials(
             throw AppleCredentialsException("Apple sign-in failed: ${result.error}")
         }
         val code = result.code ?: return null
-        return exchange(code, verifier)
+        val idToken = exchange(code, verifier)
             ?: throw AppleCredentialsException("Apple sign-in could not be completed")
+        return SocialCredential(idToken, nonce)
     }
 
     private fun randomVerifier(): String =

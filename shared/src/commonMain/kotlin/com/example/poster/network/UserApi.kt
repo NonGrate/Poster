@@ -46,7 +46,7 @@ interface UserApi {
      * Defaulted to "no" so the offline and preview backends, which have no
      * notion of Google, need not pretend otherwise.
      */
-    suspend fun signInWithProvider(provider: String, idToken: String): User? = null
+    suspend fun signInWithProvider(provider: String, idToken: String, nonce: String): User? = null
 
     /**
      * Trades the one-time code from the Apple callback for the identity token.
