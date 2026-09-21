@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Architecture and string checks
         run: scripts/check-architecture.sh
       - name: Shared, server and app unit tests
@@ -50,11 +50,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Turn every feature off
         run: sed -i 's/^\(feature\.[A-Za-z]*\)=true/\1=false/' poster.properties && grep -c '=false' poster.properties
       - name: Tests and compile with flags off
@@ -66,11 +66,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Comments and images off, liquid look on
         run: sed -i -e 's/^feature.comments=true/feature.comments=false/' -e 's/^feature.images=true/feature.images=false/' -e 's/^feature.liquidDesign=false/feature.liquidDesign=true/' poster.properties
       - name: Tests and compile
@@ -80,11 +80,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Desktop target on, billing off (docs/Desktop.md)
         run: sed -i -e 's/^feature.desktop=false/feature.desktop=true/' -e 's/^feature.support=true/feature.support=false/' poster.properties
       - name: Compile the desktop app
@@ -94,11 +94,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Web target on, billing off (docs/Web.md)
         run: sed -i -e 's/^feature.web=false/feature.web=true/' -e 's/^feature.support=true/feature.support=false/' poster.properties
       - name: Compile both browser targets and build the bundle
@@ -109,11 +109,11 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Kotlin framework for the simulator
         run: ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64 --no-daemon
       - name: Xcode build (no signing)
