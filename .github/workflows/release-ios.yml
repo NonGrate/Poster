@@ -30,7 +30,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: Bundle id from the project config
