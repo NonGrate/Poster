@@ -34,6 +34,7 @@ mechanism; the per-feature guides are linked from the rows.
 | Accounts and sign-in | Email verification before writing | `feature.emailVerificationRequired` | on |  |  |
 | Accounts and sign-in | Per-post language | `feature.multiLanguage` | on |  |  |
 | Notifications | Activity and push | `feature.pushNotifications` | on |  |  |
+| Notifications | Post titles in pushes | `feature.pushPostTitles` | on | `pushNotifications` |  |
 | Notifications | Daily reminder | `feature.dailyReminder` | on |  |  |
 | Offline | Drafts | `feature.drafts` | on |  |  |
 | Offline | Offline outbox | `feature.offlineOutbox` | on |  |  |
@@ -84,6 +85,7 @@ mechanism; the per-feature guides are linked from the rows.
 | Flag | Off removes from the app | Off removes from the server / build |
 |---|---|---|
 | `feature.pushNotifications` (on by default) | The Activity screen, the bell on Home, device registration | `/notifications*`, `/devices`, the notifier behind likes, comments and group changes, the FCM/APNs senders. [`PushNotifications.md`](PushNotifications.md) |
+| `feature.pushPostTitles` (on by default) | Nothing: the app reads the text the server sent | The post's title inside a push body — off, a push says "Somebody liked your post" with no quote A push reaches the phone through Apple or Google, who see its text, and it lands on a lock screen where anybody holding the phone can read it. The title is the author's own words going to the author's own device, so nothing leaks to other people — but on an app about difficult things, a title on a lock screen in front of somebody else is a real moment. Turn it off for a quieter notification that says what happened and nothing about what it was about. |
 | `feature.dailyReminder` (on by default) | The reminder rows in Settings | — |
 
 ## Offline

@@ -122,6 +122,18 @@ class ModerationRepository(
         record(actorId, "user:password_reset", "user", userId, null)
     }
 
+    /**
+     * Notes that a moderator read a private post.
+     *
+     * The panel records what moderators *do*; reading was not an action, so
+     * nothing said who had looked at a post somebody marked private. With one
+     * admin who owns the deployment that is academic. With a second it is the
+     * question people ask, and there was no answer.
+     */
+    fun recordReveal(actorId: String, postId: String) {
+        record(actorId, "reveal", "post", postId, null)
+    }
+
     private fun record(actorId: String, action: String, targetType: String, targetId: String, reason: String?) {
         audit.record(UUID.randomUUID().toString(), actorId, action, targetType, targetId, reason, now())
     }

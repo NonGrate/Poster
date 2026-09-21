@@ -326,6 +326,10 @@ internal fun Route.adminPostsPages(
     get("/posts") {
         val admin = call.requireAdmin(accounts) ?: return@get
         val csrf = call.sessions.get<AdminSession>()!!.csrf
+        // The one private post this admin has just asked to see. Carried in the
+        // query rather than remembered, so it lasts exactly one page: reading
+        // the next private post is another button and another audit row.
+        val revealed = call.request.queryParameters["reveal"]
         val authors = moderation.allUsersIncludingBanned().associateBy { it.guid }
         val groupNames = groups.allGroups().associate { it.id to it.name }
         call.respondHtml {
@@ -348,7 +352,19 @@ internal fun Route.adminPostsPages(
                             // is the thing a report is usually about.
                             td {
                                 expandableCell(post.title) {
-                                    p("message") { +post.message }
+                                    // A private post was written for nobody.
+                                    // Moderating still needs it readable, so
+                                    // it is one button away rather than
+                                    // gone — and the button leaves a record.
+                                    if (post.visibility == PostVisibility.PRIVATE && post.guid != revealed) {
+                                        p("message") { em { +"Private. Hidden until revealed." } }
+                                        form(action = "/admin/posts/${post.guid}/reveal", method = FormMethod.post) {
+                                            hiddenInput(name = "csrf") { value = csrf }
+                                            submitInput { value = "Reveal" }
+                                        }
+                                    } else {
+                                        p("message") { +post.message }
+                                    }
                                     dl {
                                         field("Author", authors[post.author]?.let { "${it.name} ${it.surname} <${it.email}>" } ?: post.author)
                                         post.group?.let { field("Group", groupNames[it] ?: it) }
@@ -446,6 +462,15 @@ internal fun Route.adminPostsPages(
         }
         moderation.setPostLanguage(admin.guid, call.parameters["id"].orEmpty(), language)
         call.respondRedirect("/admin/posts")
+    }
+
+    post("/posts/{id}/reveal") {
+        val admin = call.requireAdmin(accounts) ?: return@post
+        val params = call.receiveParameters()
+        if (!call.checkCsrf(params["csrf"])) return@post
+        val id = call.parameters["id"].orEmpty()
+        moderation.recordReveal(admin.guid, id)
+        call.respondRedirect("/admin/posts?reveal=$id")
     }
 
     post("/posts/{id}/delete") {

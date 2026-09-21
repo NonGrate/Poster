@@ -1,5 +1,6 @@
 package com.example.poster.push
 
+import com.example.poster.config.Features
 import com.example.poster.config.AppInfo
 import com.example.poster.model.AccountRepository
 import com.example.poster.model.Group
@@ -81,7 +82,12 @@ class Notifier(
     /** Server-side copy, in the recipient's reading language: the push arrives before the app can translate anything. */
     internal fun body(type: String, language: String, postTitle: String?, groupName: String?): String {
         val ru = language == "ru"
-        val quoted = postTitle?.let { " “$it”" } ?: ""
+        // The title only when the build asks for it (feature.pushPostTitles).
+        // A push goes through Apple or Google, who see its text, and lands on a
+        // lock screen anybody holding the phone can read — so what it says
+        // about the post is a choice the person deploying this makes, not one
+        // the code should make for them.
+        val quoted = postTitle?.takeIf { Features.PUSH_POST_TITLES }?.let { " “$it”" } ?: ""
         return when (type) {
             NotificationType.LIKE -> if (ru) "Кому-то понравился ваш пост$quoted" else "Somebody liked your post$quoted"
             NotificationType.COMMENT -> if (ru) "Новый комментарий к вашему посту$quoted" else "New comment on your post$quoted"
