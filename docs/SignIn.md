@@ -127,10 +127,25 @@ Token audience is the bundle id. Bridged by `AppleSignInBridge.swift`.
 
 Apple has no Android SDK. The app opens Apple's web sign-in
 (`AndroidAppleCredentials.kt`), Apple `form_post`s the identity token to
-`https://<your domain>/auth/apple/callback`, the server bounces it back to the
-app as a `poster://auth/apple?…` deep link, and the app calls `/auth/social` like
-any other provider. Needs a public https server (a tunnel in development —
+`https://<your domain>/auth/apple/callback`, the server bounces a **one-time
+code** back to the app as a `poster://auth/apple?…` deep link, the app trades
+that code for the token at `/auth/apple/exchange`, and then calls `/auth/social`
+like any other provider. Needs a public https server (a tunnel in development —
 `scripts/dev-tunnel.sh public`).
+
+Why the extra step: a custom scheme is first-come on Android, so any installed
+app may declare `poster://` and receive that redirect. An identity token in the
+URL would therefore be a sign-in handed to whoever asked. The app generates a
+random verifier, sends only its SHA-256 (appended to `state`, which Apple
+echoes untouched), and redeems the code with the verifier over HTTPS — so an
+app that intercepts the redirect holds a code that buys it nothing. This is the
+proof-key exchange RFC 8252 asks of a native app; the pieces are
+`AppleCodes.kt` on the server and `AndroidAppleCredentials.kt` in the app.
+
+An app built before this existed sends a `state` with no challenge and the
+callback answers `error=update_required` rather than the token it is waiting
+for. If you ship an update that includes this, Apple sign-in on Android stops
+working for people still on the older build until they update.
 
 1. Portal → Identifiers → **Services ID** (e.g. `com.acme.chirp.signin`) →
    enable Sign in with Apple → primary App ID = yours → domain = your host →

@@ -6,6 +6,8 @@ import io.ktor.client.plugins.auth.providers.BearerAuthProvider
 import io.ktor.client.call.body
 import io.ktor.client.request.*
 import io.ktor.http.ContentType
+import com.example.poster.model.AppleExchangeResponse
+import com.example.poster.model.AppleExchangeRequest
 import io.ktor.http.contentType
 import com.example.poster.model.User
 import com.example.poster.model.AuthResponse
@@ -111,6 +113,15 @@ open class KtorUserApi(
         authTokenStorage.save(response.tokens)
         clearCachedBearerToken()
         return response.user
+    }
+
+    override suspend fun exchangeAppleCode(code: String, verifier: String): String? {
+        val response = httpClient.post("auth/apple/exchange") {
+            contentType(ContentType.Application.Json)
+            setBody(AppleExchangeRequest(code = code, verifier = verifier))
+        }
+        if (!response.status.isSuccess()) return null
+        return response.body<AppleExchangeResponse>().idToken
     }
 
     override suspend fun mergeInto(request: MergeRequest): User? {

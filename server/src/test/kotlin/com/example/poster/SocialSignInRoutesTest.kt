@@ -131,22 +131,31 @@ class SocialSignInRoutesTest {
     }
 
     /**
-     * The Android web-flow callback bounces Apple's identity token back into the
-     * app as a poster://auth/apple deep link, carrying the state untouched so
-     * the app can match it to the request it started.
+     * The Android web-flow callback bounces Apple's answer back into the app as
+     * a poster://auth/apple deep link, carrying the state untouched so the app
+     * can match it to the request it started.
+     *
+     * What it carries is a one-time code, not the identity token: the scheme is
+     * first-come on Android and the token would be readable by whichever app
+     * claimed it. See AppleCodeExchangeTest for the redemption side.
      */
     @Test
-    fun theAppleCallbackBouncesTheTokenBackToTheApp() = withGoogle {
+    fun theAppleCallbackBouncesACodeBackToTheApp() = withGoogle {
+        val state = "state-123." + com.example.poster.auth.AppleCodes.challengeFor("a-verifier")
         val response = client.post("/auth/apple/callback") {
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("id_token=header.payload.signature&state=state-123")
+            setBody("id_token=header.payload.signature&state=$state")
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertTrue(body.contains("poster://auth/apple"), "no deep link in the callback page")
         assertTrue(body.contains("state=state-123"), "state was not carried back")
-        assertTrue(body.contains("id_token=header.payload.signature"), "id_token was not carried back")
+        assertTrue(body.contains("code="), "no code in the deep link")
+        assertTrue(
+            !body.contains("header.payload.signature"),
+            "the identity token was in the page an intercepting app can read",
+        )
     }
 
     /** An Apple error is relayed, not swallowed, and no token is invented. */

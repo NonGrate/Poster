@@ -6,6 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.CompletableDeferred
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -28,6 +31,12 @@ class AndroidAppleCredentials(
     private val activityProvider: () -> Context?,
     private val serviceId: String,
     private val redirectUri: String,
+    /**
+     * Trades the callback's one-time code for the identity token, over HTTPS
+     * to this app's own server. The last step of the proof-key exchange: the
+     * code arrived on a scheme any app can claim, the verifier did not.
+     */
+    private val exchange: suspend (code: String, verifier: String) -> String?,
 ) : AppleCredentials {
 
     override val available: Boolean get() = serviceId.isNotBlank()
@@ -37,7 +46,13 @@ class AndroidAppleCredentials(
         val context = activityProvider()
             ?: throw AppleCredentialsException("No active screen to start Apple sign-in from")
 
-        val state = UUID.randomUUID().toString()
+        // The verifier never leaves this app except in the exchange below;
+        // what goes out with the browser is its hash, riding in `state`
+        // because Apple echoes that field back untouched and offers no other
+        // place to put it. An app that hijacks the `poster://` callback gets
+        // the code and not this, and the code alone redeems nothing.
+        val verifier = randomVerifier()
+        val state = UUID.randomUUID().toString() + "." + challengeFor(verifier)
         val pending = AppleWebCallback.begin(state)
 
         val authorize = Uri.parse("https://appleid.apple.com/auth/authorize").buildUpon()
@@ -66,7 +81,19 @@ class AndroidAppleCredentials(
         if (result.error != null && result.error != "user_cancelled_authorize") {
             throw AppleCredentialsException("Apple sign-in failed: ${result.error}")
         }
-        return result.idToken
+        val code = result.code ?: return null
+        return exchange(code, verifier)
+            ?: throw AppleCredentialsException("Apple sign-in could not be completed")
+    }
+
+    private fun randomVerifier(): String =
+        ByteArray(32).also(SecureRandom()::nextBytes).let(base64::encodeToString)
+
+    private fun challengeFor(verifier: String): String =
+        base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))
+
+    private companion object {
+        val base64: Base64.Encoder = Base64.getUrlEncoder().withoutPadding()
     }
 }
 
@@ -80,7 +107,7 @@ class AndroidAppleCredentials(
  * one (the person closed the browser).
  */
 object AppleWebCallback {
-    data class Result(val idToken: String?, val error: String?)
+    data class Result(val code: String?, val error: String?)
 
     private var pending: CompletableDeferred<Result>? = null
     private var expectedState: String? = null
@@ -106,7 +133,7 @@ object AppleWebCallback {
         if (deferred != null && uri.getQueryParameter("state") == expectedState) {
             deferred.complete(
                 Result(
-                    idToken = uri.getQueryParameter("id_token"),
+                    code = uri.getQueryParameter("code"),
                     error = uri.getQueryParameter("error"),
                 ),
             )

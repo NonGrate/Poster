@@ -47,6 +47,22 @@ data class MergeRequest(
     val idToken: String? = null,
 )
 
+/**
+ * Claiming the Apple identity token the browser round-trip produced.
+ *
+ * The token itself no longer travels in the deep link. A custom scheme is
+ * first-come on Android — another installed app can declare `poster://` and
+ * receive the callback — so what comes back is a one-time [code], useless
+ * without the [verifier] this app generated and never sent anywhere but here.
+ * The server holds the token against a hash of that verifier and hands it over
+ * once. This is the proof-key exchange RFC 8252 asks of a native app.
+ */
+@Serializable
+data class AppleExchangeRequest(val code: String, val verifier: String)
+
+@Serializable
+data class AppleExchangeResponse(val idToken: String)
+
 @Serializable
 data class RefreshTokenRequest(val refreshToken: String)
 

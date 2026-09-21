@@ -49,6 +49,13 @@ interface UserApi {
     suspend fun signInWithProvider(provider: String, idToken: String): User? = null
 
     /**
+     * Trades the one-time code from the Apple callback for the identity token.
+     * Android only: the other platforms get the token from a native SDK and
+     * never put it in a URL. Null when the code was wrong, spent or stale.
+     */
+    suspend fun exchangeAppleCode(code: String, verifier: String): String? = null
+
+    /**
      * Merge the account you are signed in to into an existing one you prove you
      * own (see [com.example.poster.model.MergeRequest]). Returns the
      * surviving account, now the signed-in one.

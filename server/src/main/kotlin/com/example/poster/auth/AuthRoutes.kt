@@ -6,6 +6,8 @@ import com.example.poster.config.BrandPalette
 import com.auth0.jwt.JWT
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import com.example.poster.model.AppleExchangeResponse
+import com.example.poster.model.AppleExchangeRequest
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
@@ -91,6 +93,8 @@ fun Route.authRoutes(
      * until the login's allowance was spent.
      */
     registerThrottle: AttemptThrottle = AttemptThrottle(),
+    /** Holds the Apple identity token between the callback and the app asking for it. */
+    appleCodes: AppleCodes = AppleCodes(),
 ) {
     route("/auth") {
         post("/register") {
@@ -277,12 +281,23 @@ fun Route.authRoutes(
             val params = call.receiveParameters()
             val state = params["state"].orEmpty()
             val error = params["error"]
+            // The identity token does not travel in this URL. A custom scheme
+            // is first-come on Android, so anything put here is readable by
+            // whichever app claimed it; what goes back is a one-time code the
+            // app redeems with the verifier only it holds (AppleCodes).
+            val challenge = AppleCodes.challengeIn(state)
             val deepLink = buildString {
                 append("${AppInfo.SCHEME}://auth/apple?state=").append(state.encodeURLParameter())
-                if (error != null) {
-                    append("&error=").append(error.encodeURLParameter())
-                } else {
-                    append("&id_token=").append(params["id_token"].orEmpty().encodeURLParameter())
+                when {
+                    error != null -> append("&error=").append(error.encodeURLParameter())
+                    // A client from before the exchange existed. Answered with
+                    // an error rather than the token it is expecting: sending
+                    // the token to an older app would leave the hole open to
+                    // anybody who asked for it in that shape.
+                    challenge == null -> append("&error=").append("update_required".encodeURLParameter())
+                    else -> append("&code=").append(
+                        appleCodes.mint(params["id_token"].orEmpty(), challenge).encodeURLParameter(),
+                    )
                 }
             }
             // A page that bounces to the app rather than a bare 302: a redirect
@@ -301,6 +316,29 @@ fun Route.authRoutes(
 <script>window.location.replace("$deepLink");</script>
 </body></html>"""
             }
+        }
+
+        /**
+         * Trading the callback's one-time code for the identity token.
+         *
+         * Unauthenticated, because this happens before there is a session —
+         * the token it returns is what the caller then signs in with. What
+         * guards it is the verifier: the code alone, which is all an app that
+         * merely intercepted the redirect has, redeems nothing. One attempt
+         * per code, whether or not the verifier was right.
+         */
+        post("/apple/exchange") {
+            val request = runCatching { call.receive<AppleExchangeRequest>() }.getOrNull()
+            if (request == null || request.code.isBlank() || request.verifier.isBlank()) {
+                call.respond(HttpStatusCode.BadRequest, ApiError("Malformed request"))
+                return@post
+            }
+            val idToken = appleCodes.redeem(request.code, request.verifier)
+            if (idToken.isNullOrBlank()) {
+                call.respond(HttpStatusCode.Unauthorized, ApiError("That sign-in could not be completed"))
+                return@post
+            }
+            call.respond(AppleExchangeResponse(idToken))
         }
         /**
          * "I already have an account."

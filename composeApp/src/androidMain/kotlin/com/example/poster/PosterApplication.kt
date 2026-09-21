@@ -24,6 +24,7 @@ import com.example.poster.auth.AndroidGoogleCredentials
 import com.example.poster.auth.GoogleCredentials
 import com.example.poster.auth.AndroidAppleCredentials
 import com.example.poster.auth.AppleCredentials
+import com.example.poster.network.UserApi
 import com.example.poster.notification.AndroidDailyReminders
 import com.example.poster.notification.DailyReminders
 import com.example.poster.util.CurrentActivityHolder
@@ -77,6 +78,11 @@ class PosterApplication : Application() {
                                     append(":").append(appConfig.serverPort)
                                 }
                                 append("/auth/apple/callback")
+                            },
+                            // Over HTTPS to this server, carrying the verifier
+                            // the callback's code is worthless without.
+                            exchange = { code, verifier ->
+                                get<UserApi>().exchangeAppleCode(code, verifier)
                             },
                         )
                     }
