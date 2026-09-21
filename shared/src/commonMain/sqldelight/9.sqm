@@ -1,0 +1,6 @@
+-- 9.sqm: version 9 -> 10. Indexes for the queries every screen runs: the feed's
+-- ordering, the banned-author check under it, share-token lookups and by-author.
+CREATE INDEX postFeed ON Post(date DESC, guid DESC);
+CREATE INDEX userStatus ON User(status);
+CREATE INDEX postShareToken ON Post(shareToken);
+CREATE INDEX postAuthor ON Post(author);

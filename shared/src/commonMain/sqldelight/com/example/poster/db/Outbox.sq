@@ -1,0 +1,23 @@
+-- Outbox.sq: device only (feature.offlineOutbox). A post written or edited
+-- with no connection waits here as JSON and is sent on the next refresh.
+CREATE TABLE Outbox (
+    guid TEXT NOT NULL PRIMARY KEY,
+    -- 'add' or 'update'. An update to a post that is still waiting to be added
+    -- stays an 'add' with the newer body: the server has never seen it.
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+enqueue:
+INSERT OR REPLACE INTO Outbox(guid, kind, payload, created_at)
+VALUES (?, ?, ?, ?);
+
+dequeue:
+DELETE FROM Outbox WHERE guid = ?;
+
+queued:
+SELECT * FROM Outbox ORDER BY created_at ASC;
+
+queuedGuids:
+SELECT guid FROM Outbox;

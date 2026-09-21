@@ -1,0 +1,398 @@
+CREATE TABLE Post (
+    guid TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    author TEXT NOT NULL,
+    likes INTEGER NOT NULL DEFAULT 0,
+    groupId TEXT,
+    date TEXT NOT NULL,
+    deleted_at TEXT,
+    completed_at TEXT,
+    completion_message TEXT,
+    visibility TEXT NOT NULL DEFAULT 'public',
+    -- Whether the last feed refresh returned this post. A row can also be
+    -- here only because somebody is liking it, and those must not appear
+    -- in the feed.
+    in_feed INTEGER NOT NULL DEFAULT 1,
+    -- What it is written in. Defaults to English.
+    language TEXT NOT NULL DEFAULT 'en',
+    -- An opaque, random token for the public web share link, minted on the
+    -- server the first time a post is shared. Null until then. Deliberately
+    -- unrelated to the guid so a share URL cannot be turned back into an id.
+    -- Only ever used to look up PUBLIC posts — see getPostByShareToken.
+    shareToken TEXT,
+    -- Id of the one image in the server's upload store, or NULL. Added in
+    -- migration 2; every client sends JSON without it until updated.
+    image TEXT,
+    -- Device cache of the server's count (the server counts Comment rows and
+    -- never writes this). Like `likes`: without it the badge read 0 from disk.
+    comments INTEGER NOT NULL DEFAULT 0,
+    -- Enforced only where foreign keys are on, which is the server. See DatabaseDriverFactory (jvm).
+    FOREIGN KEY (author) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+-- The feed's ORDER BY and the cursor under it, which every list query shares.
+CREATE INDEX postFeed ON Post(date DESC, guid DESC);
+-- The public share page, which has only the token to look a post up by.
+CREATE INDEX postShareToken ON Post(shareToken);
+-- My Posts, account deletion and the merge all select by author.
+CREATE INDEX postAuthor ON Post(author);
+
+-- Device only: what the server sent along with the post.
+cacheComments:
+UPDATE Post SET comments = ? WHERE guid = ?;
+
+-- The feed, and every screen reading "the posts this device knows". `in_feed`
+-- is what separates a post the last refresh returned from one kept only
+-- because somebody is liking it — see markEverythingOutOfFeed.
+getAllPosts:
+SELECT *
+FROM Post
+WHERE deleted_at IS NULL
+  AND in_feed = 1
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned')
+ORDER BY date DESC, guid DESC;
+
+-- The feed for one viewer. Visibility is a condition on this query rather than a
+-- filter at the call sites, so it cannot be forgotten at one of them: public
+-- posts, posts in groups the viewer belongs to, and everything the
+-- viewer wrote (their own private posts included).
+getVisiblePosts:
+SELECT *
+FROM Post
+WHERE deleted_at IS NULL
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned')
+  AND (
+    visibility = 'public'
+    OR author = :viewer
+    OR (
+      visibility = 'group'
+      AND groupId IN (SELECT groupId FROM UserGroup WHERE userId = :viewer)
+    )
+  )
+  -- Language, alongside visibility rather than after it, so it cannot be
+  -- forgotten at a call site. Your own posts are always yours to see: a
+  -- post you wrote in a language you have since stopped reading would
+  -- otherwise disappear from My Posts. The languages arrive as one comma
+  -- separated value, and the commas around both sides stop "en" matching
+  -- inside a longer code.
+  AND (
+    author = :viewer
+    OR instr(',' || :languages || ',', ',' || language || ',') > 0
+  )
+  -- Any of these tags, or all of them. A comma-separated list, the same shape
+  -- as :languages above, and the empty string is no filter — the same
+  -- convention the cursor below uses.
+  --
+  -- Any rather than all: "show me posts about illness or money" is what
+  -- picking two tags means. Requiring both would answer almost nothing, since
+  -- a post carries at most five.
+  --
+  -- Filtering here rather than on the device is what makes an older post
+  -- reachable: the device only holds the pages it has fetched, so a tag on
+  -- anything further back could not be found by looking at what is loaded.
+  AND (
+    :tags = ''
+    OR EXISTS (
+      SELECT 1 FROM PostTag pt
+      JOIN Tag t ON t.guid = pt.tag_guid
+      WHERE pt.post_guid = Post.guid
+        AND instr(',' || :tags || ',', ',' || t.name || ',') > 0
+    )
+  )
+  -- Which rooms, if the reader has narrowed to any. Same convention again: the
+  -- empty string is no filter, several are comma separated.
+  --
+  -- Naming a group also excludes public posts, which is the whole point
+  -- of asking: "show me what my church group is carrying" is not answered by a
+  -- feed that still holds everything anybody posted to everybody.
+  --
+  -- No membership check here, because the visibility clause above has already
+  -- made one: a reader who names a room they are not in gets nothing rather
+  -- than somebody else's posts. The filter narrows what is already allowed;
+  -- it cannot widen it.
+  AND (
+    :groups = ''
+    OR (
+      visibility = 'group'
+      AND instr(',' || :groups || ',', ',' || groupId || ',') > 0
+    )
+  )
+-- Newest first, one page at a time.
+--
+-- `:before` is where the last page ended: the empty string asks for the newest,
+-- and anything else asks for what comes after it. A cursor rather than an
+-- offset because posts arrive while somebody is reading — an offset would
+-- then skip a post or show one twice, silently, and only for the person
+-- unlucky enough to be scrolling at that moment.
+--
+-- The cursor is `date` and `guid` together, because two posts written in the
+-- same minute would otherwise be an ambiguous place to resume from. Ordering by
+-- both is what makes the pair a position rather than a guess.
+  -- Search (lower-cased by the server). instr over title and message: a
+  -- LIKE with no index either way, and FTS5 is a migration away if it ever matters.
+  -- Only people this reader follows, when asked (feature.follows). Narrows
+  -- what the clauses above already allow; a follow never widens visibility.
+  AND (
+    :following = 0
+    OR author IN (SELECT followed FROM Follow WHERE follower = :viewer)
+  )
+  -- Only what this reader saved, when asked (feature.bookmarks). Same rule
+  -- as :following: narrows, never widens.
+  AND (
+    :saved = 0
+    OR guid IN (SELECT post_id FROM Bookmark WHERE user_id = :viewer)
+  )
+  AND (
+    :query = ''
+    OR instr(lower(title), :query) > 0
+    OR instr(lower(message), :query) > 0
+  )
+AND (
+    :before = ''
+    OR date < :before
+    OR (date = :before AND guid < :beforeGuid)
+)
+ORDER BY date DESC, guid DESC
+LIMIT :limit;
+
+-- No viewer: only what is public.
+getPublicPosts:
+SELECT *
+FROM Post
+WHERE deleted_at IS NULL
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned')
+  AND visibility = 'public'
+  -- Any of these tags, or all of them. See getVisiblePosts above.
+  AND (
+    :tags = ''
+    OR EXISTS (
+      SELECT 1 FROM PostTag pt
+      JOIN Tag t ON t.guid = pt.tag_guid
+      WHERE pt.post_guid = Post.guid
+        AND instr(',' || :tags || ',', ',' || t.name || ',') > 0
+    )
+  )
+  -- Search (lower-cased by the server). instr over title and message: a
+  -- LIKE with no index either way, and FTS5 is a migration away if it ever matters.
+  AND (
+    :query = ''
+    OR instr(lower(title), :query) > 0
+    OR instr(lower(message), :query) > 0
+  )
+  AND (
+    :before = ''
+    OR date < :before
+    OR (date = :before AND guid < :beforeGuid)
+  )
+ORDER BY date DESC, guid DESC
+LIMIT :limit;
+
+-- One post, by id, under exactly the feed's visibility rules.
+--
+-- Its own query rather than a search through the feed: the feed became a page,
+-- and a search of one page means a post older than it reads as not existing
+-- to everything that holds an id — a link somebody was sent, the Liked list,
+-- a post opened from a notification.
+--
+-- Language is deliberately not a condition. The feed is a list nobody asked
+-- for, so it is filtered to what a person reads; a post someone opened
+-- deliberately is not, and hiding it would be answering the wrong question.
+getVisiblePostById:
+SELECT *
+FROM Post
+WHERE guid = :guid
+  AND deleted_at IS NULL
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned')
+  AND (
+    visibility = 'public'
+    OR author = :viewer
+    OR (
+      visibility = 'group'
+      AND groupId IN (SELECT groupId FROM UserGroup WHERE userId = :viewer)
+    )
+  );
+
+-- The same, for nobody signed in: only what is public.
+getPublicPostById:
+SELECT *
+FROM Post
+WHERE guid = ?
+  AND deleted_at IS NULL
+  AND visibility = 'public'
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned');
+
+-- The public web share page and the in-app "open shared link", both by token.
+-- The public-only + not-deleted + not-banned guards are the security boundary:
+-- a token can only ever surface a public post, so a groupId/private one
+-- never renders on the web even if a token existed for it.
+getPostByShareToken:
+SELECT *
+FROM Post
+WHERE shareToken = ?
+  AND deleted_at IS NULL
+  AND visibility = 'public'
+  AND author NOT IN (SELECT guid FROM User WHERE status = 'banned');
+
+-- Minting the token the first time a post is shared.
+setShareToken:
+UPDATE Post SET shareToken = ? WHERE guid = ?;
+
+-- To reuse an existing token rather than mint a second for the same post.
+shareTokenOf:
+SELECT shareToken FROM Post WHERE guid = ?;
+
+-- Everything one person wrote, newest first. Not a page: a person's own
+-- posts are a finite list they expect to see all of, and losing the oldest
+-- of them reads as the app having thrown their post away.
+getMyPosts:
+SELECT *
+FROM Post
+WHERE author = ? AND deleted_at IS NULL
+ORDER BY date DESC, guid DESC;
+
+-- OR REPLACE because a refresh rewrites rows that are already there: the feed
+-- refresh keeps posts somebody is liking, so those survive the delete and
+-- are then written again. A plain INSERT failed the whole transaction on them,
+-- which silently froze the feed on any device that had ever favorited anything.
+-- Anything written here is written because the server just said so, so it is in
+-- the feed by definition. A row that is only being kept for the Liked list is
+-- marked out of it afterwards, by markEverythingOutOfFeed.
+insertPost:
+INSERT OR REPLACE INTO Post(guid, title, message, author, groupId, likes, date, visibility, in_feed, language, completed_at, completion_message, image)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?);
+
+-- The same row, written by the my-posts fetch rather than the feed. It is
+-- not in the feed by virtue of being yours — the feed is a page, and Home does
+-- not show you your own posts anyway. A feed refresh that does return it
+-- writes it again through insertPost and marks it in.
+insertMyPost:
+INSERT OR REPLACE INTO Post(guid, title, message, author, groupId, likes, date, visibility, in_feed, language, completed_at, completion_message, image)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);
+
+-- Run between clearing the feed and writing the new one: whatever survived the
+-- clear survived because somebody is liking it, not because the feed still
+-- carries it.
+markEverythingOutOfFeed:
+UPDATE Post SET in_feed = 0;
+
+deletePost:
+DELETE FROM Post
+WHERE guid = ?;
+
+deleteAllPosts:
+DELETE FROM Post;
+
+updatePost:
+UPDATE Post
+SET title = ?,
+    message = ?,
+    groupId = ?,
+    likes = ?,
+    date = ?,
+    visibility = ?,
+    language = ?,
+    image = ?
+WHERE guid = ?;
+
+-- Every image some post still points at, for the upload store's orphan sweep.
+imagesInUse:
+SELECT image FROM Post WHERE image IS NOT NULL;
+
+-- The post an image belongs to, hidden posts included: the file is served
+-- under the post's visibility, so a hidden post's image is hidden too.
+postByImage:
+SELECT * FROM Post WHERE image = ? LIMIT 1;
+
+-- This device's copy of how many people are liking something.
+--
+-- The server is the authority and a refresh overwrites this with what it says.
+-- Between refreshes nothing else moves the number, so a tap on this device has
+-- to move it here: the favorites flow reads its counts straight off these rows,
+-- and a row left behind hands a stale count back to the feed.
+--
+-- Never below zero: the row can be older than the tap that is being undone.
+adjustPostLikes:
+UPDATE Post SET likes = MAX(0, likes + :delta) WHERE guid = ?;
+
+-- Moderation: soft delete keeps the row and hides it everywhere.
+softDeletePost:
+UPDATE Post SET deleted_at = ? WHERE guid = ?;
+
+restorePost:
+UPDATE Post SET deleted_at = NULL WHERE guid = ?;
+
+titleByGuid:
+SELECT title FROM Post WHERE guid = ?;
+
+getAllPostsIncludingDeleted:
+SELECT * FROM Post ORDER BY date DESC;
+
+-- The admin panel correcting what a post is written in. Only the language:
+-- everything else about a post belongs to whoever wrote it.
+setPostLanguage:
+UPDATE Post SET language = ? WHERE guid = ?;
+
+-- Completion: the author says how it went, and the people liking can see it.
+completePost:
+UPDATE Post SET completed_at = ?, completion_message = ? WHERE guid = ?;
+
+reopenPost:
+UPDATE Post SET completed_at = NULL, completion_message = NULL WHERE guid = ?;
+
+-- The other half of that: replacing one person's own posts with what the
+-- server says they are. Posts being liked are kept, the same as above,
+-- because the Liked list is not the feed either.
+deleteMyPosts:
+DELETE FROM Post
+WHERE author = :viewer
+  AND guid NOT IN (SELECT post_id FROM UserPostFavorite);
+
+-- Clears the feed without discarding posts somebody is liking: those
+-- are kept whether or not the feed still carries them.
+deleteFeedPosts:
+DELETE FROM Post
+WHERE guid NOT IN (SELECT post_id FROM UserPostFavorite)
+  -- And never your own. The feed is a page, so a post you wrote can fall
+  -- outside it while still being yours — and My Posts reads these rows. It
+  -- vanishing from there because somebody else has been busy is not something
+  -- anybody would report as a bug; they would think the app lost it.
+  --
+  -- The empty string means nobody is signed in, which is the same convention
+  -- the feed cursor uses above. No author is ever empty, so it exempts nothing.
+  AND author != :viewer;
+
+-- Everything one person wrote, for account deletion. Their posts are the
+-- point of deleting an account: leaving them is leaving the illness, the
+-- marriage and the children they wrote about, in public, after they asked to
+-- be forgotten.
+postGuidsByAuthor:
+SELECT guid FROM Post WHERE author = ?;
+
+deletePostsByAuthor:
+DELETE FROM Post WHERE author = ?;
+
+-- Everything that was shared with a groupId that is going away.
+--
+-- Private rather than deleted. Somebody wrote it and it is theirs; the
+-- groupId closing is not a reason to take their words. Private is also the
+-- only honest answer to "who can see this now" — the room it was shared with
+-- does not exist, so nobody but the author can.
+--
+-- Left pointing at a groupId that is gone, these would have been visible to
+-- nobody while still claiming to be shared: the visibility check asks whether
+-- the viewer is in the groupId, and nobody is in one that has been deleted.
+makeGroupPostsPrivate:
+UPDATE Post
+SET visibility = 'private', groupId = NULL
+WHERE groupId = ? AND visibility = 'group';
+
+-- Account merge: move one user's posts to another.
+reassignPostAuthor:
+UPDATE Post SET author = :into WHERE author = :from;
+
+-- One post by its guid, hidden ones included: this answers "who wrote it" and
+-- "does it exist" for the routes that then decide, so it must not pre-filter
+-- the way the feed does.
+getPostById:
+SELECT * FROM Post WHERE guid = ? LIMIT 1;

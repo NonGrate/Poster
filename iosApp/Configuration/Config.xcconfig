@@ -1,0 +1,27 @@
+TEAM_ID=
+BUNDLE_ID=com.example.poster
+APP_NAME=Poster
+POSTER_SERVER_HOST=poster.example.com
+POSTER_SERVER_PORT=443
+POSTER_SERVER_SCHEME=https
+// The deep-link scheme (poster://join/CODE). Must equal app.scheme in
+// poster.properties — Xcode cannot read that file, so it is repeated here.
+POSTER_URL_SCHEME=poster
+// The iOS OAuth client id for Google sign-in. Public, not a secret (it ships
+// inside the app), so it lives here. Blank hides the Google button. The redirect
+// scheme is the reversed client id, derived at runtime — nothing else to set.
+// Format: <id>.apps.googleusercontent.com
+POSTER_GOOGLE_CLIENT_ID=
+// The reversed client id, used as the URL scheme the GoogleSignIn SDK's redirect
+// comes back on (registered in Info.plist). Just the client id with the parts
+// swapped: com.googleusercontent.apps.<id>.
+POSTER_GOOGLE_REVERSED_CLIENT_ID=
+// The RevenueCat iOS SDK key (appl_...). Blank hides the support screen; a real
+// key turns the tip jar on. Kept out of the repo like the Android key
+// (docs/InAppPurchases.md) — the real value goes in Local.xcconfig, which is
+// git-ignored and included at the bottom of this file, overriding this default.
+POSTER_REVENUECAT_KEY=
+
+// Local, untracked overrides (RevenueCat key, and TEAM_ID if you prefer not to
+// commit it). Optional: the build works without it, just without the tip jar.
+#include? "Local.xcconfig"

@@ -1,0 +1,7 @@
+-- 8.sqm: version 8 -> 9. Offline outbox (feature.offlineOutbox), device only.
+CREATE TABLE Outbox (
+    guid TEXT NOT NULL PRIMARY KEY,
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);

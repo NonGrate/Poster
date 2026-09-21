@@ -1,0 +1,3 @@
+-- 6.sqm: version 6 -> 7. The device caches the server's comment count on
+-- the post row, as it already did the like count.
+ALTER TABLE Post ADD COLUMN comments INTEGER NOT NULL DEFAULT 0;

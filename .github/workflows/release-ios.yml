@@ -1,0 +1,79 @@
+# iOS release to TestFlight, on a version tag.
+#
+# Secrets:
+#   APPLE_TEAM_ID                 the 10-character team id
+#   APPSTORE_ISSUER_ID            App Store Connect API key: issuer id
+#   APPSTORE_KEY_ID               … key id
+#   APPSTORE_PRIVATE_KEY          … the .p8 contents
+#   IOS_DIST_CERT_P12_BASE64      an Apple Distribution certificate, .p12, base64
+#   IOS_DIST_CERT_PASSWORD        its password
+#
+# The provisioning profile is fetched from App Store Connect for the bundle id
+# in iosApp/Configuration/Config.xcconfig (BUNDLE_ID). Xcode signs with
+# "manual" here because a runner has no Apple ID session; locally, automatic
+# signing keeps working — see docs/ReleaseSigning.md.
+name: Release iOS
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  testflight:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Bundle id from the project config
+        id: cfg
+        run: echo "bundle_id=$(sed -n 's/^BUNDLE_ID *= *//p' iosApp/Configuration/Config.xcconfig | tr -d ' ')" >> "$GITHUB_OUTPUT"
+      - name: Distribution certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+      - name: Provisioning profile
+        uses: apple-actions/download-provisioning-profiles@v3
+        with:
+          bundle-id: ${{ steps.cfg.outputs.bundle_id }}
+          profile-type: IOS_APP_STORE
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+      - name: Team id for the build
+        run: printf 'TEAM_ID=%s\n' "${{ secrets.APPLE_TEAM_ID }}" > iosApp/Configuration/Local.xcconfig
+      - name: Archive
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Poster.xcarchive" \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -1 | xargs -I{} sh -c 'security cms -D -i "{}" | plutil -extract Name raw -')" \
+            archive -quiet
+      - name: Export options
+        run: sed "s/TEAM_ID_PLACEHOLDER/${{ secrets.APPLE_TEAM_ID }}/" iosApp/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Export .ipa
+        run: |
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Poster.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" -quiet
+      - name: Keep the .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.ipa
+          path: ${{ runner.temp }}/export/*.ipa
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v3
+        with:
+          # Whatever the export produced: rename-app.sh changes the product name.
+          app-path: ${{ runner.temp }}/export/*.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}

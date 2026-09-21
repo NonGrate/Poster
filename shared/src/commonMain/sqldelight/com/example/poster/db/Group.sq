@@ -1,0 +1,64 @@
+-- Groups.sq
+CREATE TABLE Groups (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    inviteCode TEXT NOT NULL,
+    -- Null for the ones the admin panel made, which is every row that predates
+    -- people being able to create their own. (Older deployments: see docs/Database.md.)
+    owner TEXT,
+    -- 'private' (invite only, the default) or 'public' (listed, joinable). Added in 4.sqm.
+    visibility TEXT NOT NULL DEFAULT 'private'
+);
+
+CREATE INDEX IF NOT EXISTS groupOwner ON Groups(owner);
+
+insertGroup:
+INSERT INTO Groups(id, name, inviteCode, owner, visibility)
+VALUES (?, ?, ?, ?, ?);
+
+updateGroup:
+UPDATE Groups
+SET name = ?, inviteCode = ?, visibility = ?
+WHERE id = ?;
+
+setGroupVisibility:
+UPDATE Groups SET visibility = ? WHERE id = ?;
+
+-- Everything anybody may find, with how many are in it.
+getPublicGroups:
+SELECT Groups.*, (SELECT COUNT(*) FROM UserGroup WHERE UserGroup.groupId = Groups.id) AS memberCount
+FROM Groups
+WHERE visibility = 'public'
+ORDER BY name;
+
+deleteGroup:
+DELETE FROM Groups
+WHERE id = ?;
+
+deleteAllGroups:
+DELETE FROM Groups;
+
+getAllGroups:
+SELECT * FROM Groups;
+
+getGroupById:
+SELECT * FROM Groups
+WHERE id = ?;
+
+getGroupByInviteCode:
+SELECT * FROM Groups
+WHERE inviteCode = ?;
+
+-- Somebody deleted their account. The groups they made stay — other
+-- people are in them and their posts are in them — but the row must stop
+-- claiming an owner who no longer exists.
+clearOwner:
+UPDATE Groups SET owner = NULL WHERE owner = ?;
+
+countGroupsOwnedBy:
+SELECT COUNT(*) FROM Groups
+WHERE owner = ?;
+
+-- Account merge: transfer any groups the merged account owned.
+reassignGroupOwner:
+UPDATE Groups SET owner = :into WHERE owner = :from;

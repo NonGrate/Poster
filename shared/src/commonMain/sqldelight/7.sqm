@@ -1,0 +1,9 @@
+-- 7.sqm: version 7 -> 8. Bookmarks (feature.bookmarks).
+CREATE TABLE Bookmark (
+    user_id TEXT NOT NULL,
+    post_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES Post(guid) ON DELETE CASCADE
+);

@@ -1,0 +1,16 @@
+.git
+.gradle
+.idea
+**/build
+local.properties
+*.log
+*.db
+iosApp/Pods
+# Never into a build context: signing material and local overrides.
+keystore.properties
+*.jks
+*.keystore
+iosApp/Configuration/Local.xcconfig
+.kotlin
+uploads
+backups

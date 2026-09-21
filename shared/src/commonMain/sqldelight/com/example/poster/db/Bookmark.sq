@@ -1,0 +1,32 @@
+-- Bookmark.sq: posts saved for later (feature.bookmarks). Server only — the
+-- device asks through BookmarkApi and never keeps a copy.
+--
+-- Private to the saver, unlike UserPostFavorite whose count everybody sees.
+-- The feed query narrows to these with :saved; a bookmark never makes a post
+-- visible that the reader could not see anyway.
+CREATE TABLE Bookmark (
+    user_id TEXT NOT NULL,
+    post_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES Post(guid) ON DELETE CASCADE
+);
+
+addBookmark:
+INSERT OR IGNORE INTO Bookmark(user_id, post_id, created_at)
+VALUES (?, ?, ?);
+
+removeBookmark:
+DELETE FROM Bookmark WHERE user_id = ? AND post_id = ?;
+
+bookmarksOf:
+SELECT post_id FROM Bookmark WHERE user_id = ? ORDER BY created_at DESC;
+
+-- Merging two accounts: (user_id, post_id) is the primary key, so OR IGNORE
+-- drops what the survivor already saved and the leftovers are cleared.
+reassignBookmarks:
+UPDATE OR IGNORE Bookmark SET user_id = :into WHERE user_id = :from;
+
+deleteBookmarksOfUser:
+DELETE FROM Bookmark WHERE user_id = ?;

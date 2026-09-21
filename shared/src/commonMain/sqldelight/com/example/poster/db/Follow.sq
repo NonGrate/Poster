@@ -1,0 +1,42 @@
+-- Follow.sq: who reads whom (feature.follows). Server only — the device asks
+-- through FollowApi and never keeps a copy.
+--
+-- Following somebody narrows the feed to their posts; it never widens what
+-- the reader may see. A followed author's group posts still need the reader
+-- to be in the group, the same visibility clause as always.
+CREATE TABLE Follow (
+    follower TEXT NOT NULL,
+    followed TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (follower, followed),
+    FOREIGN KEY (follower) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (followed) REFERENCES User(guid) ON DELETE CASCADE
+);
+
+-- Following twice changes nothing rather than throwing.
+follow:
+INSERT OR IGNORE INTO Follow(follower, followed, created_at)
+VALUES (?, ?, ?);
+
+unfollow:
+DELETE FROM Follow WHERE follower = ? AND followed = ?;
+
+following:
+SELECT followed FROM Follow WHERE follower = ? ORDER BY created_at DESC;
+
+
+-- Merging two accounts. Both columns have to move, and (follower, followed) is
+-- the primary key: OR IGNORE drops a row the survivor already has, the
+-- leftovers on the merged id are cleared, and the self-follow left behind when
+-- one of the two followed the other goes with them.
+reassignFollower:
+UPDATE OR IGNORE Follow SET follower = :into WHERE follower = :from;
+
+reassignFollowed:
+UPDATE OR IGNORE Follow SET followed = :into WHERE followed = :from;
+
+deleteFollowsOfUser:
+DELETE FROM Follow WHERE follower = :user OR followed = :user;
+
+deleteSelfFollows:
+DELETE FROM Follow WHERE follower = followed;

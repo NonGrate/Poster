@@ -1,0 +1,71 @@
+CREATE TABLE UserPostFavorite (
+    user_id TEXT NOT NULL,
+    post_id TEXT NOT NULL,
+    -- When this person started liking it, for the detail screen's "added N
+    -- days ago". Null on the device's own rows: it writes the join row the
+    -- moment somebody taps and has no server timestamp to put here.
+    created_at TEXT,
+    PRIMARY KEY (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES Post(guid) ON DELETE CASCADE
+);
+
+-- Get all favorite posts for a specific user
+getUserFavoritePosts:
+SELECT p.*
+FROM Post p
+JOIN UserPostFavorite upf ON p.guid = upf.post_id
+WHERE upf.user_id = ?
+  AND p.deleted_at IS NULL
+  AND p.author NOT IN (SELECT guid FROM User WHERE status = 'banned');
+
+-- Check if a post is a favorite for a specific user
+isPostFavorite:
+SELECT COUNT(*) > 0
+FROM UserPostFavorite
+WHERE user_id = ? AND post_id = ?;
+
+-- Add a post to a user's favorites
+addFavoritePost:
+INSERT OR IGNORE INTO UserPostFavorite(user_id, post_id, created_at)
+VALUES (?, ?, ?);
+
+-- Remove a post from a user's favorites
+removeFavoritePost:
+DELETE FROM UserPostFavorite
+WHERE user_id = ? AND post_id = ?;
+
+-- The people liking a post, newest first, with each one's name-visibility
+-- and when they started. The server names only the ones who opted in and counts
+-- the rest; banned accounts drop out entirely.
+getPostLikers:
+SELECT u.name, u.surname, u.show_name, upf.created_at
+FROM UserPostFavorite upf
+JOIN User u ON u.guid = upf.user_id
+WHERE upf.post_id = ?
+  AND u.status != 'banned'
+ORDER BY upf.created_at DESC;
+
+-- Count how many users have favorited a specific post
+countPostFavorites:
+SELECT COUNT(*)
+FROM UserPostFavorite
+WHERE post_id = ?;
+
+-- Delete all favorites for testing
+deleteAllFavorites:
+DELETE FROM UserPostFavorite;
+-- Everything this person was liking, when replacing it wholesale.
+deleteFavoritesForUser:
+DELETE FROM UserPostFavorite
+WHERE user_id = ?;
+
+-- And what anybody marked on a post that is about to stop existing.
+deleteFavoritesOfPost:
+DELETE FROM UserPostFavorite WHERE post_id = ?;
+
+-- Account merge: move one user's favourites to another, skipping any the target
+-- already has (the (user_id, post_id) PK makes the duplicate rows no-ops under
+-- OR IGNORE); the leftovers are cleared with deleteFavoritesForUser(from).
+reassignFavorites:
+UPDATE OR IGNORE UserPostFavorite SET user_id = :into WHERE user_id = :from;

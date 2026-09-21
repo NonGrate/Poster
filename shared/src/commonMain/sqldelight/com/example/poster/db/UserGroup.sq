@@ -1,0 +1,82 @@
+-- UserGroup.sq
+CREATE TABLE UserGroup (
+    userId TEXT NOT NULL,
+    groupId TEXT NOT NULL,
+    joinedDate TEXT NOT NULL,
+    -- 'member' or 'admin'. The owner is recorded on Groups.owner, not here,
+    -- and is treated as an admin without a row saying so. Mirrors User.role.
+    role TEXT NOT NULL DEFAULT 'member',
+    PRIMARY KEY (userId, groupId),
+    FOREIGN KEY (userId) REFERENCES User(guid) ON DELETE CASCADE,
+    FOREIGN KEY (groupId) REFERENCES Groups(id) ON DELETE CASCADE
+);
+
+-- Joining a room you are already in changes nothing rather than throwing.
+--
+-- The primary key is (userId, groupId), so a plain INSERT raised a
+-- constraint violation — which reached the /join route *after* the invite had
+-- been spent, so the code was burned and the caller was told it was invalid.
+-- Destructive and misleading at once, and only reachable by somebody who
+-- already belonged there.
+insertUserGroup:
+INSERT OR IGNORE INTO UserGroup(userId, groupId, joinedDate)
+VALUES (?, ?, ?);
+
+deleteUserGroup:
+DELETE FROM UserGroup
+WHERE userId = ? AND groupId = ?;
+
+deleteAllUserGroups:
+DELETE FROM UserGroup;
+
+-- The groups somebody belongs to, and who looks after each.
+--
+-- The owner's name comes from a join rather than a lookup per row: this list is
+-- small, but a query per groupId is how a list of five becomes six round
+-- trips, and the name is wanted every time the list is.
+--
+-- LEFT, because a groupId made by the admin panel has no owner, and one
+-- whose owner has since deleted their account still has its members in it. A
+-- room with nobody to name is still a room they are in.
+getUserGroups:
+SELECT Groups.*, owner.name AS ownerName, owner.surname AS ownerSurname,
+       UserGroup.role AS myRole
+FROM Groups
+INNER JOIN UserGroup ON Groups.id = UserGroup.groupId
+LEFT JOIN User AS owner ON owner.guid = Groups.owner
+WHERE UserGroup.userId = ?;
+
+-- membershipRole, not role: User.* already carries User.role (the global user
+-- role), and two columns of the same name make it ambiguous which one is read.
+getGroupUsers:
+SELECT User.*, UserGroup.role AS membershipRole FROM User
+INNER JOIN UserGroup ON User.guid = UserGroup.userId
+WHERE UserGroup.groupId = ?;
+
+-- Owner only, enforced at the route. Mirrors User.sq setRole.
+setMemberRole:
+UPDATE UserGroup SET role = ? WHERE userId = ? AND groupId = ?;
+
+roleOf:
+SELECT role FROM UserGroup WHERE userId = ? AND groupId = ?;
+
+isUserInGroup:
+SELECT COUNT(*) > 0 FROM UserGroup
+WHERE userId = ? AND groupId = ?;
+
+-- Which groups they were in. Declared ON DELETE CASCADE, which does
+-- nothing while foreign keys are off.
+deleteMembershipsOfUser:
+DELETE FROM UserGroup WHERE userId = ?;
+
+-- Everybody who was in a groupId that is going away. Declared ON DELETE
+-- CASCADE, which does nothing while foreign keys are off — the same reason
+-- deleteMembershipsOfUser exists.
+deleteMembershipsOfGroup:
+DELETE FROM UserGroup WHERE groupId = ?;
+
+-- Account merge: move memberships, keeping the target's existing role where both
+-- belong to the same groupId (the (userId, groupId) PK ignores the dup);
+-- leftovers cleared with deleteMembershipsOfUser(from).
+reassignMemberships:
+UPDATE OR IGNORE UserGroup SET userId = :into WHERE userId = :from;
