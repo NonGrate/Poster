@@ -47,10 +47,13 @@ fun Application.configureBearerAuthentication(
             verifier(tokenService.verifier)
             validate { credential ->
                 val userId = credential.payload.subject
+                // The role is re-read rather than trusted from the token, so a
+                // ban takes effect on the next request instead of when the
+                // 15-minute access token happens to run out.
                 if (
                     credential.payload.getClaim("type").asString() == "access" &&
                     !userId.isNullOrBlank() &&
-                    accountRepository.userById(userId) != null
+                    accountRepository.userById(userId)?.isBanned == false
                 ) {
                     JWTPrincipal(credential.payload)
                 } else {
@@ -365,14 +368,39 @@ fun Route.authRoutes(
                     call.respond(HttpStatusCode.BadRequest, ApiError("Malformed request"))
                     return@post
                 }
+                // The email+password branch of a merge verifies a password, so
+                // it is a place to guess one. Without this it was the only such
+                // place with no limit, and a guess there is worth more than a
+                // guess at /login: it hands back a session for the account that
+                // was guessed. The same bucket as /login, because it is the
+                // same secret being worked on.
+                val guessedEmail = request.email
+                    ?.takeIf { !request.password.isNullOrBlank() }
+                    ?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+                if (guessedEmail != null) {
+                    throttle.retryAfter(guessedEmail)?.let { wait ->
+                        call.response.headers.append(HttpHeaders.RetryAfter, wait.seconds.toString())
+                        call.respond(
+                            HttpStatusCode.TooManyRequests,
+                            ApiError("Too many attempts. Try again later."),
+                        )
+                        return@post
+                    }
+                }
                 when (val outcome = authService.mergeCurrentInto(
                     call.authenticatedUserId(), request, socialVerifiers,
                 )) {
-                    is MergeOutcome.Merged -> call.respond(HttpStatusCode.OK, outcome.response)
-                    MergeOutcome.NoTarget -> call.respond(
-                        HttpStatusCode.Unauthorized,
-                        ApiError("Couldn't find that account — check the details and try again"),
-                    )
+                    is MergeOutcome.Merged -> {
+                        guessedEmail?.let(throttle::clear)
+                        call.respond(HttpStatusCode.OK, outcome.response)
+                    }
+                    MergeOutcome.NoTarget -> {
+                        guessedEmail?.let(throttle::recordFailure)
+                        call.respond(
+                            HttpStatusCode.Unauthorized,
+                            ApiError("Couldn't find that account — check the details and try again"),
+                        )
+                    }
                     MergeOutcome.SameAccount -> call.respond(
                         HttpStatusCode.BadRequest,
                         ApiError("That is the account you are already signed in to"),

@@ -8,6 +8,11 @@ import io.ktor.http.Url
 import io.ktor.server.plugins.cors.routing.CORS
 import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
+import com.example.poster.domain.validation.ImageRules
+import com.example.poster.model.ApiError
+import io.ktor.server.request.contentLength
+import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -84,6 +89,17 @@ fun main() {
  * [mailer] is a parameter so a test can watch what would have been sent. It
  * defaults to the real one, which prints when no provider is configured.
  */
+/**
+ * The most a JSON request body may declare. Every write this API takes is a
+ * handful of short strings — the longest, a post, is capped at a few thousand
+ * characters by PostRules — so 64 KB is generous by an order of magnitude and
+ * still far below what one request should be able to make the server allocate.
+ */
+private const val MAX_JSON_BODY = 64L * 1024
+
+/** Multipart part headers and boundaries, on top of the image itself. */
+private const val MULTIPART_OVERHEAD = 8L * 1024
+
 fun Application.module(
     mailer: Mailer = ResendMailer.fromEnvironment(log = { println(it) }),
     /**
@@ -145,6 +161,50 @@ fun Application.module(
     install(CallLogging) {
         format { call ->
             "${call.request.httpMethod.value} ${call.request.path()} -> ${call.response.status()}"
+        }
+    }
+
+    // Security headers on every response. The admin panel is the reason for
+    // frame-ancestors: it is a page an operator is signed in to, and without
+    // this it can be framed and clicked through from somewhere else. nosniff
+    // matters for /uploads and the public share page, which serve bytes a
+    // stranger supplied — the type is set explicitly there, and this stops a
+    // browser second-guessing it anyway. HSTS is harmless over plain HTTP
+    // (browsers ignore it) and correct the moment there is TLS in front.
+    install(DefaultHeaders) {
+        header("X-Content-Type-Options", "nosniff")
+        header("Referrer-Policy", "strict-origin-when-cross-origin")
+        header("Content-Security-Policy", "frame-ancestors 'none'")
+        header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    }
+
+    // An unhandled exception must not become a stack trace in the response.
+    // Ktor prints one when io.ktor.development is on, and development mode is
+    // a flag somebody can leave set on a host that is reachable; this makes
+    // the answer the same either way. The cause still reaches the log.
+    install(StatusPages) {
+        exception<Throwable> { call, cause ->
+            call.application.log.error("unhandled: ${call.request.path()}", cause)
+            call.respond(HttpStatusCode.InternalServerError, ApiError("Something went wrong"))
+        }
+    }
+
+    // A ceiling on request bodies. Ktor has none of its own, and Netty will
+    // read whatever arrives into memory before a route sees it — so one POST
+    // with a gigabyte of JSON is an out-of-memory kill, and /crashes takes no
+    // token at all. Declared length only: a chunked body has none to check,
+    // which is why the routes that can be reached without signing in do their
+    // own bounded read as well. Put a limit on the reverse proxy too.
+    intercept(ApplicationCallPipeline.Plugins) {
+        val declared = call.request.contentLength() ?: return@intercept
+        val ceiling = if (call.request.path().startsWith("/uploads")) {
+            ImageRules.MAX_BYTES.toLong() + MULTIPART_OVERHEAD
+        } else {
+            MAX_JSON_BODY
+        }
+        if (declared > ceiling) {
+            call.respond(HttpStatusCode.PayloadTooLarge, ApiError("That request is too large"))
+            finish()
         }
     }
 

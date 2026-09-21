@@ -51,6 +51,8 @@ dependencies {
     implementation(libs.ktor.server.auth.jwt)
     implementation(libs.ktor.server.html.builder)
     implementation(libs.ktor.server.sessions)
+    implementation(libs.ktor.server.default.headers)
+    implementation(libs.ktor.server.status.pages)
     implementation(libs.bouncycastle)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.ktor.server.test.host)

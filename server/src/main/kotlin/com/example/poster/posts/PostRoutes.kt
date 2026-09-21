@@ -15,6 +15,9 @@ import io.ktor.serialization.JsonConvertException
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.Clock
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -209,6 +212,15 @@ internal fun Route.postRoutes(
                     image = if (uploadStore == null) null else post.image,
                     likes = existingPost?.likes ?: 0,
                     comments = 0,
+                    // The feed orders by date, so the date a writer sends is a
+                    // position in everybody else's feed. A date in the year
+                    // 9999 pins a post to the top of page one for good, and a
+                    // handful of them fill it — so anything ahead of now is
+                    // brought back to now. Earlier dates are left alone on
+                    // purpose: the fixtures and scripts/seed-demo-data.sh
+                    // backdate posts to give a feed some spread, and a post
+                    // sent to the back of the queue harms nobody.
+                    date = post.date.coerceAtMost(Clock.System.now().toLocalDateTime(TimeZone.UTC)),
                 )
                 val image = saved.image
                 if (image != null && (!ImageRules.isValidId(image) || uploadStore?.file(image) == null)) {

@@ -10,14 +10,28 @@ CREATE TABLE UserPostFavorite (
     FOREIGN KEY (post_id) REFERENCES Post(guid) ON DELETE CASCADE
 );
 
--- Get all favorite posts for a specific user
+-- Get all favorite posts for a specific user.
+--
+-- The visibility clause is the same one getVisiblePosts uses, and it has to be
+-- here too: liking a post is not a permanent grant of access to it. Without it,
+-- a post taken back to private — or a group post whose group you were removed
+-- from — kept rendering in full on the liker's Liked tab, because this was the
+-- one read path that did not ask whether the viewer may still see the row.
 getUserFavoritePosts:
 SELECT p.*
 FROM Post p
 JOIN UserPostFavorite upf ON p.guid = upf.post_id
-WHERE upf.user_id = ?
+WHERE upf.user_id = :viewer
   AND p.deleted_at IS NULL
-  AND p.author NOT IN (SELECT guid FROM User WHERE status = 'banned');
+  AND p.author NOT IN (SELECT guid FROM User WHERE status = 'banned')
+  AND (
+    p.visibility = 'public'
+    OR p.author = :viewer
+    OR (
+      p.visibility = 'group'
+      AND p.groupId IN (SELECT groupId FROM UserGroup WHERE userId = :viewer)
+    )
+  );
 
 -- Check if a post is a favorite for a specific user
 isPostFavorite:

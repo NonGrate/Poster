@@ -61,12 +61,33 @@ class CrashRoutesTest {
     @Test
     fun anEnormousStackTraceIsCutDown() = withServer {
         if (!Features.CRASH_REPORTS) return@withServer
-        report(type = "Huge", stack = "x".repeat(100_000))
+        // Over the stack cap but inside what the route will read: stored, cut.
+        report(type = "Huge", stack = "x".repeat(20_000))
 
         val stored = CrashRepository(testDriver()).recent().single { it.type == "Huge" }
         assertTrue(
             stored.stack.length <= CrashReport.MAX_STACK,
             "stored ${stored.stack.length} characters, more than the ${CrashReport.MAX_STACK} cap",
+        )
+    }
+
+    /**
+     * Past a point the report is refused rather than cut. Truncating means
+     * reading the whole of it first, and this route takes no token — so the
+     * body has a hard ceiling before the deserializer ever sees it.
+     */
+    @Test
+    fun aReportTooLargeToBeRealIsRefusedRatherThanRead() = withServer {
+        if (!Features.CRASH_REPORTS) return@withServer
+        val status = report(type = "Enormous", stack = "x".repeat(200_000))
+
+        assertTrue(
+            status == HttpStatusCode.PayloadTooLarge || status == HttpStatusCode.BadRequest,
+            "a 200 KB report was accepted with $status",
+        )
+        assertTrue(
+            CrashRepository(testDriver()).recent().none { it.type == "Enormous" },
+            "it was stored anyway",
         )
     }
 

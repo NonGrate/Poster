@@ -8,6 +8,11 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
 import io.ktor.server.request.receive
+import kotlinx.serialization.json.Json
+import kotlinx.io.readByteArray
+import io.ktor.utils.io.readRemaining
+import io.ktor.server.request.receiveChannel
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -27,6 +32,7 @@ internal fun Route.diagnosticRoutes(
     eventRepository: EventRepository,
     adminBase: String,
     alert: (String) -> Unit,
+    intakeLimit: IntakeLimit = IntakeLimit(),
 ) {
     /**
      * Where the apps send a crash.
@@ -37,7 +43,11 @@ internal fun Route.diagnosticRoutes(
      * cut to size on the way in and the table keeps only its newest rows.
      */
     if (Features.CRASH_REPORTS) post("/crashes") {
-        val report = runCatching { call.receive<CrashReport>() }.getOrNull()
+        if (!intakeLimit.take()) {
+            call.respond(HttpStatusCode.TooManyRequests)
+            return@post
+        }
+        val report = runCatching { call.receiveBounded<CrashReport>(MAX_INTAKE_BODY) }.getOrNull()
         if (report == null || report.stack.isBlank() || report.type.isBlank()) {
             call.respond(HttpStatusCode.BadRequest)
             return@post
@@ -62,7 +72,11 @@ internal fun Route.diagnosticRoutes(
     // knows, so a bad client cannot fill the table with free text.
     if (Features.TELEMETRY) authenticate("auth-jwt", optional = true) {
         post("/events") {
-            val event = runCatching { call.receive<AppEvent>() }.getOrNull()
+            if (!intakeLimit.take()) {
+                call.respond(HttpStatusCode.TooManyRequests)
+                return@post
+            }
+            val event = runCatching { call.receiveBounded<AppEvent>(MAX_INTAKE_BODY) }.getOrNull()
             if (event == null || event.deviceId.isBlank() || event.name !in AppEventName.ALL) {
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
@@ -120,4 +134,20 @@ internal fun Route.diagnosticRoutes(
         call.application.log.info("support interest: tier=$tier user=${viewer ?: "anonymous"}")
         call.respond(HttpStatusCode.Accepted)
     }
+}
+
+/**
+ * The most an unauthenticated report may be. The server-wide ceiling in
+ * Application.kt goes on the declared Content-Length, and a chunked body
+ * declares none — so the two routes a stranger can reach read their own bodies
+ * with a hard stop instead of handing an unbounded stream to the deserializer.
+ */
+private const val MAX_INTAKE_BODY = 32L * 1024
+
+/** Reads at most [limit] bytes, then parses. Anything longer is refused, not truncated. */
+private suspend inline fun <reified T> ApplicationCall.receiveBounded(limit: Long): T {
+    val bytes = receiveChannel().readRemaining(limit + 1).readByteArray()
+    require(bytes.size <= limit) { "body over ${limit} bytes" }
+    return Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
+        .decodeFromString(bytes.decodeToString())
 }

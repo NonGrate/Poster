@@ -56,6 +56,10 @@ class ModerationRepository(
 
     fun ban(actorId: String, userId: String, reason: String) {
         users.setStatus(User.STATUS_BANNED, now(), reason, userId)
+        // The status alone only hides them; their refresh token would keep
+        // minting access tokens for as long as they cared to use it. A ban
+        // that leaves the person signed in is not a ban.
+        database.refreshTokenQueries.deleteRefreshTokensForUser(userId)
         record(actorId, "ban", "user", userId, reason)
     }
 

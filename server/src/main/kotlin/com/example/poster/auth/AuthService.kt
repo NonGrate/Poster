@@ -244,6 +244,12 @@ class AuthService(
         if (!passwordHasher.verify(request.password, user.passwordHash)) {
             throw AuthException.InvalidCredentials
         }
+        // A ban has to stop the door as well as the feed. The social paths
+        // already refused a banned account; password sign-in did not, so a
+        // banned person could carry on writing and only their reading was
+        // curtailed. The same answer as a wrong password: which of the two it
+        // was is not the caller's business.
+        if (user.isBanned) throw AuthException.InvalidCredentials
         return createSession(user)
     }
 
@@ -258,6 +264,9 @@ class AuthService(
             }
             val user = accountRepository.userById(stored.user_id)
                 ?: throw AuthException.InvalidRefreshToken
+            // Banning revokes the stored tokens, but one already in flight
+            // would otherwise mint a fresh pair and outlive the ban.
+            if (user.isBanned) throw AuthException.InvalidRefreshToken
             database.refreshTokenQueries.deleteRefreshToken(tokenHash)
             createSession(user)
         }
@@ -278,7 +287,7 @@ class AuthService(
      */
     fun signInWithMagicLink(token: String): AuthResponse? {
         val userId = tokens.spend(token, TokenPurpose.MAGIC_LINK) ?: return null
-        val user = accountRepository.userById(userId) ?: return null
+        val user = accountRepository.userById(userId)?.takeIf { !it.isBanned } ?: return null
         val confirmed = if (user.verifiedAt == null) {
             user.copy(verifiedAt = kotlinx.datetime.Clock.System.now().toString()).also(accountRepository::addOrUpdateUser)
         } else {
@@ -318,7 +327,9 @@ class AuthService(
         if (newPassword.length !in 8..128) return PasswordResetOutcome.WEAK_PASSWORD
         val userId = tokens.spend(token, TokenPurpose.RESET_PASSWORD)
             ?: return PasswordResetOutcome.BAD_TOKEN
-        val user = accountRepository.userById(userId) ?: return PasswordResetOutcome.BAD_TOKEN
+        // A banned account is not one to hand a new password to.
+        val user = accountRepository.userById(userId)?.takeIf { !it.isBanned }
+            ?: return PasswordResetOutcome.BAD_TOKEN
         accountRepository.addOrUpdateUser(
             user.copy(
                 passwordHash = passwordHasher.hash(newPassword),
