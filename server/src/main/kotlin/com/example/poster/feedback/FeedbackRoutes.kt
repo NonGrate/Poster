@@ -42,9 +42,12 @@ internal fun Route.feedbackRoutes(
             }
             val sender = call.authenticatedUserId()
             feedbackRepository.submit(sender, message)
-            val who = accountRepository.userById(sender)?.email ?: sender
+            // No address in the message: this goes to a third party, and the
+            // panel behind the link says who it was to somebody who has signed
+            // in for it. The text itself is the point of the alert, so it
+            // stays.
             val at = java.time.Instant.now().toString().take(16).replace('T', ' ')
-            alert("💬 Feedback from $who · $at\n$message\n$adminBase/feedback")
+            alert("💬 Feedback · $at\n$message\n$adminBase/feedback")
             call.respond(HttpStatusCode.NoContent)
         }
         // The sender's own feedback, with any reply. Newest first.

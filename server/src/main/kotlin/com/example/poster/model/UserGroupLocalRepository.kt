@@ -19,6 +19,17 @@ class UserGroupLocalRepository(
         userGroupQueries.insertUserGroup(userId, groupId, currentTime)
     }
 
+    override fun joinIfPublic(userId: String, groupId: String, at: String): Boolean =
+        database.transactionWithResult {
+            val group = groupQueries.getGroupById(groupId).executeAsOneOrNull()
+            if (group?.visibility != "public") {
+                false
+            } else {
+                userGroupQueries.insertUserGroup(userId, groupId, at)
+                true
+            }
+        }
+
     override fun removeUserFromGroup(userId: String, groupId: String) {
         userGroupQueries.deleteUserGroup(userId, groupId)
     }
@@ -57,7 +68,11 @@ class UserGroupLocalRepository(
                 id = it.guid,
                 name = listOf(it.name, it.surname).filter { part -> part.isNotBlank() }
                     .joinToString(" ")
-                    .ifBlank { it.email.substringBefore('@') },
+                    // Never the address. Somebody who signed in with a magic
+                    // link or Apple's private relay has no name yet, and the
+                    // part before the @ is the one thing they did not choose
+                    // to hand to the rest of the group.
+                    .ifBlank { "Someone" },
                 isOwner = it.guid == ownerId,
                 isAdmin = it.membershipRole == "admin",
             )
@@ -150,6 +165,11 @@ class UserGroupLocalRepository(
             // how this call knows which of the two it was.
             val after = inviteQueries.inviteByCode(code).executeAsOneOrNull()
             if (after?.usedBy != userId) return@transactionWithResult JoinOutcome.Invalid
+            // Joined here rather than by the caller afterwards. As two
+            // statements, anything between them — the group being deleted, a
+            // lock conflict — left the invite spent and the person outside,
+            // with no way to recover either.
+            userGroupQueries.insertUserGroup(userId, invite.groupId, at)
             groupQueries.getGroupById(invite.groupId).executeAsOneOrNull()?.let {
                 JoinOutcome.Joined(Group(id = it.id, name = it.name, inviteCode = it.inviteCode, owner = it.owner))
             } ?: JoinOutcome.Invalid

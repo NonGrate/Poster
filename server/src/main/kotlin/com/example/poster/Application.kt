@@ -10,6 +10,7 @@ import com.example.poster.config.AppInfo
 import io.ktor.http.HttpStatusCode
 import com.example.poster.domain.validation.ImageRules
 import com.example.poster.model.ApiError
+import com.example.poster.diagnostics.IntakeLimit
 import io.ktor.server.request.contentLength
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
@@ -208,9 +209,14 @@ fun Application.module(
         }
     }
 
-    // One database for the whole server: one connection, one migration run, and
-    // no two repositories queueing behind each other for the write lock. Every
+    // One database for the whole server: one migration run, and every
     // repository below is handed it rather than opening its own.
+    //
+    // Not one connection, despite how this reads at a glance: the JDBC driver
+    // opens one per thread, so Netty's workers write concurrently. That is why
+    // the driver asks for WAL and a busy timeout, and why a sequence of writes
+    // that must not come apart belongs in a transaction rather than in two
+    // statements that happen to run next to each other.
     val driver = DatabaseDriverFactory().createDriver()
     val database = PostDatabase(driver)
     val tagRepository = TagLocalRepository(database)
@@ -223,12 +229,24 @@ fun Application.module(
     // arriving in a post is dropped.
     val uploadStore = if (Features.IMAGES) UploadStore.fromEnvironment() else null
     if (uploadStore != null) {
-        // Once per start. An orphan is a form somebody abandoned a day ago;
-        // it does not need a scheduler to go away. ponytail: restart-driven,
-        // add a timer if a deployment runs for months without one.
+        // At start and then hourly. It was once per start, on the reasoning
+        // that a restart comes along often enough — which is true of a
+        // deployment that ships weekly and false of one that stays up for
+        // months, and in the meantime nothing reclaimed a single abandoned
+        // upload.
         // Avatars count as in use too; the account repository is built a few lines below, so read directly.
-        val inUse = postsRepository.imagesInUse().toSet() + AccountLocalRepository(database).allUsers().mapNotNull { it.photo }
-        uploadStore.sweepOrphans(UploadStore.PENDING_GRACE) { it in inUse }
+        fun sweep() {
+            val inUse = postsRepository.imagesInUse().toSet() +
+                AccountLocalRepository(database).allUsers().mapNotNull { it.photo }
+            uploadStore.sweepOrphans(UploadStore.PENDING_GRACE) { it in inUse }
+        }
+        sweep()
+        launch {
+            while (true) {
+                kotlinx.coroutines.delay(java.time.Duration.ofHours(1).toMillis())
+                runCatching { sweep() }.onFailure { log.warn("upload sweep failed", it) }
+            }
+        }
     }
     val accountRepository = AccountLocalRepository(database)
     val favoritesRepository = FavoritesLocalRepository(database, tagRepository)
@@ -318,7 +336,15 @@ fun Application.module(
     // The admin panel lives on this same server; the alerts link straight to the
     // section that handles each kind, so a tap goes from the message to acting on it.
     val adminBase = (System.getenv("POSTER_BASE_URL") ?: AppInfo.WEB_ORIGIN) + "/admin"
-    fun alert(text: String) { launch { alerts.notify(text) } }
+    // A budget across every kind of alert, because they share one chat: a
+    // flood of any one of them (reports, feedback, crashes) would otherwise
+    // bury the others, which is how somebody works unseen. Past the budget the
+    // messages are dropped and the log keeps them.
+    val alertBudget = IntakeLimit(limit = 60, window = java.time.Duration.ofMinutes(15))
+    fun alert(text: String) {
+        if (alertBudget.take()) launch { alerts.notify(text) }
+        else log.warn("alert budget spent, not sending: ${text.lineSequence().first()}")
+    }
     if (adminConfig.enabled) {
         log.info("admin panel: enabled at /admin")
         configureAdminSessions(adminConfig)
@@ -418,8 +444,16 @@ fun Application.module(
             val token = call.parameters["token"].orEmpty()
             val post = token.takeIf { it.isNotBlank() }
                 ?.let { postsRepository.postByShareToken(it) }
-            if (post == null) call.respond(HttpStatusCode.NotFound)
-            else call.respond(post)
+            if (post == null) {
+                call.respond(HttpStatusCode.NotFound)
+            } else {
+                // Without the author's account id and the room it was in. The
+                // HTML twin of this already withholds both; this returned the
+                // whole row, so collecting a few shared links tied them to one
+                // author guid, which any member of their group can put a name
+                // to.
+                call.respond(post.copy(author = "", group = null))
+            }
         }
 
         // Google Play requires this of every app in a social category, and it

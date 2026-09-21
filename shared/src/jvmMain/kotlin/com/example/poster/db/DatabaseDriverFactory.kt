@@ -35,8 +35,25 @@ actual class DatabaseDriverFactory {
         // schema and never stores their authors, so a phone with this on could
         // not write its own cache at all — the constraint is inert there on
         // purpose. The phone is a cache; the server is the truth.
+        // A busy timeout, for the same reason the foreign keys are here: this
+        // driver opens a connection per thread, so the server's request
+        // handlers are genuinely concurrent writers, and without a timeout the
+        // second one fails instantly with SQLITE_BUSY rather than waiting the
+        // moment out — which surfaced as a request failing part-way through a
+        // multi-step write.
+        //
+        // Not journal_mode=WAL here, though it would help: switching the mode
+        // needs exclusive access to the file and every new connection would
+        // try, so the connections race each other to set it. It belongs in a
+        // one-off migration step, not in a per-connection property.
         return if (enforcesForeignKeys()) {
-            JdbcSqliteDriver(dbPath, java.util.Properties().apply { setProperty("foreign_keys", "true") })
+            JdbcSqliteDriver(
+                dbPath,
+                java.util.Properties().apply {
+                    setProperty("foreign_keys", "true")
+                    setProperty("busy_timeout", "5000")
+                },
+            )
         } else {
             JdbcSqliteDriver(dbPath)
         }

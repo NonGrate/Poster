@@ -1,5 +1,6 @@
 package com.example.poster.auth
 
+import com.example.poster.util.emailMatchKey
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -78,6 +79,10 @@ class AttemptThrottle(
     }
 
     // The same address in a different case is the same address, and the same
-    // one with a stray space is a typo rather than a fresh allowance.
-    private fun normalise(key: String) = key.trim().lowercase()
+    // one with a stray space is a typo rather than a fresh allowance. Plus
+    // suffixes and Gmail dots go the same way: they are spellings of one
+    // inbox, and counting them separately multiplied every allowance by however
+    // many a caller cared to invent. A key that is not an address passes
+    // through unchanged, which is what the non-email callers want.
+    private fun normalise(key: String) = emailMatchKey(key)
 }

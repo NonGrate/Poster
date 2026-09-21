@@ -18,7 +18,9 @@ class ReportsRepository(
      * a second report from the same person replaces the first rather than
      * making one upset reader look like a crowd.
      */
-    fun record(postId: String, reporterId: String, reason: String?) {
+    /** True when this is the first time this person reported this post. */
+    fun record(postId: String, reporterId: String, reason: String?): Boolean {
+        val isNew = !queries.hasReported(postId, reporterId).executeAsOne()
         queries.recordReport(
             id = UUID.randomUUID().toString(),
             post_id = postId,
@@ -26,6 +28,7 @@ class ReportsRepository(
             reason = reason,
             created_at = Instant.now().toString(),
         )
+        return isNew
     }
 
     fun count(): Long = queries.countReports().executeAsOne()

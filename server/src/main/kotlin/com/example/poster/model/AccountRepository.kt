@@ -4,6 +4,9 @@ interface AccountRepository {
     fun allUsers(): List<User>
     fun userById(guid: String): User?
     fun userByEmail(email: String): User?
+
+    /** The addresses of banned accounts, for spotting one coming back. */
+    fun bannedEmails(): List<String> = emptyList()
     /** The account whose avatar is this upload id, or null. */
     fun userByPhoto(photo: String): User? = null
     fun addOrUpdateUser(user: User)

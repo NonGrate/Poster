@@ -1,6 +1,7 @@
 package com.example.poster.auth
 
 import com.example.poster.config.AppInfo
+import com.example.poster.util.emailMatchKey
 import com.example.poster.mail.Mailer
 import com.example.poster.model.Language
 import kotlinx.datetime.Clock
@@ -99,8 +100,15 @@ class AccountMail(
     }
 
     private fun allowed(email: String, purpose: TokenPurpose): Boolean = synchronized(lock) {
-        val key = email.lowercase() to purpose
+        // Keyed on the inbox rather than on the spelling. Lowercasing alone
+        // made victim+1@gmail.com and victim+2@gmail.com two allowances that
+        // deliver to one person, so the interval could be multiplied as many
+        // times as somebody cared to invent suffixes.
+        val key = emailMatchKey(email) to purpose
         val now = clock.now().epochSeconds
+        // Swept here because this is the only place the map grows, and it
+        // would otherwise hold one entry per address ever mailed.
+        lastSentTo.entries.removeAll { now - it.value >= minimumInterval.inWholeSeconds }
         val last = lastSentTo[key]
         if (last != null && now - last < minimumInterval.inWholeSeconds) {
             false

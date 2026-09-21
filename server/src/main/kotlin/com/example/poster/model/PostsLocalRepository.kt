@@ -90,13 +90,21 @@ class PostsLocalRepository(
      * token per post, reused on every later share. [newToken] supplies a fresh
      * candidate (the caller checks it for collisions).
      */
-    override fun ensureShareToken(guid: String, newToken: () -> String): String {
-        val existing = postQueries.shareTokenOf(guid).executeAsOneOrNull()?.shareToken
-        if (existing != null) return existing
-        val token = newToken()
-        postQueries.setShareToken(token, guid)
-        return token
-    }
+    override fun ensureShareToken(guid: String, newToken: () -> String): String =
+        // In one transaction, and the stored value is read back rather than
+        // assumed: two shares of the same post at once both found no token and
+        // both wrote one, so whichever landed second silently invalidated the
+        // link the first caller had already been given.
+        postQueries.transactionWithResult {
+            val existing = postQueries.shareTokenOf(guid).executeAsOneOrNull()?.shareToken
+            if (existing != null) {
+                existing
+            } else {
+                val token = newToken()
+                postQueries.setShareToken(token, guid)
+                postQueries.shareTokenOf(guid).executeAsOneOrNull()?.shareToken ?: token
+            }
+        }
 
     /**
      * One post by its guid, or null. Hidden posts included: this answers "who
@@ -107,6 +115,20 @@ class PostsLocalRepository(
         postQueries.getPostById(guid).executeAsOneOrNull()?.toPost()
 
     override fun addOrUpdatePost(post: Post) {
+        // The decision and the write are one transaction. Deleting a post is a
+        // real DELETE, so an edit that read "no such post" outside one went on
+        // to INSERT it back — resurrecting a post somebody had just removed,
+        // pointing at an image file deleted along with it.
+        //
+        // The tag rewrite stays outside. It goes through an injected
+        // repository that may be holding a different connection, and a write
+        // lock must not be held across a call into a collaborator: the pair
+        // then wait on each other and SQLite answers BUSY to both.
+        postQueries.transaction { writePostRow(post) }
+        rewriteTags(post)
+    }
+
+    private fun writePostRow(post: Post) {
         val existingPost = postById(post.guid)
 
         if (existingPost != null) {
@@ -138,6 +160,9 @@ class PostsLocalRepository(
             )
         }
 
+    }
+
+    private fun rewriteTags(post: Post) {
         tagRepository.removeAllTagsFromPost(post.guid)
         // Only tags that already exist. A name nobody curated used to create a
         // tag here, which is what made the set unfilterable in the first place

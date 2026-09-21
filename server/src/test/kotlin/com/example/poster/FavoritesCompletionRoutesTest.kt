@@ -156,12 +156,11 @@ class FavoritesCompletionRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val roster: LikerList = Json.decodeFromString(response.bodyAsText())
         assertEquals(2, roster.total, "both people liking are counted")
-        // With feature.authors every post is signed, so the roster names everybody;
-        // without it only the person who opted in, as first name + surname initial.
-        if (Features.AUTHORS) {
-            assertEquals(2, roster.named.size, "with authors on, everybody liking is named")
-            assertTrue(roster.named.any { it.name == "Named U." }, roster.named.map { it.name }.toString())
-        } else {
+        // Only the person who opted in, as first name + surname initial, and
+        // that holds whether or not posts are signed: the roster used to name
+        // everybody when feature.authors was on, which made the switch in
+        // Settings a control that did nothing. Liking is not posting.
+        run {
             assertEquals(
                 listOf("Named U."),
                 roster.named.map { it.name },

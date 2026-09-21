@@ -40,9 +40,25 @@ class NotificationsRepository(
     fun unread(userId: String): Int = notifications.countUnread(userId).executeAsOne().toInt()
     fun markAllRead(userId: String) = notifications.markAllRead(Instant.now().toString(), userId)
 
-    fun registerDevice(userId: String, token: String, platform: String) =
-        devices.upsertDevice(token, userId, platform, Instant.now().toString())
+    fun registerDevice(userId: String, token: String, platform: String) {
+        devices.transaction {
+            devices.upsertDevice(token, userId, platform, Instant.now().toString())
+            devices.trimDevicesForUser(userId, MAX_DEVICES_PER_USER)
+        }
+    }
     fun unregisterDevice(token: String) = devices.deleteDevice(token)
     fun devicesFor(userId: String): List<Device> =
         devices.devicesForUser(userId).executeAsList().map { Device(it.token, it.user_id, it.platform) }
+
+    companion object {
+        /**
+         * How many devices one account may be pushed to.
+         *
+         * A person has a phone, maybe a tablet, maybe a spare. The number is
+         * here because the fan-out is per device: without a ceiling, one
+         * account registering thousands of tokens turns every like on its
+         * posts into thousands of outbound requests.
+         */
+        const val MAX_DEVICES_PER_USER = 10L
+    }
 }

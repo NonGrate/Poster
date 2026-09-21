@@ -60,8 +60,8 @@ internal fun Route.favoriteRoutes(
                 call.respond(HttpStatusCode.NotFound)
                 return@post
             }
-            favoritesRepository.addFavoritePost(userId, postId)
-            postsRepository.postById(postId)?.let { notifier?.liked(it, userId) }
+            val isNew = favoritesRepository.addFavoritePost(userId, postId)
+            if (isNew) postsRepository.postById(postId)?.let { notifier?.liked(it, userId) }
             call.respond(HttpStatusCode.NoContent)
         }
         delete("/{postId}") {

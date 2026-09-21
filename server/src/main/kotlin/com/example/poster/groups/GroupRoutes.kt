@@ -9,6 +9,9 @@ import com.example.poster.model.*
 import com.example.poster.newInviteCode
 import com.example.poster.push.Notifier
 import io.ktor.http.HttpStatusCode
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.Clock
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -500,7 +503,21 @@ internal fun Route.groupRoutes(
                 )
                 return@post
             }
-            userGroupRepository.addUserToGroup(userId, group.id)
+            // By invite, the membership was already written inside the same
+            // transaction that spent the code. By id, it is written here and
+            // only while the group is still public: the visibility was read
+            // above, and the owner can close the room in between.
+            if (groupIdParam != null) {
+                val joined = userGroupRepository.joinIfPublic(
+                    userId,
+                    group.id,
+                    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).toString(),
+                )
+                if (!joined) {
+                    call.respond(HttpStatusCode.NotFound, "That invitation is not valid any more")
+                    return@post
+                }
+            }
             notifier?.joinedGroup(group, userId)
             call.respond(HttpStatusCode.NoContent)
         }

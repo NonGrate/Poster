@@ -136,7 +136,10 @@ private val PrivacyEnglish = PrivacyCopy(
             heading = "What is never collected",
             points = listOf(
                 "No advertising identifiers, and no advertising.",
-                "No analytics or usage tracking.",
+                "No advertising or third-party analytics. The app does record a few of its own " +
+                    "events — signing in, and errors — against your account and an identifier for " +
+                    "the installation, so the operator can see that things work. Nothing about what " +
+                    "you post is in them, and they go nowhere else.",
                 if (Features.IMAGES) {
                     "No location, contacts, microphone or camera access. A photo you attach to a post is " +
                         "stored with the post, shown wherever the post is shown, and deleted with it; " +
@@ -162,6 +165,11 @@ private val PrivacyEnglish = PrivacyCopy(
                     "what you post about, and this app never sees your card details.",
                 "Hosting — the server runs on infrastructure rented by whoever operates this app. " +
                     "(Operator: say where, e.g. \"on rented hardware in the EU\".)",
+                "Notifications — if you turn them on, Apple and Google deliver them, which means " +
+                    "they carry the text of the notification. Turning them off stops this entirely.",
+                "Operator alerts — reports, feedback and crashes are announced to the operator over " +
+                    "Telegram so somebody sees them quickly. The message carries what you wrote in " +
+                    "feedback, and otherwise only identifiers and a link to the admin page.",
             ),
         ),
         Section(

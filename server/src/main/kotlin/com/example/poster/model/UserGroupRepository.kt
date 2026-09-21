@@ -17,6 +17,15 @@ sealed interface JoinOutcome {
 
 interface UserGroupRepository {
     fun addUserToGroup(userId: String, groupId: String)
+
+    /**
+     * Joins only while the group is still public. True when it happened.
+     *
+     * The route reads the visibility and then writes the membership; between
+     * the two the owner can make the group private, which left somebody
+     * inside a closed room they were never invited to.
+     */
+    fun joinIfPublic(userId: String, groupId: String, at: String): Boolean = false
     fun removeUserFromGroup(userId: String, groupId: String)
     fun getGroupsForUser(userId: String): List<Group>
     fun getUsersForGroup(groupId: String): List<String>

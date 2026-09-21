@@ -23,6 +23,12 @@ recordReport:
 INSERT OR REPLACE INTO PostReport(id, post_id, reporter_id, reason, created_at)
 VALUES (?, ?, ?, ?, ?);
 
+-- Whether this person has already reported this post. The row is replaced on
+-- a second report, so the insert alone cannot say whether anything is new, and
+-- only a new one is worth an alert.
+hasReported:
+SELECT count(*) > 0 FROM PostReport WHERE post_id = ? AND reporter_id = ?;
+
 countReports:
 SELECT count(*) FROM PostReport;
 

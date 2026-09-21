@@ -1,5 +1,6 @@
 package com.example.poster.auth
 
+import com.example.poster.util.emailMatchKey
 import com.example.poster.PostDatabase
 import com.example.poster.model.AccountRepository
 import com.example.poster.model.AuthResponse
@@ -52,6 +53,18 @@ class AuthService(
         val email = request.email.trim().lowercase()
         validateRegistration(name, surname, email, request.password)
         if (accountRepository.userByEmail(email) != null) {
+            throw AuthException.EmailAlreadyRegistered
+        }
+        // A ban that a plus suffix undoes is not a ban. Gmail treats
+        // somebody+1@ and somebody@ as one inbox, so a banned person could
+        // register again, confirm in the same inbox and carry on. Compared on
+        // the inbox rather than the spelling, and only against banned
+        // accounts, which is a short list.
+        val inbox = emailMatchKey(email)
+        if (accountRepository.bannedEmails().any { emailMatchKey(it) == inbox }) {
+            // The same answer as an address already taken: which of the two it
+            // is would tell a stranger that an address belongs to somebody
+            // banned.
             throw AuthException.EmailAlreadyRegistered
         }
         val group = request.groupCode?.trim()?.takeIf(String::isNotEmpty)?.let { inviteCode ->

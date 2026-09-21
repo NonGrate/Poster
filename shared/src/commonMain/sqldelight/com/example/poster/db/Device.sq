@@ -19,6 +19,22 @@ SELECT * FROM Device WHERE user_id = ?;
 deleteDevice:
 DELETE FROM Device WHERE token = ?;
 
+-- Keeps the newest :keep devices for a person and drops the rest.
+--
+-- One account could register as many tokens as it liked, and every push then
+-- fanned out to all of them — so a like on one post became as many outbound
+-- calls as somebody had bothered to invent tokens. A person has a handful of
+-- devices; the oldest rows are the ones they no longer use.
+trimDevicesForUser:
+DELETE FROM Device
+WHERE user_id = :userId
+  AND token NOT IN (
+    SELECT token FROM Device
+    WHERE user_id = :userId
+    ORDER BY updated_at DESC
+    LIMIT :keep
+  );
+
 
 -- Merging two accounts: the phones keep pushing, to the survivor. Keyed on
 -- token, so nothing collides.

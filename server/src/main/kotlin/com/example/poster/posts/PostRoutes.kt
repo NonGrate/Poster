@@ -10,6 +10,7 @@ import com.example.poster.model.*
 import com.example.poster.push.Notifier
 import com.example.poster.uploads.UploadStore
 import com.example.poster.withLikeCount
+import com.example.poster.domain.validation.TagRules
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
 import io.ktor.server.request.receive
@@ -85,6 +86,10 @@ internal fun Route.postRoutes(
                 .split(",")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
+                // The picker allows five; the query costs a scan per filter,
+                // so a hand-written request asking for a thousand is work
+                // nobody asked this server to do.
+                .take(TagRules.MAX_IN_FILTER)
             // Narrowing to the rooms the reader has chosen, comma
             // separated, same shape as `tags`. The two are read together:
             // a group and a tag ask "from this room" and "about this",
@@ -100,7 +105,10 @@ internal fun Route.postRoutes(
                 .split(",")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-            val query = call.request.queryParameters["q"].orEmpty()
+            // Capped: the search is an unindexed scan of every visible row,
+            // and the cost rises with the needle as well as the haystack.
+            // Nobody types two hundred characters into a search box.
+            val query = call.request.queryParameters["q"].orEmpty().take(MAX_SEARCH_LENGTH)
             // Only people the reader follows. Signed out there is nobody to follow.
             val following = Features.FOLLOWS && Features.AUTHORS &&
                 call.request.queryParameters["following"] == "true"
@@ -341,16 +349,23 @@ internal fun Route.postRoutes(
                 return@post
             }
             val reason = runCatching { call.receive<ReportRequest>().reason }.getOrNull()
-            val post = postsRepository.postById(guid)
+            // Visible to the reporter, not merely existing: this used to take
+            // any guid, so anybody holding a private post's id could push its
+            // title into the operator's chat.
+            val post = postsRepository.visiblePostById(reporter, guid)
             if (post != null && post.author != reporter) {
                 val trimmedReason = reason?.take(500)?.takeIf { it.isNotBlank() }
-                reportsRepository.record(post.guid, reporter, trimmedReason)
-                val reporterEmail = accountRepository.userById(reporter)?.email ?: reporter
-                val authorEmail = accountRepository.userById(post.author)?.email ?: post.author
-                alert(buildString {
-                    append("🚩 Report · \"${post.title}\"\n")
-                    append("reported by $reporterEmail — reason: ${trimmedReason ?: "(none given)"}\n")
-                    append("post ${post.guid} · author $authorEmail")
+                val isNew = reportsRepository.record(post.guid, reporter, trimmedReason)
+                // Only the first report of a post alerts. The row is unique per
+                // (post, reporter) already, but the message was sent every time,
+                // so re-reporting in a loop buried every other alert.
+                //
+                // Ids and a link, no addresses and no post text: this goes to a
+                // third party (Telegram), and the admin panel behind the link
+                // shows the rest to somebody who has signed in for it.
+                if (isNew) alert(buildString {
+                    append("🚩 Report · post ${post.guid}\n")
+                    append("reason: ${trimmedReason ?: "(none given)"}")
                     append("\n$adminBase/reports")
                 })
             }
@@ -397,3 +412,6 @@ internal fun newShareToken(taken: (String) -> Boolean): String {
 /** The visibilities a post may be sent in; anything else is a client with a bug. */
 private val POST_VISIBILITIES =
     setOf(PostVisibility.PUBLIC, PostVisibility.GROUP, PostVisibility.PRIVATE)
+
+/** The longest search a feed request may carry. */
+private const val MAX_SEARCH_LENGTH = 100

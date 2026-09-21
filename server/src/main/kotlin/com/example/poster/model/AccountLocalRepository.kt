@@ -25,6 +25,8 @@ class AccountLocalRepository(
 
     override fun userByPhoto(photo: String): User? = userQueries.getUserByPhoto(photo).executeAsOneOrNull()?.toModel()
 
+    override fun bannedEmails(): List<String> = userQueries.bannedEmails().executeAsList()
+
     override fun userByEmail(email: String): User? {
         val users = userQueries.getUserByEmail(email).executeAsList()
         return if (users.isNotEmpty()) {
@@ -117,6 +119,10 @@ class AccountLocalRepository(
     }
 
     override fun mergeAccountInto(from: String, into: String): Boolean {
+        // The account being given up is about to stop existing, so anything
+        // still signed in as it would write rows the cascade then deletes.
+        // Revoked first, as deleting an account does.
+        database.refreshTokenQueries.deleteRefreshTokensForUser(from)
         if (userById(from) == null || userById(into) == null) return false
         database.transaction {
             // Re-point every reference from the merged account to the survivor

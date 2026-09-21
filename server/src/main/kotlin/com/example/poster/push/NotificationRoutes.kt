@@ -26,7 +26,14 @@ fun Route.notificationRoutes(notifications: NotificationsRepository) {
     route("/devices") {
         post {
             val registration = runCatching { call.receive<DeviceRegistration>() }.getOrNull()
-            if (registration == null || registration.token.isBlank() || registration.platform !in setOf("android", "ios")) {
+            // The token is interpolated into the path of a request to Apple
+            // (PushSender), so a slash or a question mark in it would change
+            // which URL this server calls. Providers issue opaque
+            // alphanumeric strings; anything else is not one.
+            if (registration == null ||
+                !DEVICE_TOKEN.matches(registration.token) ||
+                registration.platform !in setOf("android", "ios")
+            ) {
                 call.respond(HttpStatusCode.BadRequest, ApiError("token and platform (android|ios) are required"))
                 return@post
             }
@@ -47,3 +54,6 @@ fun Route.deviceWithdrawalRoute(notifications: NotificationsRepository) {
         call.respond(HttpStatusCode.NoContent)
     }
 }
+
+/** What a push token may look like: opaque, alphanumeric, bounded. */
+private val DEVICE_TOKEN = Regex("^[A-Za-z0-9_:.-]{1,256}$")

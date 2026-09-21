@@ -38,16 +38,32 @@ class FavoritesLocalRepository(
         return favoriteQueries.isPostFavorite(userId, postId).executeAsOne()
     }
 
-    override fun addFavoritePost(userId: String, postId: String) {
-        // Stamped now so the detail screen can say "added N days ago".
-        favoriteQueries.addFavoritePost(userId, postId, java.time.Instant.now().toString())
+    override fun addFavoritePost(userId: String, postId: String): Boolean {
+        // The insert ignores a row that is already there, so "did anything
+        // change" has to be asked rather than assumed. It decides whether the
+        // author is told: without it, liking the same post in a loop sent a
+        // notification and a push every time while changing nothing.
+        return favoriteQueries.transactionWithResult {
+            if (favoriteQueries.isPostFavorite(userId, postId).executeAsOne()) {
+                false
+            } else {
+                // Stamped now so the detail screen can say "added N days ago".
+                favoriteQueries.addFavoritePost(userId, postId, java.time.Instant.now().toString())
+                true
+            }
+        }
     }
 
     override fun likers(postId: String): LikerList {
         val rows = favoriteQueries.getPostLikers(postId).executeAsList()
         val named = rows
-            // With names on every post (feature.authors) the opt-in is moot.
-            .filter { Features.AUTHORS || it.show_name != 0L }
+            // The person's own choice, always. It used to be skipped when
+            // feature.authors was on, on the reasoning that names are already
+            // on posts — but liking is not posting, the switch is offered at
+            // sign-up and in Settings as though it were live, and somebody who
+            // turns it off and then likes a post about something difficult
+            // meant it.
+            .filter { it.show_name != 0L }
             .map { row ->
                 // First name + surname initial ("Daniel P.") — enough to
                 // recognise a friend without publishing a full name on a list.

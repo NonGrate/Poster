@@ -83,3 +83,9 @@ UPDATE User SET status = ?, banned_at = ?, banned_reason = ? WHERE guid = ?;
 markVerified:
 UPDATE User SET verified_at = ? WHERE guid = ?;
 
+
+-- The addresses of banned accounts, for deciding whether a registration is
+-- the same inbox coming back. A short list by nature: everything else about
+-- the user is irrelevant here, so only the address is read.
+bannedEmails:
+SELECT email FROM User WHERE status = 'banned';
