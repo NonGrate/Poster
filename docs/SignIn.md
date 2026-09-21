@@ -143,8 +143,10 @@ proof-key exchange RFC 8252 asks of a native app; the pieces are
 `AppleCodes.kt` on the server and `AndroidAppleCredentials.kt` in the app.
 
 An app built before this existed sends a `state` with no challenge and the
-callback answers `error=update_required` rather than the token it is waiting
-for. If you ship an update that includes this, Apple sign-in on Android stops
+callback answers with an error rather than the token it is waiting for. That
+error text is written as a sentence on purpose: an older build puts whatever
+arrives there straight into what it shows the person, and its wording cannot
+be changed after the fact — only what it is handed. If you ship an update that includes this, Apple sign-in on Android stops
 working for people still on the older build until they update.
 
 1. Portal → Identifiers → **Services ID** (e.g. `com.acme.chirp.signin`) →

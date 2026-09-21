@@ -75,7 +75,7 @@ class AppleCodeExchangeTest {
         }
         val page = response.bodyAsText()
 
-        assertTrue("error=update_required" in page, "no error for a client that cannot exchange")
+        assertTrue("error=update" in page, "no error for a client that cannot exchange")
         assertTrue("the-identity-token" !in page, "the token was sent to an old client anyway")
     }
 

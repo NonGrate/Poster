@@ -294,7 +294,13 @@ fun Route.authRoutes(
                     // an error rather than the token it is expecting: sending
                     // the token to an older app would leave the hole open to
                     // anybody who asked for it in that shape.
-                    challenge == null -> append("&error=").append("update_required".encodeURLParameter())
+                    //
+                    // Written as a sentence because an older app puts whatever
+                    // arrives here straight into what it shows the person, and
+                    // that build is already out — its wording cannot be changed
+                    // now, only what it is handed.
+                    challenge == null -> append("&error=")
+                        .append("update ${AppInfo.NAME} to sign in with Apple".encodeURLParameter())
                     else -> append("&code=").append(
                         appleCodes.mint(params["id_token"].orEmpty(), challenge).encodeURLParameter(),
                     )
