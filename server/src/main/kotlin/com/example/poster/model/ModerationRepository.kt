@@ -73,7 +73,7 @@ class ModerationRepository(
         record(actorId, "role:$role", "user", userId, null)
     }
 
-    fun softDeletePost(actorId: String, postId: String, reason: String?) {
+    fun softDeletePost(actorId: String, postId: String, reason: String?) = database.transaction {
         posts.softDeletePost(now(), postId)
         record(actorId, "delete", "post", postId, reason)
     }

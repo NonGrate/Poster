@@ -105,6 +105,11 @@ fun Route.adminRoutes(
         }
 
         post("/logout") {
+            // Checked like every other form here. Signing an operator out is
+            // not damage, but SameSite is the only thing that was stopping a
+            // third-party page doing it, and one exception in a panel where
+            // everything else is guarded is the exception somebody copies.
+            if (!call.checkCsrf(call.receiveParameters()["csrf"])) return@post
             call.sessions.clear<AdminSession>()
             call.respondRedirect("/admin/login")
         }

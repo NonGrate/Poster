@@ -32,6 +32,22 @@ class AccountMail(
     private val minimumInterval: Duration = MINIMUM_INTERVAL,
 ) {
     private val lastSentTo = mutableMapOf<Pair<String, TokenPurpose>, Long>()
+
+    /**
+     * A ceiling on everything this server sends, on top of the per-inbox
+     * interval below.
+     *
+     * The interval stops one address being mailed repeatedly. It does nothing
+     * about a caller working through a list of addresses, which is the shape
+     * of using somebody else's domain to send mail: with enough known
+     * addresses the per-inbox rule is never reached. This is the number that
+     * says how much mail this deployment sends in a quarter of an hour, full
+     * stop.
+     */
+    private val budget = com.example.poster.diagnostics.IntakeLimit(
+        limit = 120,
+        window = java.time.Duration.ofMinutes(15),
+    )
     private val lock = Any()
 
     /**
@@ -111,6 +127,8 @@ class AccountMail(
         lastSentTo.entries.removeAll { now - it.value >= minimumInterval.inWholeSeconds }
         val last = lastSentTo[key]
         if (last != null && now - last < minimumInterval.inWholeSeconds) {
+            false
+        } else if (!budget.take()) {
             false
         } else {
             lastSentTo[key] = now

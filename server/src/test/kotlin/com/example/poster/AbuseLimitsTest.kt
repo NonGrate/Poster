@@ -115,6 +115,29 @@ class AbuseLimitsTest {
         assertTrue(kept.size <= 10, "kept ${kept.size} devices for one account")
     }
 
+    /** People write in bursts; scripts write forever. Only the second is stopped. */
+    @Test
+    fun aBurstOfWritesIsFineAndASustainedStreamIsNot() {
+        var millis = 0L
+        val clock = object : java.time.Clock() {
+            override fun getZone() = java.time.ZoneOffset.UTC
+            override fun withZone(zone: java.time.ZoneId?) = this
+            override fun instant(): java.time.Instant = java.time.Instant.ofEpochMilli(millis)
+        }
+        val rate = com.example.poster.auth.WriteRate(
+            burst = 5,
+            refill = java.time.Duration.ofSeconds(3),
+            clock = clock,
+        )
+
+        repeat(5) { assertTrue(rate.take("someone"), "a burst of five was refused at $it") }
+        assertTrue(!rate.take("someone"), "the sixth in the same instant went through")
+        assertTrue(rate.take("somebody-else"), "one account's burst spent another's")
+
+        millis += java.time.Duration.ofSeconds(3).toMillis()
+        assertTrue(rate.take("someone"), "nothing came back after the refill")
+    }
+
     /**
      * A token goes into the path of a request to Apple, so it cannot contain
      * anything that would change which URL this server calls.

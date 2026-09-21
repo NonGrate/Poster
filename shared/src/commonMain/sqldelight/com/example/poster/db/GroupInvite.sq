@@ -70,3 +70,11 @@ UPDATE GroupInvite SET createdBy = :into WHERE createdBy = :from;
 
 reassignInviteUsedBy:
 UPDATE GroupInvite SET usedBy = :into WHERE usedBy = :from;
+
+-- The addresses somebody invited, forgotten when their account goes.
+--
+-- An invite row outlives the account that sent it, because whoever accepted it
+-- is in the group on the strength of it. The address it was sent to is not
+-- needed for that, belongs to a third person, and had no reason to stay.
+forgetRecipientsOf:
+UPDATE GroupInvite SET sentTo = NULL WHERE createdBy = ?;

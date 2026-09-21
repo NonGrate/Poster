@@ -21,3 +21,8 @@ SELECT * FROM Outbox ORDER BY created_at ASC;
 
 queuedGuids:
 SELECT guid FROM Outbox;
+
+-- Anything queued but never sent, dropped at sign-out: the text belongs to the
+-- person signing out and must not be sent from the next person's session.
+deleteAllOutbox:
+DELETE FROM Outbox;

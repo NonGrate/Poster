@@ -113,6 +113,10 @@ class AccountLocalRepository(
             database.userGroupQueries.deleteMembershipsOfUser(guid)
             database.socialIdentityQueries.deleteIdentitiesOfUser(guid)
             database.refreshTokenQueries.deleteRefreshTokensForUser(guid)
+            // Invites they sent carry the address they were sent to, which
+            // belongs to somebody else and has no reason to outlive the
+            // account that holds it.
+            database.groupInviteQueries.forgetRecipientsOf(guid)
             userQueries.deleteUser(guid)
         }
         return true

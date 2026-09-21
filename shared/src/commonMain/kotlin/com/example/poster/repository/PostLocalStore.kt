@@ -213,6 +213,12 @@ class PostLocalStore(
             favoriteQueries.deleteAllFavorites()
             tagQueries.deleteAllPostTags()
             queries.deleteAllPosts()
+            // The posts went and these stayed: the cached author rows are
+            // other people's names and photos, and the outbox holds text the
+            // person signing out wrote and never sent. Neither belongs to
+            // whoever signs in next on this phone.
+            userQueries.deleteCachedAuthors()
+            outboxQueries.deleteAllOutbox()
         }
     }
 

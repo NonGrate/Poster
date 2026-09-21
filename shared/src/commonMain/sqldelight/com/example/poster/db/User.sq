@@ -89,3 +89,9 @@ UPDATE User SET verified_at = ? WHERE guid = ?;
 -- the user is irrelevant here, so only the address is read.
 bannedEmails:
 SELECT email FROM User WHERE status = 'banned';
+
+-- Everything this device remembered about other people, dropped at sign-out.
+-- The rows are names and photo ids belonging to whoever the previous person
+-- could see, and the next person to use the phone is not them.
+deleteCachedAuthors:
+DELETE FROM User;

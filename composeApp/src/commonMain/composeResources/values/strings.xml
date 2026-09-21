@@ -371,6 +371,8 @@ If that link does not open, enter invite code %1$s when you sign up or in the se
     <string name="magic_link_body">We will email a link that signs you in on this device.</string>
     <string name="magic_link_submit">Email me a link</string>
     <string name="magic_link_sent">If the address is valid, a link is on its way. It works once, for fifteen minutes.</string>
+    <string name="magic_confirm">Sign in to this app with the link you opened?</string>
+    <string name="magic_confirm_action">Sign in</string>
     <string name="magic_working">Signing you in…</string>
     <string name="magic_done">You are signed in.</string>
     <string name="magic_failed">That link has expired or was already used. Ask for a new one.</string>

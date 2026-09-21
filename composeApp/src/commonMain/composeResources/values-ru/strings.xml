@@ -350,6 +350,8 @@
     <string name="magic_link_body">Мы отправим ссылку, которая выполнит вход на этом устройстве.</string>
     <string name="magic_link_submit">Отправить ссылку</string>
     <string name="magic_link_sent">Если адрес верный, ссылка уже в пути. Она сработает один раз и действует пятнадцать минут.</string>
+    <string name="magic_confirm">Войти в приложение по открытой ссылке?</string>
+    <string name="magic_confirm_action">Войти</string>
     <string name="magic_working">Выполняем вход…</string>
     <string name="magic_done">Вы вошли.</string>
     <string name="magic_failed">Ссылка устарела или уже использована. Запросите новую.</string>

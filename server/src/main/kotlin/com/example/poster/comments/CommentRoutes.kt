@@ -9,6 +9,7 @@ import com.example.poster.model.ApiError
 import com.example.poster.model.CommentRequest
 import com.example.poster.model.PostsRepository
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.HttpHeaders
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -61,6 +62,14 @@ fun Route.commentRoutes(
                 call.respond(HttpStatusCode.BadRequest, ApiError("A comment is 1 to ${CommentRules.TEXT_LIMIT} characters"))
                 return@post
             }
+            // A person writes a comment every few seconds at most. Without
+            // this one account could fill a thread, and every comment is a
+            // notification and a push at the post's author.
+            if (!writeRate.take(viewer)) {
+                call.response.headers.append(HttpHeaders.RetryAfter, "5")
+                call.respond(HttpStatusCode.TooManyRequests, ApiError("Slow down a moment"))
+                return@post
+            }
             val added = comments.add(postId, viewer, text)
             onCommented(post, viewer)
             call.respond(added.withAuthor(accounts))
@@ -92,3 +101,10 @@ private fun com.example.poster.model.Comment.withAuthor(accounts: AccountReposit
     return copy(authorName = name, authorPhoto = photo)
 }
 
+/**
+ * Ten comments in hand, one back every three seconds.
+ *
+ * Deliberately generous: this is not a quota, it is the difference between a
+ * person catching up on a thread and a script looping.
+ */
+private val writeRate = com.example.poster.auth.WriteRate()

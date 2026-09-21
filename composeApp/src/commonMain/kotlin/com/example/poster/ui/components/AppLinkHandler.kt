@@ -3,6 +3,9 @@ package com.example.poster.ui.components
 import poster.composeapp.generated.resources.magic_failed
 import poster.composeapp.generated.resources.magic_done
 import poster.composeapp.generated.resources.magic_working
+import poster.composeapp.generated.resources.cancel
+import poster.composeapp.generated.resources.magic_confirm_action
+import poster.composeapp.generated.resources.magic_confirm
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -140,32 +143,55 @@ private fun VerifyDialog(token: String, accountViewModel: AccountViewModel) {
 @Composable
 private fun MagicDialog(token: String, accountViewModel: AccountViewModel) {
     var outcome by remember(token) { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(token) { outcome = accountViewModel.signInWithMagicLink(token) }
-    // Signed in: the dialog has nothing to add, the app is already showing the feed.
+    // Asked, not assumed. Following a link used to sign the app in the moment
+    // it opened, so a link somebody else sends — from a page, a message, an
+    // app — silently swapped the session for theirs, and whatever was written
+    // next was written into their account. A tap is the whole defence: it can
+    // only be the person holding the phone.
+    var asked by remember(token) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(outcome) { if (outcome == true) PendingAppLink.consume() }
     AlertDialog(
-        onDismissRequest = { if (outcome != null) PendingAppLink.consume() },
+        onDismissRequest = { if (asked.not() || outcome != null) PendingAppLink.consume() },
         text = {
             Text(
-                text = when (outcome) {
-                    null -> stringResource(Res.string.magic_working)
-                    true -> stringResource(Res.string.magic_done)
-                    false -> stringResource(Res.string.magic_failed)
+                text = when {
+                    !asked -> stringResource(Res.string.magic_confirm)
+                    outcome == null -> stringResource(Res.string.magic_working)
+                    outcome == true -> stringResource(Res.string.magic_done)
+                    else -> stringResource(Res.string.magic_failed)
                 },
                 modifier = Modifier.testTag(
-                    when (outcome) {
-                        null -> "magic_working"
-                        true -> "magic_done"
-                        false -> "magic_failed"
+                    when {
+                        !asked -> "magic_confirm"
+                        outcome == null -> "magic_working"
+                        outcome == true -> "magic_done"
+                        else -> "magic_failed"
                     },
                 ),
             )
         },
         confirmButton = {
-            if (outcome == false) {
-                TextButton(onClick = { PendingAppLink.consume() }, modifier = Modifier.testTag("magic_dismiss")) {
-                    Text(stringResource(Res.string.ok))
-                }
+            when {
+                !asked -> TextButton(
+                    onClick = {
+                        asked = true
+                        scope.launch { outcome = accountViewModel.signInWithMagicLink(token) }
+                    },
+                    modifier = Modifier.testTag("magic_confirm_button"),
+                ) { Text(stringResource(Res.string.magic_confirm_action)) }
+                outcome == false -> TextButton(
+                    onClick = { PendingAppLink.consume() },
+                    modifier = Modifier.testTag("magic_dismiss"),
+                ) { Text(stringResource(Res.string.ok)) }
+            }
+        },
+        dismissButton = {
+            if (!asked) {
+                TextButton(
+                    onClick = { PendingAppLink.consume() },
+                    modifier = Modifier.testTag("magic_cancel"),
+                ) { Text(stringResource(Res.string.cancel)) }
             }
         },
         modifier = Modifier.testTag("magic_dialog"),

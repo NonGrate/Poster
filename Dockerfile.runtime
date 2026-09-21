@@ -1,4 +1,7 @@
-FROM eclipse-temurin:21-jre-jammy
+# Pinned by digest, not just by tag: a tag is a name somebody else can
+# repoint, and this image is what runs your server. Dependabot updates the
+# digest and the comment together.
+FROM eclipse-temurin:21-jre-jammy@sha256:61d6c7b34d36aee3f45d043101259f97f3c6d428dc2a6f75513789983c5e254f
 
     # sqlite3 is here for backups: copying the database file while the server
     # is writing to it can produce a torn copy, and `.backup` cannot.
