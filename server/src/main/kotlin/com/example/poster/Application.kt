@@ -440,7 +440,7 @@ fun Application.module(
             }
 
             if (Features.FEEDBACK) feedbackRoutes(feedbackRepository, accountRepository, adminBase, ::alert)
-            if (Features.TAGS) tagRoutes(tagRepository)
+            if (Features.TAGS) tagRoutes(tagRepository, postsRepository)
             postRoutes(
                 postsRepository,
                 accountRepository,

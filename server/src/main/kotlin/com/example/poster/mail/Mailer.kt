@@ -28,7 +28,14 @@ interface Mailer {
  */
 class LoggingMailer(private val log: (String) -> Unit = ::println) : Mailer {
     override suspend fun send(to: String, subject: String, body: String): Boolean {
-        log("mail (not sent, no provider configured): to=$to subject=$subject\n$body")
+        // The body carries reset and magic-link tokens, and this mailer is
+        // what runs whenever POSTER_RESEND_API_KEY is unset — staging included.
+        // Printed in development, where reading the link out of the log is the
+        // point; withheld everywhere else, where it is a working sign-in link
+        // sitting in whatever collects the logs.
+        val development = System.getProperty("io.ktor.development").toBoolean()
+        if (development) log("mail (not sent, no provider configured): to=$to subject=$subject\n$body")
+        else log("mail (not sent, no provider configured): to=$to subject=$subject")
         return true
     }
 }

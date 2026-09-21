@@ -61,7 +61,12 @@ internal fun Route.groupRoutes(
             // Authorisation before existence, like /{id}/members: a
             // different answer for a group that is not the caller's and one
             // that is not there tells them which group ids are real.
-            if (!canManage(id, call.authenticatedUserId())) {
+            //
+            // The owner, not an admin. Closing the group and changing roles are
+            // already owner-only, and listing the room publicly is the larger
+            // of the three: it lets any stranger join and read every group-only
+            // post already in it.
+            if (groupRepository.groupById(id)?.owner != call.authenticatedUserId()) {
                 call.respond(HttpStatusCode.Forbidden)
                 return@post
             }

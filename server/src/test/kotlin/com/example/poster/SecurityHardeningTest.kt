@@ -18,6 +18,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -202,6 +204,82 @@ class SecurityHardeningTest {
 
         millis += Duration.ofMinutes(15).toMillis()
         assertTrue(limit.take(), "the window never reopened")
+    }
+
+    /**
+     * A new address is an unconfirmed address. Carrying the old flag over let
+     * somebody move to an inbox they do not own and still count as confirmed,
+     * which is the gate on writing and what the admin bootstrap looks at.
+     */
+    @Test
+    fun changingYourEmailLosesTheConfirmation() = withServer {
+        val user = confirmed("before@example.com")
+
+        val changed = client.post("/accounts") {
+            bearerAuth(user.tokens.accessToken)
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(user.user.copy(email = "after@example.com")))
+        }
+        assertEquals(HttpStatusCode.NoContent, changed.status, changed.bodyAsText())
+
+        // Writing is what a confirmed address buys, so writing is the check.
+        postPost(user, "after-the-change", expect = null).let {
+            assertEquals(HttpStatusCode.Forbidden, it.status, "an unconfirmed address could still post")
+        }
+    }
+
+    /**
+     * "Public" in the app means everyone signed in. A share token means
+     * everyone at all, for good, with no way to take it back — so it is the
+     * author's to mint.
+     */
+    @Test
+    fun onlyTheAuthorCanMintAShareLinkForAPost() = withServer {
+        if (!com.example.poster.config.Features.SHARING) return@withServer
+        val author = confirmed("sharer@example.com")
+        val stranger = confirmed("stranger@example.com")
+        postPost(author, "shareable")
+
+        val refused = client.post("/posts/shareable/share") { bearerAuth(stranger.tokens.accessToken) }
+        assertEquals(HttpStatusCode.Forbidden, refused.status, "a stranger published somebody else's post")
+
+        val mine = client.post("/posts/shareable/share") { bearerAuth(author.tokens.accessToken) }
+        assertEquals(HttpStatusCode.OK, mine.status, mine.bodyAsText())
+    }
+
+    /**
+     * Listing a group publicly lets any stranger join and read every group-only
+     * post already in it, so it belongs with the other owner-only actions
+     * rather than with what a promoted admin may do.
+     */
+    @Test
+    fun onlyTheOwnerCanListAGroupPublicly() = withServer {
+        if (!com.example.poster.config.Features.PUBLIC_GROUPS) return@withServer
+        val owner = confirmed("group-owner@example.com")
+        val admin = confirmed("group-admin@example.com")
+
+        val created = client.post("/groups/create") {
+            bearerAuth(owner.tokens.accessToken)
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"Thursday Neighbours","visibility":"private"}""")
+        }
+        assertEquals(HttpStatusCode.Created, created.status, created.bodyAsText())
+        val groupId = Json.parseToJsonElement(created.bodyAsText())
+            .jsonObject["id"]!!.jsonPrimitive.content
+
+        val refused = client.post("/groups/$groupId/visibility") {
+            bearerAuth(admin.tokens.accessToken)
+            contentType(ContentType.Application.Json)
+            setBody("""{"visibility":"public"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, refused.status, "somebody who does not own the group opened it")
+
+        val allowed = client.post("/groups/$groupId/visibility") {
+            bearerAuth(owner.tokens.accessToken)
+            contentType(ContentType.Application.Json)
+            setBody("""{"visibility":"public"}""")
+        }
+        assertEquals(HttpStatusCode.NoContent, allowed.status)
     }
 
     private suspend fun io.ktor.server.testing.ApplicationTestBuilder.likedGuids(token: String): List<String> =

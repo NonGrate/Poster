@@ -307,6 +307,13 @@ internal fun Route.postRoutes(
                 )
                 return@post
             }
+            // Your own only. "Public" in the app means everyone signed in; a
+            // share token means everyone at all, for good, with no way to take
+            // it back — so it is the author's to mint and nobody else's.
+            if (post.author != call.authenticatedUserId()) {
+                call.respond(HttpStatusCode.Forbidden, ApiError("Only the author can share a post"))
+                return@post
+            }
             val token = postsRepository.ensureShareToken(guid) {
                 newShareToken { candidate -> postsRepository.postByShareToken(candidate) != null }
             }

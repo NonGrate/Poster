@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What may leave the device in a cloud backup or a device-to-device transfer.
+
+  The tokens themselves are wrapped by a Keystore key that is never backed up,
+  so they would arrive unreadable. Everything around them is the problem: the
+  preferences hold the cached account (name, email) and the device's push
+  token, and the database holds posts the person can see, including group-only
+  ones and unsent drafts. None of that should land in a Google account.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="file" path="datastore" />
+</full-backup-content>

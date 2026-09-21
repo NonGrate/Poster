@@ -94,7 +94,13 @@ fun Route.adminRoutes(
                 return@post
             }
             throttle.clear(email)
-            call.sessions.set(AdminSession(userId = user!!.guid, csrf = newCsrfToken()))
+            call.sessions.set(
+                AdminSession(
+                    userId = user!!.guid,
+                    csrf = newCsrfToken(),
+                    issuedAt = java.time.Instant.now().epochSecond,
+                ),
+            )
             call.respondRedirect("/admin")
         }
 

@@ -91,31 +91,28 @@ class AccountTokens(
      */
     fun spend(token: String, purpose: TokenPurpose): String? {
         val now = clock.now().epochSeconds
-        val userId = driver.executeQuery(
+        // One statement, so the claim and the spend cannot come apart. It was
+        // a SELECT and then an UPDATE, and two requests carrying the same
+        // token both passed the SELECT before either reached the UPDATE — so
+        // a single-use link could be followed twice. RETURNING hands back the
+        // row this UPDATE actually took, and only the first one takes it.
+        return driver.executeQuery(
             identifier = null,
             sql = """
-                SELECT user_id FROM AccountToken
+                UPDATE AccountToken SET used_at = ?
                 WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?
+                RETURNING user_id
             """.trimIndent(),
-            parameters = 3,
+            parameters = 4,
             mapper = { cursor ->
                 QueryResult.Value(if (cursor.next().value) cursor.getString(0) else null)
             },
         ) {
-            bindString(0, hash(token))
-            bindString(1, purpose.name)
-            bindLong(2, now)
-        }.value ?: return null
-
-        driver.execute(
-            identifier = null,
-            sql = "UPDATE AccountToken SET used_at = ? WHERE token_hash = ?",
-            parameters = 2,
-        ) {
             bindLong(0, now)
             bindString(1, hash(token))
-        }
-        return userId
+            bindString(2, purpose.name)
+            bindLong(3, now)
+        }.value
     }
 
     /** Housekeeping: nothing reads an expired token, but nothing removed them either. */

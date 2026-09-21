@@ -21,8 +21,19 @@ object AccountRules {
     const val PASSWORD_MAX = 128
     const val EMAIL_MAX = 254
 
-    fun nameValid(name: String): Boolean = name.trim().length in 1..NAME_LIMIT
-    fun surnameValid(surname: String): Boolean = surname.trim().length in 1..SURNAME_LIMIT
+    /**
+     * A name is one line of text.
+     *
+     * The length cap was the whole of it, so a name could carry newlines — and
+     * a name goes into the greeting of an email this domain sends, where extra
+     * lines read as extra message. Control characters have no place in a
+     * display name anyway.
+     */
+    fun nameValid(name: String): Boolean =
+        name.trim().length in 1..NAME_LIMIT && name.none { it.isISOControl() }
+
+    fun surnameValid(surname: String): Boolean =
+        surname.trim().length in 1..SURNAME_LIMIT && surname.none { it.isISOControl() }
 
     /** A minimum only: long enough to be worth having, capped so it cannot be a payload. */
     fun passwordValid(password: String): Boolean = password.length in PASSWORD_MIN..PASSWORD_MAX

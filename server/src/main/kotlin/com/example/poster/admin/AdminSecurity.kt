@@ -30,7 +30,23 @@ import java.security.SecureRandom
  * party site cannot drive the panel with the operator's cookie.
  */
 @kotlinx.serialization.Serializable
-data class AdminSession(val userId: String, val csrf: String)
+data class AdminSession(
+    val userId: String,
+    val csrf: String,
+    /**
+     * When this session started, in epoch seconds.
+     *
+     * The cookie's own max-age is a browser's promise and nothing more: a
+     * copied cookie kept working for as long as the signing key stayed the
+     * same, and the key is meant to stay the same so sessions survive a
+     * restart. Checked on the server in [adminUser], where it cannot be
+     * declined.
+     */
+    val issuedAt: Long = 0,
+)
+
+/** How long an admin session is good for, checked server-side. */
+private const val ADMIN_SESSION_SECONDS = 60L * 60 * 8
 
 /**
  * Values typed into a deployment UI arrive with stray quotes and whitespace more
@@ -47,9 +63,19 @@ class AdminConfig(
     val enabled: Boolean = env("POSTER_ADMIN_ENABLED")?.lowercase() == "true",
     signKey: String? = env("POSTER_ADMIN_SESSION_KEY"),
 ) {
-    /** A random key means sessions do not survive a restart, which is acceptable. */
-    val sessionSignKey: ByteArray = signKey?.toByteArray()
-        ?: ByteArray(32).also { SecureRandom().nextBytes(it) }
+    /**
+     * A random key means sessions do not survive a restart, which is acceptable.
+     *
+     * A short one is not: it signs the cookie that is the whole of the admin
+     * panel's authentication, so a guessable key is the panel. Anything under
+     * 32 characters is refused rather than quietly accepted.
+     */
+    val sessionSignKey: ByteArray = signKey?.let {
+        require(it.length >= 32) {
+            "POSTER_ADMIN_SESSION_KEY must be at least 32 characters (openssl rand -base64 48)"
+        }
+        it.toByteArray()
+    } ?: ByteArray(32).also { SecureRandom().nextBytes(it) }
 }
 
 fun Application.configureAdminSessions(config: AdminConfig) {
@@ -75,6 +101,14 @@ fun bootstrapAdmin(config: AdminConfig, accounts: AccountRepository, log: (Strin
         return
     }
     if (user.isAdmin) return
+    // Whoever holds the address gets the panel, so holding it has to have been
+    // proved. Without this, setting the variable before the account exists let
+    // anybody register that address — or change theirs to it — and be promoted
+    // on the next restart.
+    if (user.verifiedAt == null) {
+        log("admin bootstrap: $email has not confirmed their address — not promoting")
+        return
+    }
     accounts.addOrUpdateUser(user.copy(role = User.ROLE_ADMIN))
     log("admin bootstrap: promoted $email to admin")
 }
@@ -82,6 +116,13 @@ fun bootstrapAdmin(config: AdminConfig, accounts: AccountRepository, log: (Strin
 /** The signed-in admin, or null. Never trusts the session alone — the role is re-read. */
 fun ApplicationCall.adminUser(accounts: AccountRepository): User? {
     val session = sessions.get<AdminSession>() ?: return null
+    // Older cookies carry no issuedAt and deserialize to 0, which is past the
+    // window — so the first thing this change does is sign everybody out once.
+    val age = java.time.Instant.now().epochSecond - session.issuedAt
+    if (age !in 0..ADMIN_SESSION_SECONDS) {
+        sessions.clear("poster_admin")
+        return null
+    }
     val user = accounts.userById(session.userId) ?: return null
     return user.takeIf { it.isAdmin && !it.isBanned }
 }

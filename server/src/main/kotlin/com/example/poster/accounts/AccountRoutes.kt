@@ -110,6 +110,14 @@ internal fun Route.accountRoutes(
                             ?: languages.first(),
                         // Their choice to be named on a post's liked-by list.
                         showName = user.showName,
+                        // A new address is an unconfirmed address. Carrying the
+                        // old flag over meant somebody could move to an inbox
+                        // they do not own and still count as confirmed — which
+                        // is the gate on posting, commenting and uploading, and
+                        // the thing the admin bootstrap looks at. /verify/resend
+                        // sends the new one its link.
+                        verifiedAt = currentUser.verifiedAt
+                            ?.takeIf { email.equals(currentUser.email, ignoreCase = true) },
                     ),
                 )
                 if (previousPhoto != null && previousPhoto != photo) uploadStore?.delete(previousPhoto)

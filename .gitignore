@@ -428,3 +428,11 @@ screenshots/*/ru/
 
 # Composed store tiles from scripts/build-*-screenshots.sh; regenerated from screenshots/
 store/
+
+# Apple and signing key material, in case one is ever left in the tree
+*.p8
+*.p12
+*.pem
+/.env
+google-services.json
+GoogleService-Info.plist

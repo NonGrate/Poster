@@ -1,14 +1,20 @@
 package com.example.poster.tags
 
 import com.example.poster.model.TagRepository
+import com.example.poster.authenticatedUserId
 import io.ktor.http.HttpStatusCode
+import com.example.poster.model.PostsRepository
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 
 /** `/tags` — the curated list, inside the bearer-authenticated block. */
-internal fun Route.tagRoutes(tagRepository: TagRepository) {
+internal fun Route.tagRoutes(
+    tagRepository: TagRepository,
+    /** Null leaves /forPost open, which is only right when there is nothing to hide. */
+    postsRepository: PostsRepository? = null,
+) {
     route("/tags") {
         get {
             val tags = tagRepository.allTags()
@@ -27,6 +33,15 @@ internal fun Route.tagRoutes(tagRepository: TagRepository) {
             val postId = call.parameters["postId"]
             if (postId == null) {
                 call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+            // The same visibility rule the post itself answers to. Without it
+            // this told any signed-in caller what a private post is about —
+            // which is what the write routes below were removed for.
+            if (postsRepository?.visiblePostById(call.authenticatedUserId(), postId) == null &&
+                postsRepository != null
+            ) {
+                call.respond(HttpStatusCode.NotFound)
                 return@get
             }
             val tags = tagRepository.getTagsForPost(postId)
