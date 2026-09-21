@@ -1,5 +1,6 @@
 package com.example.poster
 
+import com.example.poster.config.Features
 import com.example.poster.diagnostics.IntakeLimit
 import com.example.poster.model.LoginRequest
 import com.example.poster.model.MergeRequest
@@ -132,6 +133,8 @@ class SecurityHardeningTest {
      */
     @Test
     fun unpublishingAPostRemovesItFromEverybodyElsesLikedTab() = withServer {
+        // Needs something to like, and a visibility to take it back to.
+        if (!Features.LIKES || !Features.POST_VISIBILITY) return@withServer
         val author = confirmed("retractor@example.com")
         val reader = confirmed("liker@example.com")
         postPost(author, "retracted", title = "Public for now")
@@ -213,6 +216,8 @@ class SecurityHardeningTest {
      */
     @Test
     fun changingYourEmailLosesTheConfirmation() = withServer {
+        // The confirmation only gates anything when the build asks for one.
+        if (!Features.EMAIL_VERIFICATION_REQUIRED) return@withServer
         val user = confirmed("before@example.com")
 
         val changed = client.post("/accounts") {
@@ -235,7 +240,7 @@ class SecurityHardeningTest {
      */
     @Test
     fun onlyTheAuthorCanMintAShareLinkForAPost() = withServer {
-        if (!com.example.poster.config.Features.SHARING) return@withServer
+        if (!Features.SHARING) return@withServer
         val author = confirmed("sharer@example.com")
         val stranger = confirmed("stranger@example.com")
         postPost(author, "shareable")
@@ -254,7 +259,7 @@ class SecurityHardeningTest {
      */
     @Test
     fun onlyTheOwnerCanListAGroupPublicly() = withServer {
-        if (!com.example.poster.config.Features.PUBLIC_GROUPS) return@withServer
+        if (!Features.PUBLIC_GROUPS) return@withServer
         val owner = confirmed("group-owner@example.com")
         val admin = confirmed("group-admin@example.com")
 
