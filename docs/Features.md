@@ -39,7 +39,7 @@ mechanism; the per-feature guides are linked from the rows.
 | Offline | Drafts | `feature.drafts` | on |  |  |
 | Offline | Offline outbox | `feature.offlineOutbox` | on |  |  |
 | Look | Liquid look | `feature.liquidDesign` | off |  |  |
-| Look | Floating glass tab bar | `feature.liquidNavBar` | off |  |  |
+| Look | Native iOS tab bar | `feature.liquidNavBar` | on |  |  |
 | Monetisation | In-app purchases (RevenueCat) | `feature.support` | on |  |  |
 | Diagnostics | Crash reports | `feature.crashReports` | on |  |  |
 | Diagnostics | Diagnostic events | `feature.telemetry` | on |  |  |
@@ -99,8 +99,8 @@ mechanism; the per-feature guides are linked from the rows.
 
 | Flag | Off removes from the app | Off removes from the server / build |
 |---|---|---|
-| `feature.liquidDesign` (off by default) | Rounder shapes and translucent cards drawn by Compose ([LiquidDesign.md](LiquidDesign.md)) | — |
-| `feature.liquidNavBar` (off by default) | A floating glass tab bar over the content; on iOS the native SwiftUI tab bar (Liquid Glass on iOS 26) ([LiquidDesign.md](LiquidDesign.md)) | — |
+| `feature.liquidDesign` (off by default) | Rounder shapes, translucent cards, and a floating capsule tab bar instead of the docked one, all drawn by Compose ([LiquidDesign.md](LiquidDesign.md)) | — |
+| `feature.liquidNavBar` (on by default) | iOS uses the system's own tab bar — Liquid Glass on iOS 26, the ordinary bar before it — and the content scrolls behind it. Off, iOS draws the same docked bar as everywhere else ([LiquidDesign.md](LiquidDesign.md)) | — iOS only. It used to give Android, desktop and the browser a floating capsule as well, which is not what those platforms' people expect; that capsule now belongs to `liquidDesign`. |
 
 ## Monetisation
 

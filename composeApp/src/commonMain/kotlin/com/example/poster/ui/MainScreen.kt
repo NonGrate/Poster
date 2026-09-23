@@ -220,7 +220,12 @@ fun MainScreen(
                 // content splits in two as well. The host that owns the tabs
                 // (fixedTab) keeps its own bar.
                 val wideNav = maxWidth >= RailMinWidth && fixedTab == null
-                val floatingBar = Features.LIQUID_NAV_BAR && fixedTab == null && !wideNav
+                // The Compose-drawn floating capsule belongs to the liquid
+                // look, not to the native bar flag. They used to share one
+                // flag, which meant asking for iOS's glass bar also gave
+                // Android, desktop and the browser a capsule — platforms
+                // where the docked bar is what people expect.
+                val floatingBar = Features.LIQUID_DESIGN && fixedTab == null && !wideNav
                 val backdrop = if (floatingBar) rememberGlassBackdrop() else null
                 CompositionLocalProvider(
                     LocalGlassBackdrop provides backdrop,
@@ -246,7 +251,7 @@ fun MainScreen(
                 Scaffold(
                     modifier = Modifier.weight(1f),
                     bottomBar = {
-                        if (!wideNav && !Features.LIQUID_NAV_BAR && fixedTab == null) BottomNavigationBar(selectedTab, selectTab)
+                        if (!wideNav && !floatingBar && fixedTab == null) BottomNavigationBar(selectedTab, selectTab)
                     },
                     // Under a native bar, don't reserve the bottom inset — the
                     // content scrolls behind the glass bar, clearing it via

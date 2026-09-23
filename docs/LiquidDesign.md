@@ -66,6 +66,6 @@ Box(Modifier.liquidGlass(backdrop, RoundedCornerShape(24.dp), MaterialTheme.colo
 
 | iOS, the default docked bar | iOS with `feature.liquidNavBar=true` (the system's Liquid Glass bar on iOS 26) |
 |---|---|
-| ![iOS feed](../screenshots/ios/light-01-home.png) | ![iOS feed, Liquid Glass](../screenshots/ios-liquid/light-01-home.png) |
+| ![iOS feed, native bar](../screenshots/ios/light-01-home.png) | ![iOS feed, docked bar](../screenshots/ios-docked/light-01-home.png) |
 
-All shots: [`screenshots/ios.md`](../screenshots/ios.md), [`screenshots/ios-liquid.md`](../screenshots/ios-liquid.md).
+All shots: [`screenshots/ios.md`](../screenshots/ios.md), [`screenshots/ios-docked.md`](../screenshots/ios-docked.md).

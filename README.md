@@ -36,13 +36,13 @@ Click a platform for its full set (light and dark, every screen).
   <tr>
     <th><a href="screenshots/android.md">Android</a></th>
     <th><a href="screenshots/ios.md">iOS</a></th>
-    <th><a href="screenshots/ios-liquid.md">iOS, Liquid Glass bar</a></th>
+    <th><a href="screenshots/ios-docked.md">iOS, native bar off</a></th>
     <th><a href="screenshots/web.md">Web, narrow</a></th>
   </tr>
   <tr>
     <td><a href="screenshots/android.md"><img src="screenshots/android/light-01-home.png" width="190" alt="Android feed"></a></td>
     <td><a href="screenshots/ios.md"><img src="screenshots/ios/light-01-home.png" width="190" alt="iOS feed"></a></td>
-    <td><a href="screenshots/ios-liquid.md"><img src="screenshots/ios-liquid/light-01-home.png" width="190" alt="iOS feed with the Liquid Glass tab bar"></a></td>
+    <td><a href="screenshots/ios-docked.md"><img src="screenshots/ios-docked/light-01-home.png" width="190" alt="iOS feed with the native tab bar turned off"></a></td>
     <td><a href="screenshots/web.md"><img src="screenshots/web/light-01-feed.png" width="190" alt="Web feed in a narrow window"></a></td>
   </tr>
 </table>

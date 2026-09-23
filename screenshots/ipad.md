@@ -3,7 +3,7 @@
 Captured from the running app with demo data, in the default palette. How: `scripts/ios-screenshots.sh --sim "iPad Pro 11-inch (M5)"`: the same XCUITest run on an iPad, where the tabs sit in the left rail and the post opens beside the list.
 
 [← README](../README.md) · other platforms:
-[Android](android.md) · [iOS](ios.md) · [iOS, Liquid Glass tab bar](ios-liquid.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
+[Android](android.md) · [iOS](ios.md) · [iOS with the native bar turned off](ios-docked.md) · [Desktop (JVM)](desktop.md) · [Web (Kotlin/Wasm)](web.md) · 
 
 ## home
 
