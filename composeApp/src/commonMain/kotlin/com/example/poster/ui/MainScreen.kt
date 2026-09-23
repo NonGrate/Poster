@@ -224,7 +224,11 @@ fun MainScreen(
                 val backdrop = if (floatingBar) rememberGlassBackdrop() else null
                 CompositionLocalProvider(
                     LocalGlassBackdrop provides backdrop,
-                    LocalBottomBarInset provides if (floatingBar) LiquidNavBarInset else 0.dp,
+                    LocalBottomBarInset provides when {
+                        fixedTab != null -> NativeTabBarInset
+                        floatingBar -> LiquidNavBarInset
+                        else -> 0.dp
+                    },
                 ) {
                 Row(modifier = Modifier.fillMaxSize()) {
                 if (wideNav) {
@@ -243,7 +247,16 @@ fun MainScreen(
                     modifier = Modifier.weight(1f),
                     bottomBar = {
                         if (!wideNav && !Features.LIQUID_NAV_BAR && fixedTab == null) BottomNavigationBar(selectedTab, selectTab)
-                    }
+                    },
+                    // Under a native bar, don't reserve the bottom inset — the
+                    // content scrolls behind the glass bar, clearing it via
+                    // LocalBottomBarInset instead. Keep the top (status bar).
+                    contentWindowInsets = if (fixedTab != null) {
+                        ScaffoldDefaults.contentWindowInsets
+                            .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    } else {
+                        ScaffoldDefaults.contentWindowInsets
+                    },
                 ) { paddingValues ->
                     Box(
                         modifier = Modifier

@@ -137,7 +137,8 @@ fun FavoritesScreen(
         // Undo Snackbar positioned at bottom
         UndoSnackbar(
             favoritesViewModel = favoritesViewModel,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            // Lift clear of the native iOS glass bar the list scrolls behind.
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarInset.current)
         )
     }
 }

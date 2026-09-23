@@ -142,7 +142,8 @@ fun SettingsScreen(
     val collapseFraction = rememberCollapseFraction(scrollState)
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Lift the snackbar clear of the native iOS glass bar this scrolls behind.
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = LocalBottomBarInset.current)) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { scaffoldPadding ->
     // The feed-screen pattern: a fixed bar above a scrolling inner column, no

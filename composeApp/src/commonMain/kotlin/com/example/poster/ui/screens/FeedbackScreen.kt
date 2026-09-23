@@ -18,6 +18,7 @@ import com.example.poster.domain.validation.FeedbackRules
 import com.example.poster.model.Feedback
 import com.example.poster.model.FeedbackStatus
 import com.example.poster.theme.Spacing
+import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.ui.components.PrimaryButton
 import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.ui.platform.AdaptiveBackButton
@@ -66,7 +67,8 @@ fun FeedbackScreen(
     // No window insets of its own — pushed inside MainScreen's Scaffold. See
     // ProfileScreen for the full reasoning. The Scaffold stays for the snackbar.
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Lift the snackbar clear of the native iOS glass bar this scrolls behind.
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = LocalBottomBarInset.current)) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.testTag("feedback_screen"),
     ) { padding ->
@@ -154,6 +156,8 @@ fun FeedbackScreen(
                 }
                 Spacer(Modifier.height(Spacing.md))
             }
+            // Room to scroll clear of the native iOS glass bar.
+            Spacer(Modifier.height(LocalBottomBarInset.current))
         }
     }
 }

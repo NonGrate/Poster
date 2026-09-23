@@ -358,13 +358,14 @@ fun HomeScreen(
         // them.
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            // Lift clear of the native iOS glass bar the feed scrolls behind.
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarInset.current),
         )
 
         // Undo Snackbar - positioned at bottom of screen
         UndoSnackbar(
             favoritesViewModel = favoritesViewModel,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarInset.current)
         )
     }
 }

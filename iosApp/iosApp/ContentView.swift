@@ -100,7 +100,9 @@ struct ContentView: View {
             TabView(selection: $selection) {
                 ForEach(IosTabsKt.tabRoutes(), id: \.self) { route in
                     TabComposeView(route: route)
-                        .ignoresSafeArea(.container, edges: .top)
+                        // Full-bleed so the feed scrolls behind the glass bar;
+                        // Compose adds LocalBottomBarInset so content clears it.
+                        .ignoresSafeArea()
                         .tabItem {
                             Label(IosTabsKt.tabTitle(route: route), systemImage: IosTabsKt.tabSymbol(route: route))
                                 .accessibilityIdentifier(IosTabsKt.tabTestTag(route: route))
