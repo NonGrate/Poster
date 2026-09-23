@@ -259,7 +259,8 @@ fun MyPostsScreen(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            // Lift clear of the native iOS glass bar the list scrolls behind.
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarInset.current),
         )
     }
 }
