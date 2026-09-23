@@ -35,6 +35,7 @@ import poster.composeapp.generated.resources.group_invite_email_sent
 import poster.composeapp.generated.resources.group_invite_message
 import com.example.poster.model.GroupInvite
 import com.example.poster.model.GroupMember
+import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.ui.components.GroupManagePanel
 
 /**
@@ -156,8 +157,9 @@ internal fun GroupDetailPane(
                 }
             },
             // Fills the space under the fixed header and scrolls its own
-            // content, like the post form. The panel adds its own padding.
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            // content, like the post form. The panel adds its own padding; the
+            // inset lets the last action clear the native iOS glass bar.
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current),
         )
     }
 }

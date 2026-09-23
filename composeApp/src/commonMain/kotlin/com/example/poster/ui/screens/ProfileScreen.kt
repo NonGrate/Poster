@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.poster.domain.validation.AccountRules
 import com.example.poster.theme.Spacing
+import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.ui.components.PrimaryButton
 import com.example.poster.ui.components.ScreenTopBar
 import com.example.poster.model.Language
@@ -97,7 +98,8 @@ fun ProfileScreen(
     // like a sheet floating below the status bar rather than a screen. The
     // Scaffold stays only because the snackbar host needs somewhere to live.
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Lift the snackbar clear of the native iOS glass bar this sits behind.
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = LocalBottomBarInset.current)) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.testTag("profile_screen"),
     ) { padding ->
@@ -105,6 +107,8 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                // Keep the last field above the native iOS glass bar.
+                .padding(bottom = LocalBottomBarInset.current)
                 // Tap off a field to dismiss the keyboard.
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = {

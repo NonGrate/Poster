@@ -23,6 +23,7 @@ import com.example.poster.model.Group
 import com.example.poster.network.GroupApi
 import com.example.poster.theme.Spacing
 import com.example.poster.theme.isApplePlatform
+import com.example.poster.ui.liquid.LocalBottomBarInset
 import com.example.poster.ui.platform.AdaptiveBackButton
 import com.example.poster.ui.platform.AdaptiveBackHandler
 import com.example.poster.ui.platform.AdaptiveConfirmDialog
@@ -267,8 +268,9 @@ fun GroupsScreen(
             }
         }
 
-        // Clearance for the Android FAB; iOS has no FAB, so just the usual gap.
-        Spacer(modifier = Modifier.height(if (isApplePlatform) Spacing.lg else 96.dp))
+        // Clearance for the Android FAB; iOS has no FAB, so just the usual gap
+        // plus room to scroll clear of the native glass bar this passes behind.
+        Spacer(modifier = Modifier.height((if (isApplePlatform) Spacing.lg else 96.dp) + LocalBottomBarInset.current))
     }
 
     // Android: a prominent, out-of-the-way action for the two rarer things —
