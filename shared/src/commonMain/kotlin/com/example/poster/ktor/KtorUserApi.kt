@@ -5,6 +5,7 @@ import io.ktor.client.plugins.auth.authProvider
 import io.ktor.client.plugins.auth.providers.BearerAuthProvider
 import io.ktor.client.call.body
 import io.ktor.client.request.*
+import com.example.poster.model.RefreshTokenRequest
 import io.ktor.http.ContentType
 import com.example.poster.model.AppleExchangeResponse
 import com.example.poster.model.AppleExchangeRequest
@@ -122,6 +123,20 @@ open class KtorUserApi(
         }
         if (!response.status.isSuccess()) return null
         return response.body<AppleExchangeResponse>().idToken
+    }
+
+    override suspend fun restoreSession(): Boolean {
+        // An empty token on purpose: the server falls back to the cookie the
+        // browser is holding, which is the only copy there is.
+        val response = httpClient.post("auth/refresh") {
+            contentType(ContentType.Application.Json)
+            setBody(RefreshTokenRequest(""))
+        }
+        if (!response.status.isSuccess()) return false
+        val session = response.body<AuthResponse>()
+        authTokenStorage.save(session.tokens)
+        clearCachedBearerToken()
+        return true
     }
 
     override suspend fun mergeInto(request: MergeRequest): User? {

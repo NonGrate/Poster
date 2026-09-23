@@ -7,7 +7,9 @@ import os from 'node:os';
 import path from 'node:path';
 const [OUT, base, sessionPath, userIdPath] = process.argv.slice(2);
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const tokens = fs.readFileSync(sessionPath, 'utf8');
+// The session file is no longer read: the browser holds the session in a
+// cookie now, not in anything this script can write. The path is still taken
+// so the shell wrapper keeps its argument order.
 const userId = fs.readFileSync(userIdPath, 'utf8').trim();
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'poster-web-shots-'));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -27,9 +29,28 @@ const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, he
 const theme = (v) => send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: v }] });
 const click = async (x, y) => { for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); };
 const shot = async (name) => { const r = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`${OUT}/${name}.png`, Buffer.from(r.data, 'base64')); console.log('  ' + path.join(OUT, name + '.png')); };
-// Same origin as the app, so the planted session is the one the app reads.
+// Signed in the way the app is, which is no longer a token in localStorage:
+// the refresh token is an HttpOnly cookie the server sets, so nothing on the
+// page can put one there. Logging in from this origin with the header the app
+// sends is what makes the browser hold the cookie; the app then starts with
+// nothing, gets a 401 and refreshes against it, exactly as a person reloading
+// would. The user id stays in localStorage because preferences still live
+// there.
 await send('Page.navigate', { url: base + '/health' }); await sleep(1500);
-await send('Runtime.evaluate', { expression: `localStorage.setItem('poster.session', ${JSON.stringify(tokens)}); localStorage.setItem('poster.user_id', ${JSON.stringify(userId)}); 'ok'` });
+const signIn = await send('Runtime.evaluate', {
+  awaitPromise: true,
+  expression: `fetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Poster-Session': 'cookie' },
+    body: ${JSON.stringify(JSON.stringify({ email: 'demo.reader.en@example.com', password: 'demo123456' }))},
+  }).then(r => r.ok ? 'ok' : 'login failed: ' + r.status)`,
+});
+if (signIn.result?.value !== 'ok') {
+  console.error('could not sign in for the capture:', signIn.result?.value ?? signIn);
+  chrome.kill();
+  process.exit(1);
+}
+await send('Runtime.evaluate', { expression: `localStorage.setItem('poster.user_id', ${JSON.stringify(userId)}); 'ok'` });
 await size(480, 900); await theme('light');
 await send('Page.navigate', { url: base + '/app/' }); await sleep(16000);
 await shot('light-01-feed');

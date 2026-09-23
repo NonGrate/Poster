@@ -56,6 +56,14 @@ interface UserApi {
     suspend fun exchangeAppleCode(code: String, verifier: String): String? = null
 
     /**
+     * Asks for a session using whatever the platform is holding rather than a
+     * token this app can see. The web build's refresh token is an HttpOnly
+     * cookie, so on a reload there is nothing in memory to send and the
+     * browser has to be asked. True when a session came back.
+     */
+    suspend fun restoreSession(): Boolean = false
+
+    /**
      * Merge the account you are signed in to into an existing one you prove you
      * own (see [com.example.poster.model.MergeRequest]). Returns the
      * surviving account, now the signed-in one.

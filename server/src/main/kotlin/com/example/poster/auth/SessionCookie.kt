@@ -1,9 +1,9 @@
 package com.example.poster.auth
 
-import io.ktor.http.CookieEncoding
 import io.ktor.http.HttpHeaders
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.header
+import io.ktor.server.response.header
 import io.ktor.server.plugins.origin
 
 /**
@@ -40,29 +40,29 @@ object SessionCookie {
         call.request.cookies[NAME]?.takeIf { it.isNotBlank() }
 
     fun set(call: ApplicationCall, refreshToken: String, ttlSeconds: Long) {
-        call.response.cookies.append(
-            name = NAME,
-            value = refreshToken,
-            encoding = CookieEncoding.RAW,
-            maxAge = ttlSeconds,
-            path = "/auth",
-            secure = secure(call),
-            httpOnly = true,
-            extensions = mapOf("SameSite" to "Strict"),
-        )
+        call.response.header(HttpHeaders.SetCookie, header(refreshToken, ttlSeconds, secure(call)))
     }
 
     fun clear(call: ApplicationCall) {
-        call.response.cookies.append(
-            name = NAME,
-            value = "",
-            encoding = CookieEncoding.RAW,
-            maxAge = 0,
-            path = "/auth",
-            secure = secure(call),
-            httpOnly = true,
-            extensions = mapOf("SameSite" to "Strict"),
-        )
+        call.response.header(HttpHeaders.SetCookie, header("", 0, secure(call)))
+    }
+
+    /**
+     * Written out rather than built with `response.cookies.append`.
+     *
+     * Ktor appends a `$x-enc=…` marker to the header so it can decode its own
+     * cookie later, whatever encoding is asked for. Nothing else needs that
+     * marker, browsers and proxies have to ignore it, and this is a header
+     * worth being able to read at a glance. The value is base64url, so there
+     * is nothing here to encode.
+     */
+    private fun header(value: String, maxAge: Long, secure: Boolean): String = buildString {
+        append(NAME).append('=').append(value)
+        append("; Max-Age=").append(maxAge)
+        append("; Path=/auth")
+        append("; HttpOnly")
+        append("; SameSite=Strict")
+        if (secure) append("; Secure")
     }
 
     /**

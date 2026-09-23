@@ -124,7 +124,14 @@ fun sharedModule(appConfig: AppConfig) = module {
     single { PostCache() }
 
     // Session: who is signed in, shared by the account and favorites screens
-    single { SessionRepository(userApi = get(), appPreferences = get(), dispatchers = get()) }
+    single {
+        SessionRepository(
+            userApi = get(),
+            appPreferences = get(),
+            dispatchers = get(),
+            restoreFromPlatform = appConfig.cookieSession,
+        )
+    }
 
     // Preferences
     // PlatformDataStore is provided in platform-specific modules

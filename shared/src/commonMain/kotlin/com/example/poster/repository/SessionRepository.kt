@@ -31,6 +31,14 @@ class SessionRepository(
     private val appPreferences: AppPreferences,
     private val dispatchers: DispatcherProvider,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + dispatchers.main),
+    /**
+     * Ask the server for a session before deciding there is none.
+     *
+     * True only for the web build, where the refresh token is a cookie this
+     * code cannot read: a reload starts with nothing in memory, and without
+     * asking, a perfectly good session looks like a signed-out one.
+     */
+    private val restoreFromPlatform: Boolean = false,
 ) {
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user.asStateFlow()
@@ -48,6 +56,12 @@ class SessionRepository(
             // stored session goes straight to the app; the login screen is for
             // people who are not signed in, not for people waiting on a request.
             appPreferences.cachedUser()?.let { set(it) }
+
+            // Before anything concludes the person is signed out: on the web
+            // the only copy of the session is a cookie, and this is the ask.
+            if (restoreFromPlatform) {
+                runCatching { withContext(dispatchers.io) { userApi.restoreSession() } }
+            }
 
             appPreferences.userId.collectLatest { userId ->
                 if (userId == null) {

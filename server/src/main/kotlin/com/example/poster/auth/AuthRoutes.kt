@@ -201,7 +201,7 @@ fun Route.authRoutes(
             if (session == null) {
                 call.respond(HttpStatusCode.BadRequest, ApiError("This link is no longer valid"))
             } else {
-                call.respond(session)
+                respondSession(session)
             }
         }
 
@@ -437,7 +437,7 @@ fun Route.authRoutes(
                 )) {
                     is MergeOutcome.Merged -> {
                         guessedEmail?.let(throttle::clear)
-                        call.respond(HttpStatusCode.OK, outcome.response)
+                        respondSession(outcome.response)
                     }
                     MergeOutcome.NoTarget -> {
                         guessedEmail?.let(throttle::recordFailure)
@@ -472,7 +472,7 @@ fun Route.authRoutes(
             try {
                 val authenticated = authService.login(request)
                 throttle.clear(request.email)
-                call.respond(authenticated)
+                respondSession(authenticated)
             } catch (invalid: AuthException.InvalidCredentials) {
                 throttle.recordFailure(request.email)
                 // The same answer as before it was throttled: which attempt was
@@ -519,15 +519,30 @@ private fun idTokenClaimsForLog(idToken: String): String = try {
     "unparseable token"
 }
 
+/**
+ * Answers with a session, as a cookie or in the body.
+ *
+ * Every route that hands back an [AuthResponse] goes through here. It used to
+ * be only the ones wrapped in [respondAuth], which quietly left out /login —
+ * the one a browser uses most — so the cookie was never set and the web app
+ * came back to a login screen.
+ */
+private suspend fun io.ktor.server.routing.RoutingContext.respondSession(session: AuthResponse) {
+    if (SessionCookie.wanted(call)) {
+        // The refresh token in a cookie script cannot read, and a blank in the
+        // body so nothing writes it to storage out of habit.
+        SessionCookie.set(call, session.tokens.refreshToken, session.tokens.refreshTtlSeconds)
+        call.respond(session.copy(tokens = session.tokens.copy(refreshToken = "")))
+    } else {
+        call.respond(session)
+    }
+}
+
 private suspend fun io.ktor.server.routing.RoutingContext.respondAuth(block: suspend () -> Any) {
     try {
         val result = block()
-        // A caller that asked for cookie sessions gets the refresh token in a
-        // cookie script cannot read, and a blank in the body so nothing
-        // writes it to storage out of habit.
-        if (result is AuthResponse && SessionCookie.wanted(call)) {
-            SessionCookie.set(call, result.tokens.refreshToken, result.tokens.refreshTtlSeconds)
-            call.respond(result.copy(tokens = result.tokens.copy(refreshToken = "")))
+        if (result is AuthResponse) {
+            respondSession(result)
             return
         }
         call.respond(result)
