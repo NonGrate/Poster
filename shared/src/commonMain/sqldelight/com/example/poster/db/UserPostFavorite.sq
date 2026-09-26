@@ -33,6 +33,19 @@ WHERE upf.user_id = :viewer
     )
   );
 
+-- The client's own liked list, from its local copy. No visibility filter: the
+-- server already applied one when it sent these (GET /favorites/me), and a
+-- remote-mode client does not hold the User/UserGroup rows that filter needs —
+-- so re-applying it here dropped every group favourite from the Liked tab,
+-- posts the reader may plainly see. Only the server uses the filtered
+-- getUserFavoritePosts above, where those rows exist.
+getFavoritePostsLocal:
+SELECT p.*
+FROM Post p
+JOIN UserPostFavorite upf ON p.guid = upf.post_id
+WHERE upf.user_id = :viewer
+  AND p.deleted_at IS NULL;
+
 -- Check if a post is a favorite for a specific user
 isPostFavorite:
 SELECT COUNT(*) > 0

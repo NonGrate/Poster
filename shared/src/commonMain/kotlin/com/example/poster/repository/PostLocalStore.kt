@@ -153,9 +153,14 @@ class PostLocalStore(
     /**
      * What this person has liked, from disk. The posts themselves are the
      * rows the feed uses, so a post answered or edited anywhere shows here too.
+     *
+     * The unfiltered local query, not the server's visibility-filtered one: the
+     * server already decided what this reader may see when it sent these, and
+     * the phone holds no UserGroup rows to satisfy that filter — so filtering
+     * again here dropped every group favourite from the Liked tab.
      */
     fun favorites(userId: String): Flow<List<Post>> =
-        favoriteQueries.getUserFavoritePosts(userId)
+        favoriteQueries.getFavoritePostsLocal(userId)
             .asFlow()
             .mapToList(dispatchers.io)
             .map { rows -> rows.map { row -> row.toPost(tagsOf(row.guid)) } }
@@ -170,7 +175,12 @@ class PostLocalStore(
             queries.transaction {
                 favoriteQueries.deleteFavoritesForUser(userId)
                 posts.forEach { post ->
-                    insert(post)
+                    // inFeed = false, like replaceMine: a liked post is kept
+                    // for the Liked tab by its join row, not by sitting in the
+                    // feed table. Inserting it with in_feed = 1 made a
+                    // favourite in a language the reader filtered out leak
+                    // onto their feed as though it were new.
+                    insert(post, inFeed = false)
                     favoriteQueries.addFavoritePost(userId, post.guid, null)
                 }
             }
