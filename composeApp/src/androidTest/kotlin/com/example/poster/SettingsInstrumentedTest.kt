@@ -27,11 +27,10 @@ class SettingsInstrumentedTest {
     @Test
     fun switchToDarkMode() {
         wrapped { composeTestRule ->
-            // TC-401: Switch to Dark Mode. The theme follows the device until the
-            // switch is turned off; only then does the light/dark selector appear.
+            // TC-401: Switch to Dark Mode. One Device / Light / Dark selector,
+            // always visible.
             composeTestRule.onNodeWithTag("settings_screen").assertExists()
             composeTestRule.onNodeWithTag("theme_section").assertExists()
-            composeTestRule.onNodeWithTag("follow_system_theme_toggle").performClick()
             TestUtils.awaitTag(composeTestRule, "theme_mode_selector")
             composeTestRule.onNodeWithTag("theme_dark_option").performClick()
             composeTestRule.onNodeWithTag("theme_dark_option").assertIsSelected()
@@ -42,7 +41,6 @@ class SettingsInstrumentedTest {
     fun switchToLightMode() {
         wrapped { composeTestRule ->
             // TC-402: Switch to Light Mode, after going dark first.
-            composeTestRule.onNodeWithTag("follow_system_theme_toggle").performClick()
             TestUtils.awaitTag(composeTestRule, "theme_mode_selector")
             composeTestRule.onNodeWithTag("theme_dark_option").performClick()
             composeTestRule.onNodeWithTag("theme_light_option").performClick()

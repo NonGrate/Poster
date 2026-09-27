@@ -613,13 +613,7 @@ final class PosterScreenshotTests: PosterTestCase {
         guard want("dark-07-settings", "dark-01-home", "dark-00-login") else { return }
         tap("settings_tab")
         waitFor("settings_screen")
-        // The light/dark selector only shows once "follow device theme" is off.
-        // That preference persists between runs, so it may already be off — only
-        // toggle when the selector is not already there, else the tap turns
-        // follow-device back on and the dark option disappears.
-        if !element("theme_dark_option").exists {
-            tap("follow_system_theme_toggle")
-        }
+        // One Device / Light / Dark selector, always visible — pick Dark.
         tap("theme_dark_option")
         shot("dark-07-settings")
         tap("feed_tab")

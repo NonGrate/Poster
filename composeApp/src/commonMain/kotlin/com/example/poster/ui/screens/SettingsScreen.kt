@@ -46,6 +46,7 @@ import com.example.poster.viewmodel.GroupViewModel
 import com.example.poster.viewmodel.NotificationsViewModel
 import com.example.poster.viewmodel.PostsViewModel
 import com.example.poster.viewmodel.SupportViewModel
+import com.example.poster.viewmodel.ThemeMode
 import com.example.poster.viewmodel.ThemeViewModel
 import org.jetbrains.compose.resources.stringResource
 import poster.composeapp.generated.resources.Res
@@ -53,7 +54,7 @@ import poster.composeapp.generated.resources.settings
 import poster.composeapp.generated.resources.settings_account
 import poster.composeapp.generated.resources.settings_appearance
 import poster.composeapp.generated.resources.settings_daily_reminder
-import poster.composeapp.generated.resources.settings_follow_system_theme
+import poster.composeapp.generated.resources.theme_system
 import poster.composeapp.generated.resources.theme_light
 import poster.composeapp.generated.resources.theme_dark
 import poster.composeapp.generated.resources.settings_edit_profile
@@ -174,48 +175,44 @@ fun SettingsScreen(
             // for the space between sections and left a void at the top here.
             topPadding = Spacing.sm,
         ) {
-        SettingsRow(
-            label = stringResource(Res.string.settings_follow_system_theme),
-            icon = Icons.Default.Info,
-            trailing = {
-                AdaptiveSwitch(
-                    checked = themeViewModel.followSystemTheme,
-                    onCheckedChange = { themeViewModel.setFollowSystem(it) },
-                    modifier = Modifier.testTag("follow_system_theme_toggle")
-                )
-            }
-        )
-
-        // Only when not following the device: a light/dark selector in the same
-        // segmented style as the post form's "Who can see this".
-        if (!themeViewModel.followSystemTheme) {
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.md, vertical = Spacing.xs)
-                    .testTag("theme_mode_selector"),
-            ) {
-                val options = listOf(
-                    false to stringResource(Res.string.theme_light),
-                    true to stringResource(Res.string.theme_dark),
-                )
-                options.forEachIndexed { index, (dark, label) ->
-                    SegmentedButton(
-                        selected = themeViewModel.darkThemeEnabled == dark,
-                        onClick = { themeViewModel.setDarkTheme(dark) },
-                        shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                        // Brown, not the default pink — pink is reserved for
-                        // liking. Ordinary selection wears the primary family,
-                        // like the visibility and language pickers.
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                        icon = {},
-                        modifier = Modifier.testTag(if (dark) "theme_dark_option" else "theme_light_option"),
-                    ) {
-                        Text(label)
-                    }
+        // One control, three choices: follow the device, or force light/dark.
+        // A single source of truth — a "follow device" toggle plus a hidden
+        // light/dark selector could disagree, so re-enabling follow did not
+        // always return the app to the device theme. Same segmented style as
+        // the post form's "Who can see this".
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                .testTag("theme_mode_selector"),
+        ) {
+            val options = listOf(
+                ThemeMode.SYSTEM to stringResource(Res.string.theme_system),
+                ThemeMode.LIGHT to stringResource(Res.string.theme_light),
+                ThemeMode.DARK to stringResource(Res.string.theme_dark),
+            )
+            options.forEachIndexed { index, (mode, label) ->
+                SegmentedButton(
+                    selected = themeViewModel.themeMode == mode,
+                    onClick = { themeViewModel.setThemeMode(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                    // Brown, not the default pink — pink is reserved for liking.
+                    // Ordinary selection wears the primary family, like the
+                    // visibility and language pickers.
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    icon = {},
+                    modifier = Modifier.testTag(
+                        when (mode) {
+                            ThemeMode.SYSTEM -> "theme_system_option"
+                            ThemeMode.LIGHT -> "theme_light_option"
+                            ThemeMode.DARK -> "theme_dark_option"
+                        }
+                    ),
+                ) {
+                    Text(label)
                 }
             }
         }
@@ -368,7 +365,7 @@ fun SettingsScreen(
             )
         }
 
-        SettingsSupportSection(supportViewModel)
+        SettingsSupportSection(supportViewModel, snackbarHostState)
 
         Spacer(modifier = Modifier.height(Spacing.lg))
         SettingsDivider()

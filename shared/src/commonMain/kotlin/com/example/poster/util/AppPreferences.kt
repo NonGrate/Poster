@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.example.poster.model.PostVisibility
 import com.example.poster.model.User
+import com.example.poster.model.Tag
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.coroutines.launch
 
 class AppPreferences(private val dataStore: PlatformDataStore) {
@@ -43,6 +45,7 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
     private val KEY_DEFAULT_VISIBILITY = "default_post_visibility"
     private val KEY_KNOWN_GROUPS = "known_group_ids"
     private val KEY_CACHED_USER = "cached_user"
+    private val KEY_CACHED_TAGS = "cached_tags"
     private val KEY_REMINDER_ENABLED = "daily_reminder_enabled"
     private val KEY_REMINDER_MINUTES = "daily_reminder_minutes"
     private val KEY_DEVICE_ID = "device_id"
@@ -136,6 +139,21 @@ class AppPreferences(private val dataStore: PlatformDataStore) {
 
     suspend fun setCachedUser(user: User?) {
         dataStore.putString(KEY_CACHED_USER, user?.let { Json.encodeToString(User.serializer(), it) })
+    }
+
+    /**
+     * The tag catalogue as last fetched, so the feed's chips read as labels on
+     * a cold start instead of raw ids while the network catalogue is on its
+     * way. A tag is stored as an id and shown as a label, and until the
+     * catalogue arrives there is nothing to turn one into the other.
+     */
+    suspend fun cachedTags(): List<Tag> =
+        dataStore.getString(KEY_CACHED_TAGS, null)
+            ?.let { runCatching { Json.decodeFromString(ListSerializer(Tag.serializer()), it) }.getOrNull() }
+            ?: emptyList()
+
+    suspend fun setCachedTags(tags: List<Tag>) {
+        dataStore.putString(KEY_CACHED_TAGS, Json.encodeToString(ListSerializer(Tag.serializer()), tags))
     }
 
     /**

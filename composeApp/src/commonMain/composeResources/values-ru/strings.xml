@@ -87,7 +87,7 @@
     <string name="post_form_incomplete">Заголовок, несколько слов текста и хотя бы один тег.</string>
     <string name="error_group_required">Выберите группу</string>
     <string name="settings_appearance">Оформление</string>
-    <string name="settings_follow_system_theme">Как на устройстве</string>
+    <string name="theme_system">Устройство</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="settings_daily_reminder">Ежедневное напоминание</string>

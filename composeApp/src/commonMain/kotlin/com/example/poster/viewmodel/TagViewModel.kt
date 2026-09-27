@@ -33,6 +33,15 @@ class TagViewModel(
     val error: StateFlow<UiError?> = _error.asStateFlow()
 
     init {
+        // The catalog last saved on this device first, so the feed's chips are
+        // labels rather than raw ids from the first frame; then the network
+        // refresh below replaces it with the current set.
+        scope.launch {
+            tagRepository.cachedTags().takeIf { it.isNotEmpty() }?.let { cached ->
+                _tags.value = cached
+                _tagSuggestions.value = cached.map { it.name }
+            }
+        }
         loadTagSuggestions()
     }
 

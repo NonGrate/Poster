@@ -195,7 +195,8 @@ fun sharedModule(appConfig: AppConfig) = module {
 
     single {
         TagRepository(
-            tagApi = get()
+            tagApi = get(),
+            appPreferences = get(),
         )
     }
 }

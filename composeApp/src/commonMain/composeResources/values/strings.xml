@@ -41,7 +41,7 @@
 
     <!-- Settings -->
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_follow_system_theme">Follow device theme</string>
+    <string name="theme_system">Device</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="settings_daily_reminder">Daily Reminder</string>

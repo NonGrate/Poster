@@ -29,7 +29,10 @@ import com.example.poster.ui.components.SupportCustomerCenter
  * rows that open them. All of it is absent in a build with no store key.
  */
 @Composable
-internal fun SettingsSupportSection(supportViewModel: SupportViewModel) {
+internal fun SettingsSupportSection(
+    supportViewModel: SupportViewModel,
+    snackbarHostState: SnackbarHostState,
+) {
     var showPaywall by remember { mutableStateOf(false) }
     var showCustomerCenter by remember { mutableStateOf(false) }
     val isSupporter by supportViewModel.isSupporter.collectAsState()
@@ -42,11 +45,14 @@ internal fun SettingsSupportSection(supportViewModel: SupportViewModel) {
     val supportError by supportViewModel.error.collectAsState()
     val justSupported by supportViewModel.justSupported.collectAsState()
     // Said once, and the sheet closes on it: a purchase that leaves the tiers
-    // on screen looks like it did not happen.
+    // on screen looks like it did not happen — and one that closes with nothing
+    // said looks like it failed. So close the sheet, then thank them here.
+    val supportThanks = stringResource(Res.string.settings_support_thanks)
     LaunchedEffect(justSupported) {
         if (justSupported) {
             showPaywall = false
             supportViewModel.acknowledgeThanks()
+            snackbarHostState.showSnackbar(supportThanks)
         }
     }
     // What is on offer can change without an app release, so it is asked for

@@ -8,6 +8,9 @@ import com.example.poster.util.DispatcherProvider
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/** The one theme setting the UI offers: follow the device, or force light/dark. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 /**
  * ViewModel responsible for managing UI theme state.
  */
@@ -47,5 +50,26 @@ class ThemeViewModel(
 
     fun setFollowSystem(enabled: Boolean) {
         appPreferences.setFollowSystemTheme(enabled)
+    }
+
+    /**
+     * The two stored flags read as one setting, so the picker has a single
+     * source of truth. Reading [followSystemTheme]/[darkThemeEnabled] here keeps
+     * it observable: the selected item recomposes when either changes.
+     */
+    val themeMode: ThemeMode
+        get() = when {
+            followSystemTheme -> ThemeMode.SYSTEM
+            darkThemeEnabled -> ThemeMode.DARK
+            else -> ThemeMode.LIGHT
+        }
+
+    /** Sets both flags at once, so picking a mode cannot leave them disagreeing. */
+    fun setThemeMode(mode: ThemeMode) {
+        when (mode) {
+            ThemeMode.SYSTEM -> setFollowSystem(true)
+            ThemeMode.LIGHT -> { setFollowSystem(false); setDarkTheme(false) }
+            ThemeMode.DARK -> { setFollowSystem(false); setDarkTheme(true) }
+        }
     }
 }

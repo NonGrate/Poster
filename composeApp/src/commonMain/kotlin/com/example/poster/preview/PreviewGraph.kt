@@ -44,7 +44,7 @@ class PreviewGraph {
     val postsViewModel = PostsViewModel(repository, session, dispatchers)
     val favoritesViewModel = FavoritesViewModel(repository, session, dispatchers)
     val themeViewModel = ThemeViewModel(appPreferences, dispatchers)
-    val tagViewModel = TagViewModel(TagRepository(tagApi), dispatchers)
+    val tagViewModel = TagViewModel(TagRepository(tagApi, appPreferences), dispatchers)
     val feedbackViewModel = FeedbackViewModel(FeedbackRepository(feedbackApi, dispatchers), dispatchers)
 }
 
